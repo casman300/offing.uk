@@ -115,6 +115,9 @@ magic_links      id, user_id, token_hash, expires_at, used_at
 
 people           id, owner_user_id, name, linked_user_id(null),        ← virtual people; link = upgrade path
                  birth_day, birth_month, birth_year(null), notes
+addresses        id, person_id, line1, line2, city, region, postcode,  ← postal address for the card/post engine
+                 country(iso2), notes                                    (§11); deliberately its own table, not
+                                                                          columns on `people` — see notes below
 groups           id, owner_user_id, name, slug                          ← first-class (D&D club, craft group)
 group_members    group_id, person_id
 
@@ -139,7 +142,9 @@ feed_subscriptions id, user_id, url, name, colour, etag, last_hash,
 
 reminder_rules   id, user_id, applies_to(morph: person|category|event),
                  kind(notify|card_post), offset_def(json), channel(email|push)
-notifications    id, user_id, channel, payload, send_at, sent_at        ← outbox drained by cron
+notification_outbox id, user_id, channel, payload, send_at, sent_at     ← drained by cron; named to avoid colliding
+                                                                          with Laravel's own `notifications` table/
+                                                                          Notifiable trait (already used on `User`)
 
 api_tokens       Sanctum table; abilities = [read | write-new | edit]
 audit_log        id, actor(morph), action, subject(morph), meta(json), ip, created_at  ← append-only
@@ -149,6 +154,8 @@ Notes:
 - **Virtual → real upgrade keeps history** because everything references `people.id`; linking a `user_id` later changes nothing downstream.
 - **Groups are first-class** despite personal-subscription monetisation — they cost one table now and unlock club feeds immediately.
 - **Birthdays are not events.** They're attributes of `people`; a generator projects them into the calendar/feeds/reminders. Year optional (unknown-year birthdays show no age).
+- **`addresses` (postal) and the future `places` concept (§23 backlog — named locations + travel buffers, e.g. Home) are deliberately separate and must stay that way.** An address is who-to-post-a-card-to, attached to a `person`; a place is calendar-event geography, attached to a `user`/`calendar`. Don't generalise these into one "location" table — they solve different problems for different owners.
+- **`notification_outbox` is named to avoid colliding with Laravel's own notifications system.** `User` already uses the `Notifiable` trait; Laravel's own database-channel notifications (`php artisan notifications:table`) would otherwise create a same-named `notifications` table with an incompatible schema. If Laravel's built-in notifications are ever used for something else (e.g. in-app toasts), that's a separate `notifications` table — don't merge it with the outbox.
 
 ---
 
@@ -177,7 +184,8 @@ Notes:
 - Projected as all-day yearly occurrences into views, feeds and the reminder scanner.
 - Default reminder rule (user-editable): **push/email at 20:00 the day before + 08:00 on the day**.
 - Per-person overrides for the card/gift tier (see §11).
-- Import: Phase 2 — **vCard (.vcf) upload** covers "import from Apple Contacts" (export all contacts from iPhone → AirDrop/upload the .vcf; parse `BDAY`, match/merge into `people`). No Apple API needed.
+- Import: Phase 2 — **vCard (.vcf) upload** covers "import from Apple Contacts" (export all contacts from iPhone → AirDrop/upload the .vcf; parse `BDAY`, match/merge into `people`). No Apple API needed. Also parse the `ADR` field into the person's `addresses` row (§6) where present — same import, no extra step for the user.
+- **Addresses are private to the owning user, same as gift notes (§23 backlog).** Postal addresses never appear in shares, feeds, or group views — a partner/tagged-friend/feed-token viewer sees the person tagged on an event, never their address. This is data *about* someone who likely never consented to being in the app.
 
 ## 10. Timezones
 
@@ -192,12 +200,12 @@ Notes:
 Single cron entry → Laravel scheduler → three jobs:
 
 1. **Occurrence builder** (hourly): (re)expand recurring events + birthdays into `occurrences` for the next 12 months.
-2. **Reminder scanner** (every 5 min): find occurrences whose rule-derived `send_at` falls in the window → write to `notifications` outbox. Idempotent (unique key on occurrence+rule) so cron granularity/downtime never double-sends.
+2. **Reminder scanner** (every 5 min): find occurrences whose rule-derived `send_at` falls in the window → write to the `notification_outbox`. Idempotent (unique key on occurrence+rule) so cron granularity/downtime never double-sends.
 3. **Outbox drainer** (every minute): send due notifications via channel driver (email now; web push later). Failures retry with backoff.
 
 Design reminders to tolerate 5-minute cron granularity in case 20i limits frequency.
 
-**Card & post engine (Phase 2, schema ready now):** per-person "send a card" rule computes *last posting date* = birthday − postal transit days, rolled **back** past weekends and UK bank holidays (free JSON feed: `gov.uk/bank-holidays.json`, cached locally). Reminder fires the evening before that date: *"Post Auntie Sue's card tomorrow — Monday's a bank holiday."* This is a genuinely differentiating feature; keep it high on the Phase 2 list.
+**Card & post engine (Phase 2, schema ready now):** per-person "send a card" rule computes *last posting date* = birthday − postal transit days, rolled **back** past weekends and UK bank holidays (free JSON feed: `gov.uk/bank-holidays.json`, cached locally). Reminder fires the evening before that date: *"Post Auntie Sue's card tomorrow — Monday's a bank holiday."* This is a genuinely differentiating feature; keep it high on the Phase 2 list. Needs a postal `addresses` row on the recipient's `person` (§6) — populate it by hand on the person's page, or parse it from the vCard `ADR` field on import (§9) — no address, no reminder.
 
 ## 12. MCP integration
 
@@ -370,7 +378,7 @@ Diary layers (Spotify, fitness, past events — likely via nightly importers) ·
 - **"Your Year in Offing"** — December wrapped-style recap from Betty: busiest month, most-seen people, cards posted. Shareable.
 
 **Stretch goals (post-Phase 3, noted so the schema stays ready):**
-- **Card posting as a service.** The reminder engine already knows *who*, *when*, and *the last posting day* — the natural upsell is "or tap here and we'll post it for you." Likely built on a print-and-post partner API (UK candidates to research: Prodigi, Stannp) rather than in-house fulfilment: user picks a design + message, we schedule the print job against the computed posting date, charge per card. This is the strongest per-transaction monetisation idea in the project because the moat is the *data* (dates + rules), not the printing. Needs: payments (Stripe), design catalogue, order tracking, a returns/failed-delivery policy.
+- **Card posting as a service.** The reminder engine already knows *who*, *when*, and *the last posting day*, and (§6) *where* — the natural upsell is "or tap here and we'll post it for you." Likely built on a print-and-post partner API (UK candidates to research: Prodigi, Stannp) rather than in-house fulfilment: user picks a design + message, we schedule the print job against the computed posting date and the person's `addresses` row, charge per card. This is the strongest per-transaction monetisation idea in the project because the moat is the *data* (dates + rules + address), not the printing. Needs: payments (Stripe), design catalogue, order tracking, a returns/failed-delivery policy, address validation (a bad postcode should surface before the print job fires, not after).
 - **Gift memory & suggestions per person.** Extend `people` with `gift_links` (registry/wishlist URLs — Amazon, Etsy…), sizes/interests/"things they mentioned wanting", and past-gifts log (avoids repeat gifts — a real problem). Gift *suggestions* then come almost free via the existing MCP integration ("Claude, Sue's birthday is in 3 weeks — she's into wild swimming and I got her a dry robe last year, ideas under £30?") before we ever build a native suggestions feature. Affiliate links on suggestions are a light additional revenue stream. Privacy note: this is data *about third parties* — keep it strictly private to the owning user, never in shares/feeds/group views.
 
 ## 24. Risks & open decisions

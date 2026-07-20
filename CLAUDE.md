@@ -37,6 +37,13 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - Before committing PHP/TS changes: `vendor/bin/pint`, `vendor/bin/pest`, `npx tsc --noEmit`, `npm run build`. Don't just trust the diff — boot the app (`php artisan serve`) and exercise the actual flow when touching auth, payments, or anything security-relevant; feature tests alone have already missed at least one real bug in this codebase (a mail-rendering bug invisible to `Mail::fake()`).
 - Timezones: store UTC + origin IANA TZID, expand recurrence in the origin timezone (sabre does this), render in the viewer's profile timezone.
 
+## Naming — decided, don't relitigate
+
+- The reminder outbox table is `notification_outbox`, **never** `notifications` — `User` already uses Laravel's `Notifiable` trait, and `php artisan notifications:table` creates its own incompatible `notifications` table. If Laravel's built-in notification system gets used for something else later (in-app toasts, etc.), that's the `notifications` table; don't merge it with the outbox. See `docs/SPEC.md` §6.
+- `addresses` (postal, per-`person`, for the card/post engine) and the future `places` concept (§23 backlog — named locations + travel buffers) are different things with different owners. Don't generalise them into one "location" table.
+- Domain `App\Models\Event` will share a bare name with Laravel's own eventing (`Illuminate\Support\Facades\Event`, the `event()` helper). Not a blocker, just alias or fully-qualify when both are in scope in the same file — most likely in tests using `Event::fake()` for framework events.
+- Keep domain "card" (the posted greeting card, §11/§23) out of PHP/TS class names that could collide with `resources/js/components/ui/card.tsx` (the shadcn UI primitive already in use everywhere). Name it something like `PostedCard`/`GreetingCard` when it's built, not bare `Card`.
+
 ## Where things are
 
 - `docs/SPEC.md` — the full design spec (naming, data model, sharing model, MCP integration, roadmap phases, security/licensing rationale). Roadmap phases (§23) drive GitHub milestones.
