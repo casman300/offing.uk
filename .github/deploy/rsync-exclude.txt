@@ -1,0 +1,26 @@
+# Dev-only / repo-only paths that must never land on the live filesystem.
+# Used with --exclude-from by deploy-staging.yml and deploy-production.yml.
+.git*
+.claude/
+.env
+/CLAUDE.md
+/node_modules/
+/tests/
+/.github/
+/docs/
+/phpstan.neon
+/phpunit.xml
+/.editorconfig
+/.prettierrc
+/.prettierignore
+/eslint.config.js
+
+# Runtime state that only exists on the host — combined with rsync --delete,
+# excluding these means deploys never wipe logs, sessions, cache, or uploads.
+/storage/app/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/testing/
+/storage/framework/views/
+/storage/logs/
+/public/storage

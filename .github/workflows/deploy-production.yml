@@ -53,25 +53,12 @@ jobs:
             php artisan down --retry=30 || true
 
       # 20i shared hosting has no Node — vendor/ and public/build/ are built here in CI
-      # and shipped as static files. storage/, .env and public/storage are excluded so
-      # rsync --delete never touches runtime state that only exists on the host.
+      # and shipped as static files. Excludes (dev-only files + storage/.env runtime
+      # state) live in .github/deploy/rsync-exclude.txt, shared with staging.
       - name: Deploy over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
-          switches: >-
-            -avzr --delete
-            --exclude='.git*'
-            --exclude='.env'
-            --exclude='/node_modules/'
-            --exclude='/tests/'
-            --exclude='/.github/'
-            --exclude='/storage/app/'
-            --exclude='/storage/framework/cache/'
-            --exclude='/storage/framework/sessions/'
-            --exclude='/storage/framework/testing/'
-            --exclude='/storage/framework/views/'
-            --exclude='/storage/logs/'
-            --exclude='/public/storage'
+          switches: -avzr --delete --exclude-from=.github/deploy/rsync-exclude.txt
           path: ./
           remote_path: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
           remote_host: ${{ secrets.PRODUCTION_SSH_HOST }}
