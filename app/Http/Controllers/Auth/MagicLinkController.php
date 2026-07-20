@@ -45,10 +45,13 @@ class MagicLinkController extends Controller
                 'expires_at' => now()->addMinutes(15),
             ]);
 
-            Mail::to($user->email)->send(new MagicLinkMail(
-                $user,
-                URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $plainTextToken]),
-            ));
+            $signedUrl = URL::temporarySignedRoute(
+                'login.consume',
+                $magicLink->expires_at,
+                ['magicLink' => $magicLink->id, 'token' => $plainTextToken],
+            );
+
+            Mail::to($user->email)->queue(new MagicLinkMail($user, $signedUrl));
 
             AuditLog::record($user, 'auth.magic_link.requested', ip: $request->ip());
         }
@@ -61,15 +64,20 @@ class MagicLinkController extends Controller
      */
     public function consume(Request $request, MagicLink $magicLink, string $token): RedirectResponse
     {
-        if (! $magicLink->isUsable() || ! hash_equals($magicLink->token_hash, hash('sha256', $token))) {
+        $user = $magicLink->user;
+
+        if (! hash_equals($magicLink->token_hash, hash('sha256', $token)) || ! $magicLink->claim()) {
+            AuditLog::record($user, 'auth.magic_link.rejected', ip: $request->ip());
+
             return redirect()->route('login')->withErrors([
                 'email' => 'That link has expired or already been used — request a new one.',
             ]);
         }
 
-        $magicLink->forceFill(['used_at' => now()])->save();
-
-        $user = $magicLink->user;
+        if (Auth::check() && Auth::id() !== $user->id) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+        }
 
         if (! $user->email_verified_at) {
             $user->forceFill(['email_verified_at' => now()])->save();

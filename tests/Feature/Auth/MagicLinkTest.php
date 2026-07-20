@@ -31,7 +31,7 @@ class MagicLinkTest extends TestCase
         $response->assertSessionHas('status');
         $this->assertDatabaseCount('magic_links', 1);
         $this->assertDatabaseHas('audit_log', ['action' => 'auth.magic_link.requested']);
-        Mail::assertSent(MagicLinkMail::class, fn (MagicLinkMail $mail) => $mail->user->is($user));
+        Mail::assertQueued(MagicLinkMail::class, fn (MagicLinkMail $mail) => $mail->user->is($user));
     }
 
     public function test_requesting_a_magic_link_for_an_unknown_email_sends_nothing_but_gives_no_hint(): void
@@ -118,6 +118,44 @@ class MagicLinkTest extends TestCase
 
         $response->assertRedirect(route('login'));
         $this->assertGuest();
+    }
+
+    public function test_rejected_consume_attempts_are_audited(): void
+    {
+        $user = User::factory()->create();
+
+        $magicLink = $user->magicLinks()->create([
+            'token_hash' => hash('sha256', 'the-real-token'),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => 'a-guessed-token']);
+
+        $this->get($url);
+
+        $this->assertDatabaseHas('audit_log', [
+            'action' => 'auth.magic_link.rejected',
+            'actor_id' => $user->id,
+        ]);
+    }
+
+    public function test_a_magic_link_swaps_the_session_on_a_shared_device(): void
+    {
+        $deviceUser = User::factory()->create();
+        $linkOwner = User::factory()->create();
+        $token = 'plain-text-token';
+
+        $magicLink = $linkOwner->magicLinks()->create([
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
+
+        $response = $this->actingAs($deviceUser)->get($url);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($linkOwner);
     }
 
     public function test_users_can_logout(): void

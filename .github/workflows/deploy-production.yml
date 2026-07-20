@@ -14,10 +14,12 @@ jobs:
     environment: production
 
     steps:
+      # No explicit `ref` — defaults to the tag/commit the release points at,
+      # which is the point of gating production on `release: published` (a
+      # release published against an older commit must deploy that commit,
+      # not whatever `main` has moved on to since).
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          ref: main
 
       - name: Setup PHP
         uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
@@ -81,7 +83,7 @@ jobs:
             cd "${{ secrets.PRODUCTION_DEPLOY_PATH }}"
             set -a; source .env; set +a
             mkdir -p ../backups
-            mysqldump -h"$DB_HOST" -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" \
+            MYSQL_PWD="$DB_PASSWORD" mysqldump -h"$DB_HOST" -u"$DB_USERNAME" "$DB_DATABASE" \
               > "../backups/pre-deploy-$(date +%Y%m%d%H%M%S).sql"
             php artisan migrate --force
             php artisan config:cache

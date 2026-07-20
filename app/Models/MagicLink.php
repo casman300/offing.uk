@@ -28,6 +28,25 @@ class MagicLink extends Model
     }
 
     /**
+     * Atomically mark this link used, iff it's still unused and unexpired.
+     * Returns false if a concurrent request already claimed it.
+     */
+    public function claim(): bool
+    {
+        $claimed = static::query()
+            ->whereKey($this->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>=', now())
+            ->update(['used_at' => now()]);
+
+        if ($claimed) {
+            $this->used_at = now();
+        }
+
+        return (bool) $claimed;
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
