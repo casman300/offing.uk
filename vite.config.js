@@ -18,13 +18,13 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             manifest: {
-                name: 'Offing',
-                short_name: 'Offing',
+                name: 'offing.uk',
+                short_name: 'offing.uk',
                 description: "What's in the offing.",
                 start_url: '/',
                 display: 'standalone',
-                background_color: '#ffffff',
-                theme_color: '#ffffff',
+                background_color: '#fbfaf9',
+                theme_color: '#1b5874',
                 icons: [],
             },
             workbox: {

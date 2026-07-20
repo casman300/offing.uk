@@ -43,6 +43,7 @@ class MagicLinkController extends Controller
             $magicLink = $user->magicLinks()->create([
                 'token_hash' => hash('sha256', $plainTextToken),
                 'expires_at' => now()->addMinutes(15),
+                'remember' => $request->boolean('remember', true),
             ]);
 
             $signedUrl = URL::temporarySignedRoute(
@@ -83,7 +84,7 @@ class MagicLinkController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        Auth::login($user, remember: true);
+        Auth::login($user, remember: $magicLink->remember);
 
         $request->session()->regenerate();
 

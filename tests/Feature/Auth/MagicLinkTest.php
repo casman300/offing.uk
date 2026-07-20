@@ -66,6 +66,49 @@ class MagicLinkTest extends TestCase
         $this->assertDatabaseHas('audit_log', ['action' => 'auth.login']);
     }
 
+    public function test_remember_me_defaults_to_a_persistent_login(): void
+    {
+        $user = User::factory()->create(['remember_token' => null]);
+        $token = 'plain-text-token';
+
+        $magicLink = $user->magicLinks()->create([
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $this->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
+
+        $this->assertNotNull($user->fresh()->remember_token);
+    }
+
+    public function test_unchecking_remember_me_gives_a_session_only_login(): void
+    {
+        $user = User::factory()->create(['remember_token' => null]);
+        $token = 'plain-text-token';
+
+        $magicLink = $user->magicLinks()->create([
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addMinutes(15),
+            'remember' => false,
+        ]);
+
+        $response = $this->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+        $this->assertNull($user->fresh()->remember_token);
+    }
+
+    public function test_the_remember_choice_made_at_request_time_is_honoured_at_consume_time(): void
+    {
+        Mail::fake();
+        $user = User::factory()->create();
+
+        $this->post('/login', ['email' => $user->email, 'remember' => false]);
+
+        $this->assertDatabaseHas('magic_links', ['user_id' => $user->id, 'remember' => false]);
+    }
+
     public function test_a_used_magic_link_cannot_be_reused(): void
     {
         $user = User::factory()->create();

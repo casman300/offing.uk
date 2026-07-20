@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('token_hash')->unique();
             $table->timestamp('expires_at');
             $table->timestamp('used_at')->nullable();
+            $table->boolean('remember')->default(true);
             $table->timestamps();
         });
     }

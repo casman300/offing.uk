@@ -12,6 +12,7 @@ class MagicLink extends Model
         'token_hash',
         'expires_at',
         'used_at',
+        'remember',
     ];
 
     protected function casts(): array
@@ -19,6 +20,7 @@ class MagicLink extends Model
         return [
             'expires_at' => 'datetime',
             'used_at' => 'datetime',
+            'remember' => 'boolean',
         ];
     }
 
