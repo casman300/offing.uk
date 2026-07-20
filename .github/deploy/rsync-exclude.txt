@@ -15,6 +15,11 @@
 /.prettierignore
 /eslint.config.js
 
+# public/ ships separately, straight into public_html (see the "Deploy public
+# assets" step) — 20i-style shared hosting where the document root can't be
+# pointed at a subfolder, so the app itself lives outside the webroot.
+/public/
+
 # Runtime state that only exists on the host — combined with rsync --delete,
 # excluding these means deploys never wipe logs, sessions, cache, or uploads.
 /storage/app/
@@ -23,4 +28,3 @@
 /storage/framework/testing/
 /storage/framework/views/
 /storage/logs/
-/public/storage

@@ -42,12 +42,29 @@ jobs:
       # 20i shared hosting has no Node — vendor/ and public/build/ are built here in CI
       # and shipped as static files. Excludes (dev-only files + storage/.env runtime
       # state) live in .github/deploy/rsync-exclude.txt, shared with production.
-      - name: Deploy over rsync/ssh
+      #
+      # The app itself is deployed OUTSIDE the web root (STAGING_DEPLOY_PATH) —
+      # 20i-style shared hosting where the document root can't be pointed at a
+      # subfolder, so public_html has to BE the doc root. Only public/'s
+      # contents (this second step) go into STAGING_PUBLIC_PATH, which is the
+      # actual document root. See bootstrap/app.php's PUBLIC_PATH handling.
+      - name: Deploy app over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
           switches: -avzr --delete --exclude-from=.github/deploy/rsync-exclude.txt
           path: ./
           remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}
+          remote_host: ${{ secrets.STAGING_SSH_HOST }}
+          remote_port: ${{ secrets.STAGING_SSH_PORT }}
+          remote_user: ${{ secrets.STAGING_SSH_USER }}
+          remote_key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Deploy public assets over rsync/ssh
+        uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
+        with:
+          switches: -avzr --delete --exclude=index.php
+          path: public/
+          remote_path: ${{ secrets.STAGING_PUBLIC_PATH }}
           remote_host: ${{ secrets.STAGING_SSH_HOST }}
           remote_port: ${{ secrets.STAGING_SSH_PORT }}
           remote_user: ${{ secrets.STAGING_SSH_USER }}
@@ -62,7 +79,30 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             set -e
-            cd "${{ secrets.STAGING_DEPLOY_PATH }}"
+            APP_PATH="${{ secrets.STAGING_DEPLOY_PATH }}"
+            PUBLIC_PATH="${{ secrets.STAGING_PUBLIC_PATH }}"
+            cd "$APP_PATH"
+
+            # index.php can't use its normal `../vendor`-relative requires once
+            # it's split from the app into public_html — write one with absolute
+            # paths instead. Mirrors public/index.php exactly otherwise.
+            cat > "$PUBLIC_PATH/index.php" <<PHP
+            <?php
+
+            use Illuminate\Http\Request;
+
+            define('LARAVEL_START', microtime(true));
+
+            if (file_exists(\$maintenance = '$APP_PATH/storage/framework/maintenance.php')) {
+                require \$maintenance;
+            }
+
+            require '$APP_PATH/vendor/autoload.php';
+
+            (require_once '$APP_PATH/bootstrap/app.php')
+                ->handleRequest(Request::capture());
+            PHP
+
             # storage/framework/*, storage/logs and storage/app are deliberately
             # excluded from the rsync above so deploys never wipe runtime state —
             # but that means nothing ever creates them on a fresh target either.
