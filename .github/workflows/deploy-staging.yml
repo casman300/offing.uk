@@ -63,6 +63,13 @@ jobs:
           script: |
             set -e
             cd "${{ secrets.STAGING_DEPLOY_PATH }}"
+            # storage/framework/*, storage/logs and storage/app are deliberately
+            # excluded from the rsync above so deploys never wipe runtime state —
+            # but that means nothing ever creates them on a fresh target either.
+            # mkdir -p is a no-op once they exist, so this is safe every deploy.
+            mkdir -p storage/framework/{cache/data,sessions,testing,views} storage/logs storage/app/public storage/app/private
+            chmod -R 775 storage bootstrap/cache
+            php artisan storage:link
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
