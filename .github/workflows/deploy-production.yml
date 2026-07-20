@@ -1,0 +1,104 @@
+name: deploy-production
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: main
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: 8.4
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install PHP dependencies (production)
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Enable maintenance mode
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            cd "${{ secrets.PRODUCTION_DEPLOY_PATH }}"
+            php artisan down --retry=30 || true
+
+      # 20i shared hosting has no Node — vendor/ and public/build/ are built here in CI
+      # and shipped as static files. storage/, .env and public/storage are excluded so
+      # rsync --delete never touches runtime state that only exists on the host.
+      - name: Deploy over rsync/ssh
+        uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
+        with:
+          switches: >-
+            -avzr --delete
+            --exclude='.git*'
+            --exclude='.env'
+            --exclude='/node_modules/'
+            --exclude='/tests/'
+            --exclude='/.github/'
+            --exclude='/storage/app/'
+            --exclude='/storage/framework/cache/'
+            --exclude='/storage/framework/sessions/'
+            --exclude='/storage/framework/testing/'
+            --exclude='/storage/framework/views/'
+            --exclude='/storage/logs/'
+            --exclude='/public/storage'
+          path: ./
+          remote_path: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          remote_host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          remote_port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          remote_user: ${{ secrets.PRODUCTION_SSH_USER }}
+          remote_key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      # Snapshot before migrating — see spec §22. Reads DB creds from the
+      # host's own .env so no credentials are duplicated into Actions secrets.
+      - name: Snapshot database, migrate, refresh caches, go live
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            cd "${{ secrets.PRODUCTION_DEPLOY_PATH }}"
+            set -a; source .env; set +a
+            mkdir -p ../backups
+            mysqldump -h"$DB_HOST" -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" \
+              > "../backups/pre-deploy-$(date +%Y%m%d%H%M%S).sql"
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+            php artisan up
