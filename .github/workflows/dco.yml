@@ -1,0 +1,28 @@
+name: dco
+
+on:
+  pull_request:
+    branches:
+      - rc
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Check every commit is signed off
+        run: |
+          set -e
+          missing=0
+          for sha in $(git rev-list origin/${{ github.base_ref }}..${{ github.event.pull_request.head.sha }}); do
+            if ! git log -1 --format=%B "$sha" | grep -qi '^Signed-off-by: '; then
+              echo "::error::Commit $sha is missing a 'Signed-off-by' trailer (see CONTRIBUTING.md — use 'git commit -s')."
+              missing=1
+            fi
+          done
+          exit $missing

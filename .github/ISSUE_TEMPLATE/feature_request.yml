@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest something for the roadmap
+labels: ["type: feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that Offing doesn't help with today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Optional — if you have an idea of how this could work.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        Note: this project has a deliberately tight MVP scope (see `docs/SPEC.md` §1 and §23).
+        Tasks/to-dos are a permanent non-goal. Ideas beyond the current roadmap phase are
+        still welcome, but may sit in the backlog for a while.
