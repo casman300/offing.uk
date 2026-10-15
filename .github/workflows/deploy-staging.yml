@@ -43,17 +43,19 @@ jobs:
       # and shipped as static files. Excludes (dev-only files + storage/.env runtime
       # state) live in .github/deploy/rsync-exclude.txt, shared with production.
       #
-      # The app itself is deployed OUTSIDE the web root (STAGING_DEPLOY_PATH) —
-      # 20i-style shared hosting where the document root can't be pointed at a
-      # subfolder, so public_html has to BE the doc root. Only public/'s
-      # contents (this second step) go into STAGING_PUBLIC_PATH, which is the
-      # actual document root. See bootstrap/app.php's PUBLIC_PATH handling.
+      # STAGING_DEPLOY_PATH is the document root (public_html) — unchanged, same
+      # single secret as before. The app itself goes in a "laravel" subfolder of
+      # it rather than a sibling directory (would need a second path secret);
+      # that subfolder sits inside the web-servable tree, so the SSH step below
+      # locks it down with .htaccess (Require all denied) instead. Only public/'s
+      # contents land at the document root itself. See bootstrap/app.php's
+      # PUBLIC_PATH handling.
       - name: Deploy app over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
           switches: -avzr --delete --exclude-from=.github/deploy/rsync-exclude.txt
           path: ./
-          remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}
+          remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}/laravel
           remote_host: ${{ secrets.STAGING_SSH_HOST }}
           remote_port: ${{ secrets.STAGING_SSH_PORT }}
           remote_user: ${{ secrets.STAGING_SSH_USER }}
@@ -62,9 +64,12 @@ jobs:
       - name: Deploy public assets over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
-          switches: -avzr --delete --exclude=index.php
+          # --delete would otherwise see the sibling "laravel" app directory
+          # (not part of this step's public/ source) as extraneous and wipe
+          # it — excluding it protects it from deletion consideration too.
+          switches: -avzr --delete --exclude=index.php --exclude=/laravel/
           path: public/
-          remote_path: ${{ secrets.STAGING_PUBLIC_PATH }}
+          remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}
           remote_host: ${{ secrets.STAGING_SSH_HOST }}
           remote_port: ${{ secrets.STAGING_SSH_PORT }}
           remote_user: ${{ secrets.STAGING_SSH_USER }}
@@ -79,27 +84,35 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             set -e
-            APP_PATH="${{ secrets.STAGING_DEPLOY_PATH }}"
-            PUBLIC_PATH="${{ secrets.STAGING_PUBLIC_PATH }}"
+            PUBLIC_PATH="${{ secrets.STAGING_DEPLOY_PATH }}"
+            APP_PATH="$PUBLIC_PATH/laravel"
             cd "$APP_PATH"
 
+            # Lock the app subfolder down — it sits inside the document root's
+            # own directory tree, so nothing should ever serve it directly.
+            cat > "$APP_PATH/.htaccess" <<'HTACCESS'
+            Require all denied
+            HTACCESS
+
             # index.php can't use its normal `../vendor`-relative requires once
-            # it's split from the app into public_html — write one with absolute
-            # paths instead. Mirrors public/index.php exactly otherwise.
-            cat > "$PUBLIC_PATH/index.php" <<PHP
+            # the app lives a level down in its own subfolder — same file as
+            # public/index.php, paths adjusted. Fully static (the "laravel"
+            # subfolder name is a fixed convention, not environment-specific),
+            # so no substitution needed.
+            cat > "$PUBLIC_PATH/index.php" <<'PHP'
             <?php
 
             use Illuminate\Http\Request;
 
             define('LARAVEL_START', microtime(true));
 
-            if (file_exists(\$maintenance = '$APP_PATH/storage/framework/maintenance.php')) {
-                require \$maintenance;
+            if (file_exists($maintenance = __DIR__.'/laravel/storage/framework/maintenance.php')) {
+                require $maintenance;
             }
 
-            require '$APP_PATH/vendor/autoload.php';
+            require __DIR__.'/laravel/vendor/autoload.php';
 
-            (require_once '$APP_PATH/bootstrap/app.php')
+            (require_once __DIR__.'/laravel/bootstrap/app.php')
                 ->handleRequest(Request::capture());
             PHP
 
