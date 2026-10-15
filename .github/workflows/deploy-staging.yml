@@ -64,20 +64,6 @@ jobs:
               exit 1
             }
 
-      # On 20i the control-panel PHP version only applies to web requests;
-      # over SSH plain `php` is an old system default (8.0). Find a CLI that
-      # can actually run the app and use it for every artisan call below.
-      - name: Find host PHP CLI
-        id: php
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
-        with:
-          host: ${{ secrets.STAGING_SSH_HOST }}
-          port: ${{ secrets.STAGING_SSH_PORT }}
-          username: ${{ secrets.STAGING_SSH_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script_file: .github/deploy/find-php.sh
-          capture_stdout: true
-
       - name: Deploy app over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
@@ -113,9 +99,12 @@ jobs:
             set -e
             PUBLIC_PATH="${{ secrets.STAGING_DEPLOY_PATH }}"
             APP_PATH="$PUBLIC_PATH/../laravel"
-            PHP="$(printf '%s\n' "${{ steps.php.outputs.stdout }}" | tail -n1)"
-            [ -x "$PHP" ] || { echo "No usable PHP CLI from the 'Find host PHP CLI' step (got: '$PHP')."; exit 1; }
             cd "$APP_PATH"
+
+            # On 20i the control-panel PHP version only applies to web
+            # requests; over SSH plain `php` is an old default (8.0). Find a
+            # CLI that can run the app — see deploy/find-php.sh.
+            PHP="$(bash deploy/find-php.sh)"
 
             # The app directory is outside the webroot, so this should never
             # matter — it's a backstop in case the docroot is ever pointed at
