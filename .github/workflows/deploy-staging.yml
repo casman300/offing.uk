@@ -43,19 +43,33 @@ jobs:
       # and shipped as static files. Excludes (dev-only files + storage/.env runtime
       # state) live in .github/deploy/rsync-exclude.txt, shared with production.
       #
-      # STAGING_DEPLOY_PATH is the document root (public_html) — unchanged, same
-      # single secret as before. The app itself goes in a "laravel" subfolder of
-      # it rather than a sibling directory (would need a second path secret);
-      # that subfolder sits inside the web-servable tree, so the SSH step below
-      # locks it down with .htaccess (Require all denied) instead. Only public/'s
-      # contents land at the document root itself. See bootstrap/app.php's
-      # PUBLIC_PATH handling.
+      # STAGING_DEPLOY_PATH is the document root (public_html). The app goes in
+      # a sibling "laravel" directory next to it (STAGING_DEPLOY_PATH/../laravel)
+      # so .env, vendor/ and storage/ are never inside the web-servable tree —
+      # no second path secret needed. Only public/'s contents land at the
+      # document root itself. See bootstrap/app.php's PUBLIC_PATH handling.
+      #
+      # Fail before touching anything if the host's .env isn't where the app
+      # will look for it (it's set up by hand, once per environment).
+      - name: Preflight — check host .env exists
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          port: ${{ secrets.STAGING_SSH_PORT }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            test -f "${{ secrets.STAGING_DEPLOY_PATH }}/../laravel/.env" || {
+              echo "No .env at <deploy path>/../laravel/.env — create it (with PUBLIC_PATH set) before deploying."
+              exit 1
+            }
+
       - name: Deploy app over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
           switches: -avzr --delete --exclude-from=.github/deploy/rsync-exclude.txt
           path: ./
-          remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}/laravel
+          remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}/../laravel
           remote_host: ${{ secrets.STAGING_SSH_HOST }}
           remote_port: ${{ secrets.STAGING_SSH_PORT }}
           remote_user: ${{ secrets.STAGING_SSH_USER }}
@@ -64,10 +78,9 @@ jobs:
       - name: Deploy public assets over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
-          # --delete would otherwise see the sibling "laravel" app directory
-          # (not part of this step's public/ source) as extraneous and wipe
-          # it — excluding it protects it from deletion consideration too.
-          switches: -avzr --delete --exclude=index.php --exclude=/laravel/
+          # index.php is generated on the host (below); /storage is the
+          # storage:link symlink. Both are excluded so --delete leaves them be.
+          switches: -avzr --delete --exclude=/index.php --exclude=/storage
           path: public/
           remote_path: ${{ secrets.STAGING_DEPLOY_PATH }}
           remote_host: ${{ secrets.STAGING_SSH_HOST }}
@@ -85,20 +98,20 @@ jobs:
           script: |
             set -e
             PUBLIC_PATH="${{ secrets.STAGING_DEPLOY_PATH }}"
-            APP_PATH="$PUBLIC_PATH/laravel"
+            APP_PATH="$PUBLIC_PATH/../laravel"
             cd "$APP_PATH"
 
-            # Lock the app subfolder down — it sits inside the document root's
-            # own directory tree, so nothing should ever serve it directly.
-            cat > "$APP_PATH/.htaccess" <<'HTACCESS'
-            Require all denied
-            HTACCESS
+            # The app directory is outside the webroot, so this should never
+            # matter — it's a backstop in case the docroot is ever pointed at
+            # it by mistake. Excluded from the app rsync (rsync-exclude.txt),
+            # so --delete never removes it once written.
+            echo 'Require all denied' > "$APP_PATH/.htaccess"
 
             # index.php can't use its normal `../vendor`-relative requires once
-            # the app lives a level down in its own subfolder — same file as
-            # public/index.php, paths adjusted. Fully static (the "laravel"
-            # subfolder name is a fixed convention, not environment-specific),
-            # so no substitution needed.
+            # public/ and the app are split — same file as public/index.php,
+            # paths pointed at the sibling app directory. Fully static (the
+            # "laravel" directory name is a fixed convention, not
+            # environment-specific), so no substitution needed.
             cat > "$PUBLIC_PATH/index.php" <<'PHP'
             <?php
 
@@ -106,13 +119,13 @@ jobs:
 
             define('LARAVEL_START', microtime(true));
 
-            if (file_exists($maintenance = __DIR__.'/laravel/storage/framework/maintenance.php')) {
+            if (file_exists($maintenance = __DIR__.'/../laravel/storage/framework/maintenance.php')) {
                 require $maintenance;
             }
 
-            require __DIR__.'/laravel/vendor/autoload.php';
+            require __DIR__.'/../laravel/vendor/autoload.php';
 
-            (require_once __DIR__.'/laravel/bootstrap/app.php')
+            (require_once __DIR__.'/../laravel/bootstrap/app.php')
                 ->handleRequest(Request::capture());
             PHP
 

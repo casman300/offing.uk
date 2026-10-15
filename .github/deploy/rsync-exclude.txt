@@ -20,6 +20,11 @@
 # pointed at a subfolder, so the app itself lives outside the webroot.
 /public/
 
+# Deny-all .htaccess written into the app directory by the deploy's SSH step
+# (defense in depth in case the docroot is ever misconfigured to point at it).
+# Excluded so --delete never removes it between deploys.
+/.htaccess
+
 # Runtime state that only exists on the host — combined with rsync --delete,
 # excluding these means deploys never wipe logs, sessions, cache, or uploads.
 /storage/app/

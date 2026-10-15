@@ -30,9 +30,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
 
 // 20i (and most shared hosting) doesn't let every plan change its document
 // root, so in production/staging the webroot is public_html directly and
-// the app lives in a private sibling directory — see
-// .github/workflows/deploy-*.yml. Local dev is untouched: PUBLIC_PATH is
-// unset, so public_path() keeps resolving to the normal nested public/.
+// the app lives in a sibling "laravel" directory next to it (outside the
+// webroot) — see .github/workflows/deploy-*.yml. Local dev is untouched:
+// PUBLIC_PATH is unset, so public_path() keeps resolving to public/.
 if ($publicPath = env('PUBLIC_PATH')) {
     $app->usePublicPath($publicPath);
 }
