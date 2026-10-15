@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# Runs ON THE HOST over SSH (appleboy/ssh-action `script_file`), from both
-# deploy workflows. Prints the path of the newest PHP CLI >= 8.4 on stdout —
-# the workflows capture it and use it for every `artisan` call.
+# Runs ON THE HOST, from the deploy workflows' SSH steps — it ships with the
+# app (deploy/ is not in rsync-exclude.txt), so each step can call it as
+# `PHP="$(bash deploy/find-php.sh)"`. Prints the path of the newest PHP CLI
+# >= 8.4 on stdout, used for every `artisan` call.
 #
 # Why: on 20i the PHP version picked in the control panel only applies to
 # web requests. Over SSH, plain `php` is an old system default (8.0.30 on
 # staging as of the first deploy), which Composer's platform check rejects.
+# 20i keeps the other versions at /usr/phpNN/usr/bin/php (listed in the SSH
+# login banner).
 #
 # Everything except the final path goes to stderr, so it shows in the
-# Actions log without polluting the captured output.
+# Actions log without polluting the command substitution.
 
 best=
 best_id=0
 
 for bin in \
     "$(command -v php)" \
+    /usr/php*/usr/bin/php \
     /usr/bin/php* \
     /usr/local/bin/php* \
     /usr/local/php*/bin/php \
