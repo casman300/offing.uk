@@ -21,7 +21,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
-          php-version: 8.4
+          php-version: 8.5
           tools: composer:v2
 
       - name: Setup Node
@@ -64,6 +64,20 @@ jobs:
               exit 1
             }
 
+      # On 20i the control-panel PHP version only applies to web requests;
+      # over SSH plain `php` is an old system default (8.0). Find a CLI that
+      # can actually run the app and use it for every artisan call below.
+      - name: Find host PHP CLI
+        id: php
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          port: ${{ secrets.STAGING_SSH_PORT }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script_file: .github/deploy/find-php.sh
+          capture_stdout: true
+
       - name: Deploy app over rsync/ssh
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
@@ -99,6 +113,8 @@ jobs:
             set -e
             PUBLIC_PATH="${{ secrets.STAGING_DEPLOY_PATH }}"
             APP_PATH="$PUBLIC_PATH/../laravel"
+            PHP="$(printf '%s\n' "${{ steps.php.outputs.stdout }}" | tail -n1)"
+            [ -x "$PHP" ] || { echo "No usable PHP CLI from the 'Find host PHP CLI' step (got: '$PHP')."; exit 1; }
             cd "$APP_PATH"
 
             # The app directory is outside the webroot, so this should never
@@ -135,9 +151,13 @@ jobs:
             # mkdir -p is a no-op once they exist, so this is safe every deploy.
             mkdir -p storage/framework/{cache/data,sessions,testing,views} storage/logs storage/app/public storage/app/private
             chmod -R 775 storage bootstrap/cache
-            php artisan storage:link
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan event:cache
+            "$PHP" artisan storage:link
+            "$PHP" artisan migrate --force
+            "$PHP" artisan config:cache
+            "$PHP" artisan route:cache
+            "$PHP" artisan view:cache
+            "$PHP" artisan event:cache
+
+            # 20i's cron (Advanced > Scheduled Tasks) needs this exact command —
+            # plain `php` there is the same old default as over SSH.
+            echo "Scheduler cron command (every minute): $PHP $(pwd)/artisan schedule:run"

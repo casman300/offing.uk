@@ -28,6 +28,7 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - `deploy-staging.yml` fires on push to `rc`; `deploy-production.yml` fires on GitHub release `published` — production deploys are a deliberate act, not a merge side-effect.
 - Both ship over rsync/SSH to 20i (no Node/Composer required on the host — `vendor/` and built assets are shipped as files). Exclude list lives in `.github/deploy/rsync-exclude.txt`, shared by both workflows — add new dev-only paths there, not inline in the YAML.
 - All GitHub Actions are **pinned to commit SHAs** (`uses: owner/repo@<sha> # vX.Y.Z`), not floating tags.
+- On 20i, the control-panel PHP version (8.5) only applies to web requests — plain `php` over SSH/cron is an old default (8.0). Deploys find a usable CLI via `.github/deploy/find-php.sh`; never call bare `php` in deploy scripts or cron.
 - `.env` lives on the host only, never in CI, never in the repo — DB credentials and `APP_KEY` are set up manually per environment, once.
 
 ## Conventions

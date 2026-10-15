@@ -24,7 +24,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
-          php-version: 8.4
+          php-version: 8.5
           tools: composer:v2
 
       - name: Setup Node
@@ -42,6 +42,20 @@ jobs:
       - name: Build assets
         run: npm run build
 
+      # On 20i the control-panel PHP version only applies to web requests;
+      # over SSH plain `php` is an old system default (8.0). Find a CLI that
+      # can actually run the app and use it for every artisan call below.
+      - name: Find host PHP CLI
+        id: php
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script_file: .github/deploy/find-php.sh
+          capture_stdout: true
+
       - name: Enable maintenance mode
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
@@ -58,7 +72,9 @@ jobs:
               exit 1
             }
             cd "${{ secrets.PRODUCTION_DEPLOY_PATH }}/../laravel"
-            php artisan down --retry=30 || true
+            PHP="$(printf '%s\n' "${{ steps.php.outputs.stdout }}" | tail -n1)"
+            [ -x "$PHP" ] || { echo "No usable PHP CLI from the 'Find host PHP CLI' step (got: '$PHP')."; exit 1; }
+            "$PHP" artisan down --retry=30 || true
 
       # 20i shared hosting has no Node — vendor/ and public/build/ are built here in CI
       # and shipped as static files. Excludes (dev-only files + storage/.env runtime
@@ -108,6 +124,8 @@ jobs:
             set -e
             PUBLIC_PATH="${{ secrets.PRODUCTION_DEPLOY_PATH }}"
             APP_PATH="$PUBLIC_PATH/../laravel"
+            PHP="$(printf '%s\n' "${{ steps.php.outputs.stdout }}" | tail -n1)"
+            [ -x "$PHP" ] || { echo "No usable PHP CLI from the 'Find host PHP CLI' step (got: '$PHP')."; exit 1; }
             cd "$APP_PATH"
             set -a; source .env; set +a
 
@@ -153,10 +171,14 @@ jobs:
             # mkdir -p is a no-op once they exist, so this is safe every deploy.
             mkdir -p storage/framework/{cache/data,sessions,testing,views} storage/logs storage/app/public storage/app/private
             chmod -R 775 storage bootstrap/cache
-            php artisan storage:link
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan event:cache
-            php artisan up
+            "$PHP" artisan storage:link
+            "$PHP" artisan migrate --force
+            "$PHP" artisan config:cache
+            "$PHP" artisan route:cache
+            "$PHP" artisan view:cache
+            "$PHP" artisan event:cache
+            "$PHP" artisan up
+
+            # 20i's cron (Advanced > Scheduled Tasks) needs this exact command —
+            # plain `php` there is the same old default as over SSH.
+            echo "Scheduler cron command (every minute): $PHP $(pwd)/artisan schedule:run"
