@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Features\Barometer;
 use App\Features\BirthdayEngine;
 use App\Features\Reminders;
 use App\Features\VcardImport;
@@ -54,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                 'birthdayEngine' => $request->user() !== null && Feature::for($request->user())->active(BirthdayEngine::class),
                 'vcardImport' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, VcardImport::class]),
                 'reminders' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, Reminders::class]),
+                'barometer' => $request->user() !== null && Feature::for($request->user())->active(Barometer::class),
             ],
             'flash' => fn () => [
                 'status' => $request->session()->get('status'),

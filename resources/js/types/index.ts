@@ -26,6 +26,7 @@ export interface Features {
     birthdayEngine: boolean;
     vcardImport: boolean;
     reminders: boolean;
+    barometer: boolean;
 }
 
 export interface Flash {
@@ -71,4 +72,24 @@ export interface Person {
     /** The age they turn on next_birthday; null without a year. */
     turns: number | null;
     deleted_at: string | null;
+}
+
+export type BarometerTextColumn = 'situation' | 'thoughts' | 'sensations' | 'coping_action' | 'self_talk';
+export type BarometerColumn = BarometerTextColumn | 'rating_before' | 'rating_after';
+
+export interface BarometerReading {
+    id: number;
+    /** YYYY-MM-DDTHH:MM in the viewer's timezone (a datetime-local value). */
+    occurred_at: string;
+    /** YYYY-MM-DD in the viewer's timezone. */
+    date: string;
+    /** HH:MM in the viewer's timezone. */
+    time: string;
+    situation: string | null;
+    thoughts: string | null;
+    sensations: string | null;
+    rating_before: number;
+    coping_action: string | null;
+    self_talk: string | null;
+    rating_after: number | null;
 }

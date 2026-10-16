@@ -106,6 +106,14 @@ class User extends Authenticatable
         return $slots;
     }
 
+    /**
+     * @return HasMany<BarometerReading, $this>
+     */
+    public function barometerReadings(): HasMany
+    {
+        return $this->hasMany(BarometerReading::class);
+    }
+
     public function remindersOn(): bool
     {
         return $this->reminders_enabled_at !== null;

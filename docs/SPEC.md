@@ -364,6 +364,8 @@ iOS web push · nicer onboarding coach for Add-to-Home-Screen · feed health das
 **Phase 2 — Differentiators**
 Card & post engine with bank holidays · vCard import *(moved to Phase 1a; Phase 2 adds re-import/merge improvements)* · group web views (tokenised, no account) · virtual→real account upgrade flow · OAuth 2.1 for MCP · reminder rule editor UI · **availability polls** ("when can the club meet?" — flagship group feature, future premium candidate) · **RSVPs on tagged events** (yes/no/maybe **+ custom questions per event** — dietary, plus-ones; answerable via tokenised links, no account needed) · **anniversaries & significant dates** (generalise birthdays into a person `dates` table with per-date **show** and **remind** toggles — e.g. a passed relative's birthday visible but never alerted; respectful rendering for remembrance dates, exempt from playful copy) · **conflict warnings across shared calendars** · **bin collection reminders** (council schedule import) · **email-to-event, stage 1** (private inbound address per user via inbound-parse webhook; attached .ics auto-imported using existing parser) · **places & travel buffers** (named places incl. Home; events with locations get a manual/default travel margin rendered as hatched "error bars") · **background layers, stage 1: work hours** (fixed weekly pattern or subscribed timesheet ICS; renders as greyed ambient shading, not events — week view shows shape, day view shows meetings).
 
+**Barometer** (opt-in, flag-gated, see §25) — private CBT-style anxiety log: readings + list + PDF/CSV export first, then the second-rating nudge and stats; calendar marker once a calendar view exists.
+
 **Phase 3 — Delight & revenue**
 Diary layers (Spotify, fitness, past events — likely via nightly importers) · **"On this day"** (surfaces past diary-layer entries) · **email-to-event, stage 2** (no .ics attached → AI-parse ticket/confirmation emails for date, time, venue via the Claude API) · **travel buffers, stage 2** (real travel-time estimates via open routing — OSRM/OpenRouteService, fitting the OSM ethos) · **background layers, stage 2: sleep** (usual sleep window as ambient shading; past days can overlay actual sleep from health-data diary layers) · Betty daily digest, then Betty chat · silly seasonal event packs · **public roadmap page with voting** (backlog items promoted from the repo; votes inform, not dictate) · **tide times layer** (UK Admiralty/EA data — nautical brand demands it) · **school term dates layer** (county council data; big for UK families) · public "request time with me" page (**security stance decided:** this is the *only* public availability surface — it shows offered bookable slots within defined hours and never raw free/busy, because a public "busy all week" feed advertises an empty house during holidays; tokenised free/busy feeds remain available for trusted people only) · **monetisation: personal subscription** (free = full family calendar; paid = layers, Betty, advanced reminder engine, polls, more feeds). Schema needs nothing new for billing beyond a `subscriptions` table when the time comes.
 
@@ -397,3 +399,34 @@ Diary layers (Spotify, fitness, past events — likely via nightly importers) ·
 | Name/domain | **Resolved:** Offing decided; register `offing.uk` via 20i once confirmed live in their domain search |
 | Email deliverability from shared hosting | Consider Postmark/Resend free tier from Phase 1 |
 | Licence | **Resolved:** AGPL-3.0 + DCO on external PRs (see §21) |
+
+## 25. Barometer (private anxiety log)
+
+An opt-in, owner-only anxiety/worry log modelled on the common CBT anxiety-tracking form. Each entry is a **reading**. Tracking epic: #34.
+
+**Naming.** "Barometer" in the UI and code (`Barometer` flag, `barometer_readings`): nautical, scaled like the ratings, and not a "diary" or "journal" — those words are kept free for a more general section later. Exports are titled plainly ("Anxiety log") so a therapist needn't know the product name.
+
+**Data model.** One fixed column per header of the paper form: no template engine until a second CBT worksheet gives us real cases to generalise from.
+
+| Form header | Column | Notes |
+|---|---|---|
+| Day/Time | `occurred_at` (UTC) + `tzid` + `local_date` | `local_date` written on save; day grouping/exports/stats never do TZ maths |
+| Situation | `situation` | encrypted text |
+| Thoughts | `thoughts` | encrypted text |
+| Physical sensations | `sensations` | encrypted text |
+| Anxiety rating | `rating_before` | 0–10, required, plain integer |
+| What did I do? | `coping_action` | encrypted text — a past-tense record, not a task (§1 non-goal) |
+| What did I say to myself? | `self_talk` | encrypted text |
+| Second rating | `rating_after` | 0–10, nullable, usually added later |
+
+Only the time and first rating are required (quick capture mid-anxiety). Free text uses Laravel's `encrypted` cast (`APP_KEY`), so it can't be searched in SQL — ratings stay plain for stats. Hard deletes only; account deletion cascades.
+
+**Privacy.** Health data (UK GDPR special category). Never visible to partners — "see everything" does not include it — and never in ICS feeds, free/busy, notification text, or MCP (a separate, explicit scope if ever). Audit rows record deletes and exports, never content.
+
+**Describe, don't diagnose.** Stats only describe ("average 6, down 2.5 after coping"); nothing interprets severity — that keeps us clear of software-as-a-medical-device territory. The UI names the CBT origin, says it works best alongside a therapist, and signposts Samaritans (116 123).
+
+**Phases.**
+1. **Readings, list, export** (#35): add/edit/delete; list grouped by day; PDF (dompdf, A4 landscape, laid out like the paper form, header repeats per page) and CSV (UTF-8 BOM, formula-injection guard) over a date range of up to a year, with optional column exclusion. Streamed with `no-store`, never written to disk.
+2. **Second-rating nudge** (#36): ~30 minutes after a reading without `rating_after`, a content-free reminder via `notification_outbox` ("time for a quick check-in" — never the word anxiety), skipped if already filled, per-user off switch.
+3. **Stats & look-back** (#37): average drop from first to second rating (the headline), weekly averages, weekday × time-of-day heatmap, later cross-referenced with the user's own calendar. Optional summary page on the PDF. v2 candidate: optional tags on coping actions/sensations ("deep breaths drops you 3 points on average").
+4. **Calendar marker** (#38, waits for a calendar view): a layer, never rows in `events` — days marked by peak rating, day view pins each reading.
