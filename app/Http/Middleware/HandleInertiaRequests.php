@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Features\BirthdayEngine;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Laravel\Pennant\Feature;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -44,6 +46,13 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
+            ],
+            'features' => fn () => [
+                'birthdayEngine' => $request->user() !== null && Feature::for($request->user())->active(BirthdayEngine::class),
+            ],
+            'flash' => fn () => [
+                'status' => $request->session()->get('status'),
+                'deleted' => $request->session()->get('deleted'),
             ],
         ];
     }

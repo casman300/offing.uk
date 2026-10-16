@@ -19,12 +19,13 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Profile() {
+export default function Profile({ timezones }: { timezones: string[] }) {
     const { auth } = usePage<SharedData>().props;
 
     const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
         name: auth.user.name,
         email: auth.user.email,
+        timezone: auth.user.timezone,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -73,6 +74,30 @@ export default function Profile() {
                             />
 
                             <InputError className="mt-2" message={errors.email} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="timezone">Timezone</Label>
+
+                            <select
+                                id="timezone"
+                                className="border-input bg-background ring-offset-background focus-visible:ring-ring mt-1 flex h-10 w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden md:text-sm"
+                                value={data.timezone}
+                                onChange={(e) => setData('timezone', e.target.value)}
+                                aria-describedby="timezone_hint"
+                            >
+                                {timezones.map((tz) => (
+                                    <option key={tz} value={tz}>
+                                        {tz.replaceAll('_', ' ')}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <p id="timezone_hint" className="text-muted-foreground text-sm">
+                                Decides when “today” is — for example whether someone’s birthday has happened yet.
+                            </p>
+
+                            <InputError className="mt-2" message={errors.timezone} />
                         </div>
 
                         <div className="flex items-center gap-4">
