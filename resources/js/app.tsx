@@ -5,6 +5,8 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
 import { initializeTheme } from './hooks/use-appearance';
+import { initSentry } from './lib/sentry';
+import type { SharedData } from './types';
 
 declare global {
     const route: typeof routeFn;
@@ -20,6 +22,8 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
     setup({ el, App, props }) {
+        initSentry((props.initialPage.props as unknown as SharedData).sentry);
+
         const root = createRoot(el);
 
         root.render(<App {...props} />);

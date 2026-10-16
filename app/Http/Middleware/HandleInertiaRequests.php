@@ -45,6 +45,12 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // Browser error tracking reads its DSN at runtime — assets are
+            // built in CI, which has no .env (see resources/js/lib/sentry.ts).
+            'sentry' => [
+                'dsn' => config('sentry.dsn'),
+                'environment' => config('sentry.environment') ?? config('app.env'),
+            ],
         ];
     }
 }

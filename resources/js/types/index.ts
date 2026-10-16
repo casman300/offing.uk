@@ -1,3 +1,4 @@
+import type { SentryConfig } from '@/lib/sentry';
 import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
@@ -25,6 +26,7 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    sentry: SentryConfig;
     [key: string]: unknown;
 }
 
