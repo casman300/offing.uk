@@ -15,6 +15,7 @@ final class Features
     {
         return [
             BirthdayEngine::class,
+            VcardImport::class,
         ];
     }
 

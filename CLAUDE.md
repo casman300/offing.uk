@@ -48,5 +48,6 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 ## Where things are
 
 - `docs/SPEC.md` — the full design spec (naming, data model, sharing model, MCP integration, roadmap phases, security/licensing rationale). Roadmap phases (§23) drive GitHub milestones.
+- `docs/` → GitHub wiki: one-way mirror, published on push to `main` by `.github/workflows/wiki.yml` (builder: `.github/wiki/build.php`). Stopgap until in-app `/docs` (SPEC §20) renders the same files. `docs/Home.md` = landing, `docs/guide/` = user pages, the rest = Development. Page basenames must be unique (the wiki is flat).
 - `.github/deploy/rsync-exclude.txt` — single source of truth for what never leaves CI.
 - `app/Models/AuditLog.php`, `app/Models/MagicLink.php` — auth/audit primitives; extend rather than duplicate when adding new tracked actions or token types.

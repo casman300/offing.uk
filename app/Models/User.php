@@ -74,6 +74,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<ContactImport, $this>
+     */
+    public function contactImports(): HasMany
+    {
+        return $this->hasMany(ContactImport::class, 'owner_user_id');
+    }
+
+    /**
      * Admins come from ADMIN_EMAILS in the host's .env (config/offing.php),
      * not from the database — nothing inside the app can grant it.
      */

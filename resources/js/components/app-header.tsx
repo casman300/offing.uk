@@ -25,12 +25,12 @@ const mainNavItems: NavItem[] = [
 const rightNavItems: NavItem[] = [
     {
         title: 'Repository',
-        url: 'https://github.com/laravel/react-starter-kit',
+        url: 'https://github.com/casman300/offing.uk',
         icon: Folder,
     },
     {
         title: 'Documentation',
-        url: 'https://laravel.com/docs/starter-kits',
+        url: 'https://github.com/casman300/offing.uk/wiki',
         icon: BookOpen,
     },
 ];

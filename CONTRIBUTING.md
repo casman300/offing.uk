@@ -32,6 +32,16 @@ must be audited.
   already runs `queue:listen` for you; if you're running `artisan serve`
   bare, drain the queue manually with `php artisan queue:work --stop-when-empty`.
 
+## Documentation
+
+The [wiki](https://github.com/casman300/offing.uk/wiki) is generated from
+`docs/` on every push to `main`. Edit the markdown files there, not the wiki
+itself, because wiki edits get overwritten. `docs/Home.md` is the landing page,
+`docs/guide/` holds user-facing pages, and everything else is listed under
+"Development". Link between docs with relative paths (`[spec](../SPEC.md)`)
+and to app screens with root-relative ones (`[People](/people)`). Check your
+links with `php .github/wiki/build.php /tmp/wiki`, which CI also runs.
+
 ## Before opening a PR
 
 ```
