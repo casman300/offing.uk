@@ -19,6 +19,7 @@ Offing is in early development and features arrive gradually, so some of what's 
 ## Using Offing
 
 - [Signing in](guide/Signing-in.md)
+- [Calendar feeds](guide/Calendar-feeds.md)
 
 ## Building Offing
 

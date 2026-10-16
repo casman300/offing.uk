@@ -135,8 +135,10 @@ occurrences      event_id, starts_at, ends_at                           ← mate
 
 shares           id, grantor_user_id, grantee_user_id,
                  level(partner|full_read|tagged_only)
-feed_tokens      id, subject(morph: user|person|group|share), token_hash,
-                 scope(full|tagged|group), revoked_at                   ← outbound secret ICS URLs
+feed_tokens      id, subject(morph: user|person|group|share), name, token_hash,
+                 scope(full|tagged|group), last_used_at, last_user_agent,
+                 revoked_at                                             ← outbound secret ICS URLs; hash-only,
+                                                                          shown once, max 3 active per subject
 feed_subscriptions id, user_id, url, name, colour, etag, last_hash,
                  last_fetched_at, status                                ← inbound external ICS
 
