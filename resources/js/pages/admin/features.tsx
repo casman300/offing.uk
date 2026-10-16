@@ -1,3 +1,4 @@
+import AdminNav from '@/components/admin-nav';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]
             <Head title="Feature flags" />
 
             <div className="mx-auto w-full max-w-4xl space-y-8 p-4">
+                <AdminNav />
                 <Heading
                     title="Feature flags"
                     description="Each flag's default comes from its rollout stage in code. Per-user overrides here win over the stage; every change is audited."
