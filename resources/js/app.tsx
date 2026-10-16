@@ -4,6 +4,8 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
+import { initSentry } from './lib/sentry';
+import type { SharedData } from './types';
 
 // Fixed rather than read from VITE_APP_NAME: Vite bakes env vars in at build
 // time, the build runs in CI, and CI deliberately has no .env — so the env
@@ -15,6 +17,8 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
     setup({ el, App, props }) {
+        initSentry((props.initialPage.props as unknown as SharedData).sentry);
+
         const root = createRoot(el);
 
         root.render(<App {...props} />);
