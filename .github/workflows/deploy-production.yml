@@ -163,7 +163,7 @@ jobs:
             # mkdir -p is a no-op once they exist, so this is safe every deploy.
             mkdir -p storage/framework/{cache/data,sessions,testing,views} storage/logs storage/app/public storage/app/private
             chmod -R 775 storage bootstrap/cache
-            "$PHP" artisan storage:link
+            [ -L "$PUBLIC_PATH/storage" ] || "$PHP" artisan storage:link
             "$PHP" artisan migrate --force
             "$PHP" artisan config:cache
             "$PHP" artisan route:cache

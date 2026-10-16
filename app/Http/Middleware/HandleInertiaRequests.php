@@ -2,9 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Features\BirthdayEngine;
+use App\Features\VcardImport;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Laravel\Pennant\Feature;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -44,6 +47,15 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
+                'isAdmin' => (bool) $request->user()?->isAdmin(),
+            ],
+            'features' => fn () => [
+                'birthdayEngine' => $request->user() !== null && Feature::for($request->user())->active(BirthdayEngine::class),
+                'vcardImport' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, VcardImport::class]),
+            ],
+            'flash' => fn () => [
+                'status' => $request->session()->get('status'),
+                'deleted' => $request->session()->get('deleted'),
             ],
         ];
     }
