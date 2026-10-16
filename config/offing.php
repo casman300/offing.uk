@@ -18,4 +18,15 @@ return [
     */
     'healthcheck_url' => env('HEALTHCHECK_URL'),
 
+    /*
+    | Web Push (VAPID) keys — generate once per environment with
+    | `artisan push:keys` and paste into .env. Push stays hidden until both
+    | keys are set. Changing them invalidates every device's subscription.
+    */
+    'vapid' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        'subject' => env('VAPID_SUBJECT', 'mailto:hello@offing.uk'),
+    ],
+
 ];

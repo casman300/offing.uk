@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Mail\BirthdayReminderMail;
 use App\Models\AuditLog;
 use App\Models\ReminderRule;
+use App\Models\User;
+use App\Models\UserDevice;
+use App\Support\Push\PushSender;
 use App\Support\Reminders\BirthdaySource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,9 +25,10 @@ class ReminderSettingsController extends Controller
 {
     public const TIME_PATTERN = '/^([01]\d|2[0-3]):(00|15|30|45)$/';
 
-    public function edit(Request $request): Response
+    public function edit(Request $request, PushSender $push): Response
     {
         $user = $request->user();
+        $pushReady = $push->status()->ready;
 
         return Inertia::render('settings/reminders', [
             'enabled' => $user->remindersOn(),
@@ -34,6 +38,18 @@ class ReminderSettingsController extends Controller
                 'time' => $rule->time(),
             ]),
             'status' => $request->session()->get('status'),
+            // Push stays hidden until this host has VAPID keys (and can send).
+            'push' => $pushReady ? [
+                'publicKey' => config('offing.vapid.public_key'),
+                'delivery' => $user->reminder_delivery,
+                'devices' => $user->devices()->latest()->get()->map(fn (UserDevice $d) => [
+                    'id' => $d->id,
+                    'name' => $d->name,
+                    'endpoint_hash' => $d->endpoint_hash,
+                    'added_at' => $d->created_at?->toIso8601String(),
+                    'last_push_at' => $d->last_push_at?->toIso8601String(),
+                ]),
+            ] : null,
         ]);
     }
 
@@ -44,6 +60,7 @@ class ReminderSettingsController extends Controller
             'slots' => ['present', 'array'],
             'slots.*.enabled' => ['required', 'boolean'],
             'slots.*.time' => ['required', 'string', 'regex:'.self::TIME_PATTERN],
+            'delivery' => ['sometimes', 'string', 'in:'.implode(',', [User::DELIVERY_EMAIL, User::DELIVERY_PUSH, User::DELIVERY_BOTH])],
         ], [
             'slots.*.time.regex' => 'Pick a time on the quarter hour.',
         ]);
@@ -57,6 +74,11 @@ class ReminderSettingsController extends Controller
                     'offset_def' => [...$rule->offset_def, 'time' => $data['slots'][$slot]['time']],
                 ]);
             }
+        }
+
+        if (isset($data['delivery']) && $data['delivery'] !== $user->reminder_delivery) {
+            $user->forceFill(['reminder_delivery' => $data['delivery']])->save();
+            AuditLog::record($user, 'reminders.delivery_changed', $user, ['to' => $data['delivery'], 'via' => 'settings'], $request->ip());
         }
 
         $wasOn = $user->remindersOn();
