@@ -12,4 +12,10 @@ return [
         explode(',', (string) env('ADMIN_EMAILS', '')),
     ))),
 
+    /*
+    | healthchecks.io (or compatible) ping URL. The scheduler hits it every
+    | minute; set up the check to alert when pings stop, i.e. cron has died.
+    */
+    'healthcheck_url' => env('HEALTHCHECK_URL'),
+
 ];

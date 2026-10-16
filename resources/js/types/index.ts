@@ -25,6 +25,7 @@ export interface NavItem {
 export interface Features {
     birthdayEngine: boolean;
     vcardImport: boolean;
+    reminders: boolean;
 }
 
 export interface Flash {

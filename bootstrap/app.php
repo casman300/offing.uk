@@ -26,6 +26,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias(['admin' => EnsureAdmin::class]);
+
+        // RFC 8058 one-click unsubscribe: mail apps POST here without a CSRF
+        // token. The signed URL is the protection.
+        $middleware->validateCsrfTokens(except: ['reminders/off/*']);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
