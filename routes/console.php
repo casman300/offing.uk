@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AuditLog;
+use App\Models\ContactImport;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -45,4 +46,10 @@ Artisan::command('user:create {email} {name?}', function (string $email, ?string
 // then exits; never a long-lived worker process.
 Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->everyMinute()
+    ->withoutOverlapping();
+
+// Pending vCard imports hold third parties' names and birthdays; drop any
+// review abandoned for more than a day (#14).
+Schedule::command('model:prune', ['--model' => [ContactImport::class]])
+    ->hourly()
     ->withoutOverlapping();

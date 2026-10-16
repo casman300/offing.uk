@@ -7,7 +7,7 @@ import { birthdaySummary, byName, byUpcoming } from '@/lib/people';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type Person, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Cake, ChevronRight, Plus, RotateCcw, Search } from 'lucide-react';
+import { Cake, ChevronRight, Plus, RotateCcw, Search, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'People', href: '/people' }];
@@ -15,7 +15,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'People', href: '/people' }];
 type Sort = 'upcoming' | 'name';
 
 export default function PeopleIndex({ people, recentlyDeleted }: { people: Person[]; recentlyDeleted: Person[]; today: string }) {
-    const { flash } = usePage<SharedData>().props;
+    const { flash, features } = usePage<SharedData>().props;
     const [sort, setSort] = useState<Sort>('upcoming');
     const [query, setQuery] = useState('');
 
@@ -35,11 +35,20 @@ export default function PeopleIndex({ people, recentlyDeleted }: { people: Perso
             <div className="mx-auto w-full max-w-2xl space-y-6 p-4">
                 <div className="flex items-start justify-between gap-4">
                     <Heading title="People" description="Everyone whose birthday you want to remember." />
-                    <Button asChild>
-                        <Link href={route('people.create')}>
-                            <Plus /> Add person
-                        </Link>
-                    </Button>
+                    <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                        {features.vcardImport && (
+                            <Button asChild variant="outline">
+                                <Link href={route('people.import.create')}>
+                                    <Upload /> Import contacts
+                                </Link>
+                            </Button>
+                        )}
+                        <Button asChild>
+                            <Link href={route('people.create')}>
+                                <Plus /> Add person
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
                 {flash.deleted && (
