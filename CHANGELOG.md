@@ -20,3 +20,5 @@ functionality, **patch** = fixes.
 - Birthdays on the person page (#13): day + month with an optional year. Enter a year or an age (age needs the date); "Turns 43 in 12 days" in the list. 29 February is observed on 28 February in non-leap years.
 - Per-user timezone in profile settings, which decides when "today" is.
 - `php artisan offing:feature {feature} {email} --on|--off` to flip a feature flag for one user (audited).
+- Admin area (first slice of #11): `/admin/features` lists every feature flag with its rollout stage and on/off counts, lets an admin override a flag per user or reset it to its default, and audits every change. Admins are set with `ADMIN_EMAILS` in `.env`; everyone else gets a 404.
+- Feature flags now declare a rollout stage in code (off / admins / percentage / everyone). New flags start at admins only; `birthday-engine` is now on for admins by default.

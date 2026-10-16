@@ -4,7 +4,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Cake, Folder, LayoutGrid } from 'lucide-react';
+import { BookOpen, Cake, Folder, LayoutGrid, ShieldCheck } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -29,8 +29,12 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
-    const { features } = usePage<SharedData>().props;
-    const navItems: NavItem[] = features.birthdayEngine ? [...mainNavItems, { title: 'People', url: '/people', icon: Cake }] : mainNavItems;
+    const { features, auth } = usePage<SharedData>().props;
+    const navItems: NavItem[] = [
+        ...mainNavItems,
+        ...(features.birthdayEngine ? [{ title: 'People', url: '/people', icon: Cake }] : []),
+        ...(auth.isAdmin ? [{ title: 'Admin', url: '/admin/features', icon: ShieldCheck }] : []),
+    ];
 
     return (
         <Sidebar collapsible="icon" variant="inset">

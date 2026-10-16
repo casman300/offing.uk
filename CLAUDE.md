@@ -9,7 +9,7 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - **Laravel** (latest) + **Inertia.js + React** (TypeScript, Vite) — `laravel/react-starter-kit` base, Tailwind 4, shadcn/ui.
 - **MySQL** in production (20i shared hosting); SQLite is fine for local dev/CI.
 - **sabre/vobject** + **spatie/icalendar-generator** for all iCal parsing/generation — never hand-roll RRULE.
-- **Laravel Pennant** for feature flags — ship meaty features dark, flag them on progressively.
+- **Laravel Pennant** for feature flags — ship meaty features dark, flag them on progressively. Every flag extends `App\Features\StagedFeature` (stable `$name`, `$description`, `$stage`), is listed in `App\Features\Features`, and starts at `Rollout::Admins`; promote it by changing `$stage` in a PR. Pennant stores each user's first resolved value, so a stage change only reaches already-checked users after "Reset to default" on `/admin/features`. Admins are `ADMIN_EMAILS` in each host's `.env` — never a DB flag.
 - **Pest** for tests, **Pint** for style, **Larastan** for static analysis (`phpstan.neon`).
 - Hosting has **no daemons, no queue workers, no Node** — the scheduler (`schedule:run` via cron) drains the database queue; Vite/PWA assets are built in CI and shipped as static files.
 
