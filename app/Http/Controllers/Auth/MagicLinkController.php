@@ -90,6 +90,12 @@ class MagicLinkController extends Controller
 
         AuditLog::record($user, 'auth.login', ip: $request->ip());
 
+        // Spec §15: offer a passkey so next time is Face ID, not email. The
+        // intended URL stays in the session for the setup page to continue to.
+        if (PasskeySetupController::shouldPrompt($request)) {
+            return redirect()->route('passkeys.setup');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 }

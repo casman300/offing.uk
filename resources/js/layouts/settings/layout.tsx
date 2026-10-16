@@ -17,6 +17,11 @@ const sidebarNavItems: NavItem[] = [
         icon: null,
     },
     {
+        title: 'Passkeys',
+        url: '/settings/passkeys',
+        icon: null,
+    },
+    {
         title: 'Calendar feeds',
         url: '/settings/feeds',
         icon: null,

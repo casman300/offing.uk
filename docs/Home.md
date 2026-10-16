@@ -12,13 +12,14 @@ Offing is in early development and features arrive gradually, so some of what's 
 
 ## What we promise
 
-- **No passwords, ever.** You sign in with a link sent to your email.
+- **No passwords, ever.** You sign in with a passkey (Face ID, Touch ID or your device PIN) or a link sent to your email.
 - **No ads, no tracking, no selling your data.**
 - **Open source.** All of the code is on [GitHub](https://github.com/casman300/offing.uk), under the AGPL-3.0 licence.
 
 ## Using Offing
 
 - [Signing in](guide/Signing-in.md)
+- [Passkeys](guide/Passkeys.md)
 - [Calendar feeds](guide/Calendar-feeds.md)
 
 ## Building Offing

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Http\Controllers\Auth\PasskeySetupController;
 use App\Mail\MagicLinkMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,7 +60,7 @@ class MagicLinkTest extends TestCase
 
         $response = $this->get($url);
 
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('passkeys.setup'));
         $this->assertAuthenticatedAs($user);
         $this->assertNotNull($magicLink->fresh()->used_at);
         $this->assertNotNull($user->fresh()->email_verified_at);
@@ -92,7 +93,8 @@ class MagicLinkTest extends TestCase
             'remember' => false,
         ]);
 
-        $response = $this->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
+        $response = $this->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')
+            ->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
 
         $response->assertRedirect(route('dashboard', absolute: false));
         $this->assertAuthenticatedAs($user);
@@ -195,7 +197,7 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
 
-        $response = $this->actingAs($deviceUser)->get($url);
+        $response = $this->actingAs($deviceUser)->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')->get($url);
 
         $response->assertRedirect(route('dashboard', absolute: false));
         $this->assertAuthenticatedAs($linkOwner);
