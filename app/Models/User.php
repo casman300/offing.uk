@@ -67,6 +67,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<Passkey, $this>
+     */
+    public function passkeys(): HasMany
+    {
+        return $this->hasMany(Passkey::class);
+    }
+
+    /**
      * @return MorphMany<FeedToken, $this>
      */
     public function feedTokens(): MorphMany

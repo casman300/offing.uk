@@ -110,7 +110,8 @@ Never hand-roll RRULE. sabre/vobject is the reference PHP implementation (it pow
 users            id, name, email, timezone, settings(json: colour_scheme…), created_at
 user_devices     id, user_id, name, push_subscription(json,null), settings_override(json), last_seen_at
 sessions         Laravel default + device link; visible/revocable in UI
-passkeys         id, user_id, credential_id, public_key, …(WebAuthn)
+passkeys         id, user_id, name, credential_id, credential(json),   ← WebAuthn; standalone sign-in, magic link
+                 last_used_at                                             stays as fallback; credential = full record
 magic_links      id, user_id, token_hash, expires_at, used_at
 
 people           id, owner_user_id, name, linked_user_id(null),        ← virtual people; link = upgrade path
