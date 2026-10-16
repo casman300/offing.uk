@@ -46,6 +46,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'reminders_enabled_at' => 'datetime',
         ];
     }
 
@@ -87,6 +88,35 @@ class User extends Authenticatable
     public function contactImports(): HasMany
     {
         return $this->hasMany(ContactImport::class, 'owner_user_id');
+    }
+
+    /**
+     * @return HasMany<ReminderRule, $this>
+     */
+    public function reminderRules(): HasMany
+    {
+        return $this->hasMany(ReminderRule::class);
+    }
+
+    /**
+     * The two reminder slots, created with spec defaults on first use.
+     *
+     * @return array<string, ReminderRule> keyed by slot
+     */
+    public function reminderSlots(): array
+    {
+        $slots = [];
+
+        foreach (ReminderRule::SLOTS as $slot => $offset) {
+            $slots[$slot] = $this->reminderRules()->firstOrCreate(['slot' => $slot], ['offset_def' => $offset, 'enabled' => true]);
+        }
+
+        return $slots;
+    }
+
+    public function remindersOn(): bool
+    {
+        return $this->reminders_enabled_at !== null;
     }
 
     /**

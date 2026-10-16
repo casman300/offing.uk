@@ -5,6 +5,7 @@ use App\Models\ContactImport;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -53,3 +54,19 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
 Schedule::command('model:prune', ['--model' => [ContactImport::class]])
     ->hourly()
     ->withoutOverlapping();
+
+// Birthday reminders (spec §11, #17): the scanner queues reminders once
+// they're due; the drainer sends them. Both tolerate 5-minute cron gaps.
+Schedule::command('reminders:scan')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('reminders:drain')->everyMinute()->withoutOverlapping();
+
+// Dead-man's switch (spec §22, part of #7): a reminders product whose cron
+// silently dies is the worst failure, so ping healthchecks.io every run and
+// let it alert when the pings stop. No-op unless HEALTHCHECK_URL is set.
+Schedule::call(function () {
+    try {
+        Http::timeout(10)->retry(2, 1000)->get(config('offing.healthcheck_url'));
+    } catch (Throwable $e) {
+        report($e);
+    }
+})->everyMinute()->name('heartbeat')->when(fn () => filled(config('offing.healthcheck_url')));

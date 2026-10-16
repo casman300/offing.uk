@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\FeatureFlagController;
+use App\Http\Controllers\Admin\OutboxController;
 use Illuminate\Support\Facades\Route;
 
 // Admin shell (#11). Everything here is ADMIN_EMAILS-only and 404s for
@@ -11,4 +12,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('features', [FeatureFlagController::class, 'index'])->name('features.index');
     Route::post('features/{feature}/users/{user}', [FeatureFlagController::class, 'update'])->name('features.update');
     Route::post('features/{feature}/reset', [FeatureFlagController::class, 'reset'])->name('features.reset');
+
+    Route::get('outbox', [OutboxController::class, 'index'])->name('outbox.index');
 });
