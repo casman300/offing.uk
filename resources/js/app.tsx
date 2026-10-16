@@ -10,10 +10,14 @@ declare global {
     const route: typeof routeFn;
 }
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+// Fixed rather than read from VITE_APP_NAME: Vite bakes env vars in at build
+// time, the build runs in CI, and CI deliberately has no .env — so the env
+// var was always empty there and every tab said "Laravel". The brand isn't
+// environment-specific anyway.
+const appName = 'offing.uk';
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
     setup({ el, App, props }) {
         const root = createRoot(el);
