@@ -28,6 +28,13 @@ class User extends Authenticatable
         'timezone',
     ];
 
+    /** reminder_delivery values. */
+    public const DELIVERY_EMAIL = 'email';
+
+    public const DELIVERY_PUSH = 'push'; // push, with email as backup
+
+    public const DELIVERY_BOTH = 'both';
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -112,6 +119,14 @@ class User extends Authenticatable
         }
 
         return $slots;
+    }
+
+    /**
+     * @return HasMany<UserDevice, $this>
+     */
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class);
     }
 
     public function remindersOn(): bool
