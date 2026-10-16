@@ -20,6 +20,7 @@ class ProfileController extends Controller
     {
         return Inertia::render('settings/profile', [
             'status' => $request->session()->get('status'),
+            'timezones' => \DateTimeZone::listIdentifiers(),
         ]);
     }
 
