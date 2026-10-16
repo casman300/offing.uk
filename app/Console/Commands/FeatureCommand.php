@@ -2,15 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\Features\BirthdayEngine;
+use App\Features\Features;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Laravel\Pennant\Feature;
 
 /**
- * Flip a dark-launched feature for one user, so staging doesn't need tinker.
- * Run it with the host's real PHP CLI (deploy/find-php.sh), not bare `php`.
+ * Flip a feature for one user from the shell — the fallback for when the
+ * web admin (/admin/features) isn't reachable. Run it with the host's real
+ * PHP CLI (deploy/find-php.sh), not bare `php`.
  */
 class FeatureCommand extends Command
 {
@@ -22,20 +23,13 @@ class FeatureCommand extends Command
 
     protected $description = 'Show, activate or deactivate a feature flag for one user';
 
-    /**
-     * @var array<string, class-string>
-     */
-    private const FEATURES = [
-        'birthday-engine' => BirthdayEngine::class,
-    ];
-
     public function handle(): int
     {
         $name = (string) $this->argument('feature');
-        $feature = self::FEATURES[$name] ?? null;
+        $flag = Features::find($name);
 
-        if ($feature === null) {
-            $this->error("Unknown feature '{$name}'. Known: ".implode(', ', array_keys(self::FEATURES)));
+        if ($flag === null) {
+            $this->error("Unknown feature '{$name}'. Known: ".implode(', ', array_keys(Features::all())));
 
             return self::FAILURE;
         }
@@ -47,6 +41,8 @@ class FeatureCommand extends Command
 
             return self::FAILURE;
         }
+
+        $feature = $flag::class;
 
         if ($this->option('on') && $this->option('off')) {
             $this->error('Pass --on or --off, not both.');

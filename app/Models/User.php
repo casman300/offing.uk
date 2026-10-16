@@ -65,6 +65,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Admins come from ADMIN_EMAILS in the host's .env (config/offing.php),
+     * not from the database — nothing inside the app can grant it.
+     */
+    public function isAdmin(): bool
+    {
+        return in_array(strtolower($this->email), config('offing.admin_emails'), true);
+    }
+
+    /**
      * Today's date where the user is — decides whether a birthday has
      * happened yet this year.
      */

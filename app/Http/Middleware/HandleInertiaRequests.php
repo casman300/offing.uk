@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
+                'isAdmin' => (bool) $request->user()?->isAdmin(),
             ],
             'features' => fn () => [
                 'birthdayEngine' => $request->user() !== null && Feature::for($request->user())->active(BirthdayEngine::class),
