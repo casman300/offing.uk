@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Sentry\Laravel\Integration;
 
 // Laravel's own .env loading (LoadEnvironmentVariables) doesn't run until the
 // HTTP/console kernel bootstraps — too late for usePublicPath() below, and it
@@ -25,7 +26,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Reports to Sentry when SENTRY_LARAVEL_DSN is set; a no-op otherwise.
+        Integration::handles($exceptions);
     })->create();
 
 // 20i (and most shared hosting) doesn't let every plan change its document
