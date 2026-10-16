@@ -6,6 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Support\Facades\Route;
 
 // Laravel's own .env loading (LoadEnvironmentVariables) doesn't run until the
 // HTTP/console kernel bootstraps — too late for usePublicPath() below, and it
@@ -18,6 +19,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            // Outbound ICS feeds: no session, cookies or CSRF for polling calendar apps.
+            Route::group([], base_path('routes/feeds.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [

@@ -29,6 +29,7 @@ export interface Features {
 export interface Flash {
     status: string | null;
     deleted: { id: number; name: string } | null;
+    feedUrl: { id: number; url: string } | null;
 }
 
 export interface SharedData {

@@ -54,6 +54,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => fn () => [
                 'status' => $request->session()->get('status'),
                 'deleted' => $request->session()->get('deleted'),
+                'feedUrl' => $request->session()->get('feedUrl'),
             ],
         ];
     }

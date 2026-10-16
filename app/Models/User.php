@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -62,6 +63,14 @@ class User extends Authenticatable
     public function people(): HasMany
     {
         return $this->hasMany(Person::class, 'owner_user_id');
+    }
+
+    /**
+     * @return MorphMany<FeedToken, $this>
+     */
+    public function feedTokens(): MorphMany
+    {
+        return $this->morphMany(FeedToken::class, 'subject');
     }
 
     /**
