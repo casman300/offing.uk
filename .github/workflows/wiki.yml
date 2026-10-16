@@ -1,0 +1,72 @@
+name: wiki
+
+# docs/ is the source of truth; the GitHub wiki is a generated mirror of it
+# (see .github/wiki/build.php). PRs build it to catch broken links; pushes to
+# main publish it, so the wiki matches production.
+#
+# One-time setup: the wiki's git repo doesn't exist until its first page is
+# created, so enable the wiki and save any placeholder Home page in the
+# GitHub UI before the first publish.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/wiki/**'
+      - '.github/workflows/wiki.yml'
+  pull_request:
+    branches:
+      - rc
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/wiki/**'
+      - '.github/workflows/wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  wiki:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # pushing to the wiki repo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: '8.5'
+
+      - name: Build wiki
+        run: php .github/wiki/build.php --repo="$GITHUB_REPOSITORY" --ref=main "$RUNNER_TEMP/wiki-build"
+
+      - name: Publish wiki
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "$RUNNER_TEMP/wiki"; then
+            echo "::error::Couldn't clone the wiki — enable it in repo settings and create a placeholder Home page first."
+            exit 1
+          fi
+          rsync -a --delete --exclude .git "$RUNNER_TEMP/wiki-build/" "$RUNNER_TEMP/wiki/"
+          cd "$RUNNER_TEMP/wiki"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki already up to date."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Sync from ${GITHUB_REPOSITORY}@${GITHUB_SHA::7}"
+          git push origin HEAD
