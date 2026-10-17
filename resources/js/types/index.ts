@@ -79,12 +79,10 @@ export type BarometerColumn = BarometerTextColumn | 'rating_before' | 'rating_af
 
 export interface BarometerReading {
     id: number;
-    /** YYYY-MM-DDTHH:MM in the viewer's timezone (a datetime-local value). */
-    occurred_at: string;
     /** YYYY-MM-DD in the viewer's timezone. */
     date: string;
-    /** HH:MM in the viewer's timezone. */
-    time: string;
+    /** HH:MM in the viewer's timezone; null when the time wasn't recorded. */
+    time: string | null;
     situation: string | null;
     thoughts: string | null;
     sensations: string | null;

@@ -6,7 +6,9 @@ Nobody else can see your readings, including people you share your calendar with
 
 ## Taking a reading
 
-Choose **Barometer → Take a reading**. Only the time and a rating from 0 (calm) to 10 (most anxious) are needed, so you can log one in a couple of taps and fill in the rest later:
+Choose **Barometer → Take a reading**. Only the day and a rating from 0 (calm) to 10 (most anxious) are needed, so you can log one in a couple of taps and fill in the rest later. The day and time start at now. Change them to log something from earlier, or tick **I don't remember the time** if you're writing up a worry from another day.
+
+The rest is optional:
 
 - **Situation**: where you were and what was happening.
 - **Thoughts**: what went through your mind.

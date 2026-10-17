@@ -17,6 +17,9 @@ return new class extends Migration
      *
      * `local_date` is the day in `tzid` when it happened, written on save:
      * day grouping, exports and stats then never do timezone maths.
+     * `occurred_at` is null when the time wasn't recorded — a worry
+     * remembered from an earlier day — so the day is always known but the
+     * time never invented (time-of-day stats skip these).
      *
      * No soft deletes: deleting a health record means it's gone.
      */
@@ -25,7 +28,7 @@ return new class extends Migration
         Schema::create('barometer_readings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('occurred_at');
+            $table->timestamp('occurred_at')->nullable();
             $table->string('tzid', 64);
             $table->date('local_date');
             $table->text('situation')->nullable();

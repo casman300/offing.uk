@@ -410,7 +410,7 @@ An opt-in, owner-only anxiety/worry log modelled on the common CBT anxiety-track
 
 | Form header | Column | Notes |
 |---|---|---|
-| Day/Time | `occurred_at` (UTC) + `tzid` + `local_date` | `local_date` written on save; day grouping/exports/stats never do TZ maths |
+| Day/Time | `occurred_at` (UTC, nullable) + `tzid` + `local_date` | `local_date` always set (from the time, or given directly); day grouping/exports/stats never do TZ maths. Null `occurred_at` = time not recorded (a worry remembered from an earlier day) — never an invented midnight, so time-of-day stats can skip it |
 | Situation | `situation` | encrypted text |
 | Thoughts | `thoughts` | encrypted text |
 | Physical sensations | `sensations` | encrypted text |
@@ -419,7 +419,7 @@ An opt-in, owner-only anxiety/worry log modelled on the common CBT anxiety-track
 | What did I say to myself? | `self_talk` | encrypted text |
 | Second rating | `rating_after` | 0–10, nullable, usually added later |
 
-Only the time and first rating are required (quick capture mid-anxiety). Free text uses Laravel's `encrypted` cast (`APP_KEY`), so it can't be searched in SQL — ratings stay plain for stats. Hard deletes only; account deletion cascades.
+Only the day and first rating are required (quick capture mid-anxiety); the time defaults to now but can be changed or left out. Free text uses Laravel's `encrypted` cast (`APP_KEY`), so it can't be searched in SQL — ratings stay plain for stats. Hard deletes only; account deletion cascades.
 
 **Privacy.** Health data (UK GDPR special category). Never visible to partners — "see everything" does not include it — and never in ICS feeds, free/busy, notification text, or MCP (a separate, explicit scope if ever). Audit rows record deletes and exports, never content.
 

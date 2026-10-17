@@ -48,6 +48,17 @@ describe('csv', function () {
         ]);
     });
 
+    it('leaves the time blank for untimed readings, first within their day', function () {
+        BarometerReading::factory()->for($this->me)->at('2026-10-05 09:00')->create(['rating_before' => 4]);
+        BarometerReading::factory()->for($this->me)->quick()->untimed('2026-10-05')->create(['rating_before' => 6]);
+
+        $csv = $this->actingAs($this->me)->get(exportUrl(['format' => 'csv']))->streamedContent();
+        $rows = array_map(fn ($line) => str_getcsv($line, escape: ''), explode("\n", trim(substr($csv, 3))));
+
+        expect($rows[1][0])->toBe('2026-10-05')->and($rows[1][1])->toBe('')->and($rows[1][5])->toBe('6')
+            ->and($rows[2][1])->toBe('09:00');
+    });
+
     it('leaves out the columns I choose', function () {
         BarometerReading::factory()->for($this->me)->at('2026-10-16 10:15')->create(['thoughts' => 'private', 'rating_after' => 2]);
 
@@ -111,6 +122,23 @@ describe('pdf', function () {
             ->toContain('Made with Offing · offing.uk')
             ->not->toContain('<b>Bus</b>')
             ->not->toContain('>Thoughts<');
+    });
+
+    it('says when a reading has no time on the printout', function () {
+        $reading = BarometerReading::factory()->for($this->me)->untimed('2026-10-12')->create();
+
+        $html = view('barometer.export', [
+            'name' => 'Charlie',
+            'from' => CarbonImmutable::parse('2026-10-01'),
+            'to' => CarbonImmutable::parse('2026-10-16'),
+            'timezone' => 'Europe/London',
+            'columns' => BarometerReading::COLUMNS,
+            'readings' => collect([$reading]),
+        ])->render();
+
+        expect($html)->toContain('Mon 12 Oct')->toContain('Time not recorded');
+
+        $this->actingAs($this->me)->get(exportUrl(['format' => 'pdf']))->assertOk();
     });
 
     it('renders an empty range', function () {

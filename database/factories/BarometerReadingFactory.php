@@ -44,6 +44,16 @@ class BarometerReadingFactory extends Factory
         ]);
     }
 
+    /** Remembered later: the day is known, the time isn't. */
+    public function untimed(string $localDate, string $tzid = User::DEFAULT_TIMEZONE): static
+    {
+        return $this->state(fn () => [
+            'occurred_at' => null,
+            'local_date' => $localDate,
+            'tzid' => $tzid,
+        ]);
+    }
+
     public function at(string $localTime, string $tzid = User::DEFAULT_TIMEZONE): static
     {
         return $this->state(fn () => [

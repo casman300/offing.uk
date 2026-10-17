@@ -36,6 +36,8 @@ class ExportController extends Controller
 
         $readings = $user->barometerReadings()
             ->whereBetween('local_date', [$from->toDateString(), $to->toDateString()])
+            // Day first: untimed readings (null occurred_at) sort first within their day.
+            ->oldest('local_date')
             ->oldest('occurred_at')
             ->oldest('id')
             ->get();
@@ -100,8 +102,8 @@ class ExportController extends Controller
             fputcsv($out, ['Date', 'Time', ...array_values($columns)], escape: '');
 
             foreach ($readings as $reading) {
-                $local = $reading->occurred_at->setTimezone($timezone);
-                $row = [$local->toDateString(), $local->format('H:i')];
+                $page = $reading->toPageArray($timezone);
+                $row = [$page['date'], $page['time'] ?? ''];
 
                 foreach (array_keys($columns) as $column) {
                     $row[] = self::csvCell($reading->{$column});

@@ -10,12 +10,14 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 /**
- * Shared by create and update (#35). Only the time and the first rating
+ * Shared by create and update (#35). Only the day and the first rating
  * are required — someone mid-panic should be able to log "8, now" in two
  * taps and fill in the rest later.
  *
- * `occurred_at` arrives as a `datetime-local` value (no zone) and means
- * the user's profile timezone, which is also stored as the reading's TZID.
+ * The time is optional: a worry remembered from an earlier day can be
+ * logged against its day without inventing a time. `date` (Y-m-d) and
+ * `time` (H:i) are the user's profile timezone, which is also stored as
+ * the reading's TZID.
  */
 class ReadingRequest extends FormRequest
 {
@@ -31,7 +33,8 @@ class ReadingRequest extends FormRequest
         $text = ['nullable', 'string', 'max:'.BarometerReading::MAX_TEXT];
 
         return [
-            'occurred_at' => ['required', 'date_format:Y-m-d\TH:i'],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'time' => ['nullable', 'date_format:H:i'],
             'rating_before' => ['required', ...$rating],
             'rating_after' => ['nullable', ...$rating],
             ...array_fill_keys(BarometerReading::TEXT_COLUMNS, $text),
@@ -45,7 +48,9 @@ class ReadingRequest extends FormRequest
     {
         return [
             'rating_before.required' => 'Pick a rating from 0 to 10.',
-            'occurred_at.date_format' => 'Enter a date and time.',
+            'date.required' => 'Pick a day.',
+            'date.date_format' => 'Pick a day.',
+            'time.date_format' => 'Enter a time, or tick “I don’t remember the time”.',
         ];
     }
 
@@ -56,12 +61,16 @@ class ReadingRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                if ($validator->errors()->has('occurred_at')) {
+                if ($validator->errors()->hasAny(['date', 'time'])) {
                     return;
                 }
 
-                if ($this->occurredAt()->isAfter(now()->addMinutes(self::FUTURE_SLACK_MINUTES))) {
-                    $validator->errors()->add('occurred_at', 'That time is in the future.');
+                $occurredAt = $this->occurredAt();
+
+                if ($occurredAt === null && $this->localDate() > now($this->timezone())->toDateString()) {
+                    $validator->errors()->add('date', 'That day is in the future.');
+                } elseif ($occurredAt?->isAfter(now()->addMinutes(self::FUTURE_SLACK_MINUTES))) {
+                    $validator->errors()->add('time', 'That time is in the future.');
                 }
             },
         ];
@@ -72,9 +81,19 @@ class ReadingRequest extends FormRequest
         return $this->user()->timezone ?? User::DEFAULT_TIMEZONE;
     }
 
-    public function occurredAt(): CarbonImmutable
+    public function localDate(): string
     {
-        return CarbonImmutable::createFromFormat('Y-m-d\TH:i', $this->string('occurred_at')->toString(), $this->timezone())->utc();
+        return $this->string('date')->toString();
+    }
+
+    /** Null when the time wasn't recorded. */
+    public function occurredAt(): ?CarbonImmutable
+    {
+        if (! $this->filled('time')) {
+            return null;
+        }
+
+        return CarbonImmutable::createFromFormat('Y-m-d H:i', $this->localDate().' '.$this->string('time'), $this->timezone())->utc();
     }
 
     /**
@@ -84,6 +103,7 @@ class ReadingRequest extends FormRequest
     {
         $attributes = [
             'occurred_at' => $this->occurredAt(),
+            'local_date' => $this->localDate(),
             'tzid' => $this->timezone(),
             'rating_before' => $this->integer('rating_before'),
             'rating_after' => $this->filled('rating_after') ? $this->integer('rating_after') : null,

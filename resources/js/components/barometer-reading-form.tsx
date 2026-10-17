@@ -1,16 +1,19 @@
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { type BarometerReading, type BarometerTextColumn } from '@/types';
 import { useForm } from '@inertiajs/react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useState } from 'react';
 
 interface BarometerReadingFormProps {
     reading?: BarometerReading;
-    /** Viewer's local time now, YYYY-MM-DDTHH:MM — the default and the max. */
+    /** Viewer's local date, YYYY-MM-DD — the default and the max. */
+    today: string;
+    /** Viewer's local time now, HH:MM — the default, and the max for today. */
     now: string;
     submitLabel: string;
     onCancel?: () => void;
@@ -31,14 +34,16 @@ const TEXT_FIELDS: { name: BarometerTextColumn; label: string; hint: string }[] 
 const RATINGS = Array.from({ length: 11 }, (_, i) => String(i));
 
 /**
- * Add/edit a Barometer reading. Only the time and the first rating are
+ * Add/edit a Barometer reading. The time can be left out for a worry
+ * remembered from an earlier day. Only the day and the first rating are
  * required: the rating sits at the top so "8, now" is two taps, and
  * everything else can be filled in later. Exports keep the paper form's
  * column order regardless.
  */
-export default function BarometerReadingForm({ reading, now, submitLabel, onCancel }: BarometerReadingFormProps) {
+export default function BarometerReadingForm({ reading, today, now, submitLabel, onCancel }: BarometerReadingFormProps) {
     const { data, setData, post, patch, processing, errors } = useForm({
-        occurred_at: reading?.occurred_at ?? now,
+        date: reading?.date ?? today,
+        time: reading ? (reading.time ?? '') : now,
         rating_before: reading ? String(reading.rating_before) : '',
         situation: reading?.situation ?? '',
         thoughts: reading?.thoughts ?? '',
@@ -47,6 +52,20 @@ export default function BarometerReadingForm({ reading, now, submitLabel, onCanc
         self_talk: reading?.self_talk ?? '',
         rating_after: reading?.rating_after != null ? String(reading.rating_after) : '',
     });
+
+    const [timeKnown, setTimeKnown] = useState(data.time !== '');
+    // Remember the time while it's switched off, so ticking and unticking doesn't lose it.
+    const [lastTime, setLastTime] = useState(data.time || now);
+
+    const toggleTimeKnown = (known: boolean) => {
+        setTimeKnown(known);
+        if (known) {
+            setData('time', lastTime);
+        } else {
+            setLastTime(data.time || lastTime);
+            setData('time', '');
+        }
+    };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -60,24 +79,39 @@ export default function BarometerReadingForm({ reading, now, submitLabel, onCanc
 
     return (
         <form onSubmit={submit} className="space-y-6">
-            <div className="grid gap-2">
-                <Label htmlFor="occurred_at">When</Label>
-                <Input
-                    id="occurred_at"
-                    type="datetime-local"
-                    value={data.occurred_at}
-                    max={now}
-                    onChange={(e) => setData('occurred_at', e.target.value)}
-                    aria-describedby="occurred_at-hint"
-                    required
-                />
-                {!reading && (
-                    <p id="occurred_at-hint" className="text-muted-foreground text-sm">
-                        Set to now. Change it to log something from earlier.
-                    </p>
-                )}
-                <InputError message={errors.occurred_at} />
-            </div>
+            <fieldset className="grid gap-2">
+                <legend className="mb-2 text-sm font-medium">When</legend>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1">
+                        <Label htmlFor="date" className="text-muted-foreground text-xs">
+                            Day
+                        </Label>
+                        <Input id="date" type="date" value={data.date} max={today} onChange={(e) => setData('date', e.target.value)} required />
+                    </div>
+                    <div className="grid gap-1">
+                        <Label htmlFor="time" className="text-muted-foreground text-xs">
+                            Time
+                        </Label>
+                        <Input
+                            id="time"
+                            type="time"
+                            value={data.time}
+                            max={data.date === today ? now : undefined}
+                            onChange={(e) => setData('time', e.target.value)}
+                            disabled={!timeKnown}
+                            required={timeKnown}
+                        />
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Checkbox id="time_unknown" checked={!timeKnown} onCheckedChange={(checked) => toggleTimeKnown(checked !== true)} />
+                    <Label htmlFor="time_unknown" className="font-normal">
+                        I don’t remember the time
+                    </Label>
+                </div>
+                {!reading && timeKnown && <p className="text-muted-foreground text-sm">Set to now. Change it to log something from earlier.</p>}
+                <InputError message={errors.date ?? errors.time} />
+            </fieldset>
 
             <RatingPicker
                 id="rating_before"

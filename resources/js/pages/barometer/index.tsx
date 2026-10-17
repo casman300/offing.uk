@@ -87,7 +87,14 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                                                 href={route('barometer.edit', reading.id)}
                                                 className="hover:bg-accent/60 focus-visible:bg-accent grid grid-cols-[3rem_auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 outline-none"
                                             >
-                                                <span className="text-muted-foreground text-sm tabular-nums">{reading.time}</span>
+                                                {reading.time !== null ? (
+                                                    <span className="text-muted-foreground text-sm tabular-nums">{reading.time}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-sm" title="Time not recorded">
+                                                        <span aria-hidden>—</span>
+                                                        <span className="sr-only">Time not recorded</span>
+                                                    </span>
+                                                )}
                                                 <Ratings reading={reading} />
                                                 <span className="text-muted-foreground truncate text-sm">{reading.situation ?? ''}</span>
                                                 <ChevronRight className="text-muted-foreground size-4 shrink-0" />
@@ -207,7 +214,7 @@ function ExportPanel({
                         </div>
                     ))}
                 </div>
-                <p className="text-muted-foreground mt-2 text-xs">The time and first rating are always included.</p>
+                <p className="text-muted-foreground mt-2 text-xs">The day, time and first rating are always included.</p>
             </fieldset>
 
             <div className="flex flex-wrap gap-2">

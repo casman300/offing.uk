@@ -7,7 +7,7 @@ import { type BarometerReading, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
 
-export default function EditReading({ reading, now }: { reading: BarometerReading; now: string }) {
+export default function EditReading({ reading, today, now }: { reading: BarometerReading; today: string; now: string }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Barometer', href: '/barometer' },
         { title: 'Edit reading', href: `/barometer/${reading.id}/edit` },
@@ -42,7 +42,13 @@ export default function EditReading({ reading, now }: { reading: BarometerReadin
                         </DialogContent>
                     </Dialog>
                 </div>
-                <BarometerReadingForm reading={reading} now={now} submitLabel="Save" onCancel={() => router.visit(route('barometer.index'))} />
+                <BarometerReadingForm
+                    reading={reading}
+                    today={today}
+                    now={now}
+                    submitLabel="Save"
+                    onCancel={() => router.visit(route('barometer.index'))}
+                />
             </div>
         </AppLayout>
     );

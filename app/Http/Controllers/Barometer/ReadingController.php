@@ -28,6 +28,8 @@ class ReadingController extends Controller
         $today = $user->today();
 
         $page = $user->barometerReadings()
+            // Day first: untimed readings (null occurred_at) sort last within their day.
+            ->latest('local_date')
             ->latest('occurred_at')
             ->latest('id')
             ->simplePaginate(self::PER_PAGE);
@@ -50,9 +52,7 @@ class ReadingController extends Controller
 
     public function create(Request $request): Response
     {
-        return Inertia::render('barometer/create', [
-            'now' => now($request->user()->timezone ?? User::DEFAULT_TIMEZONE)->format('Y-m-d\TH:i'),
-        ]);
+        return Inertia::render('barometer/create', $this->clock($request->user()));
     }
 
     public function store(ReadingRequest $request): RedirectResponse
@@ -68,7 +68,7 @@ class ReadingController extends Controller
 
         return Inertia::render('barometer/edit', [
             'reading' => $user->barometerReadings()->findOrFail($reading)->toPageArray($user->timezone ?? User::DEFAULT_TIMEZONE),
-            'now' => now($user->timezone ?? User::DEFAULT_TIMEZONE)->format('Y-m-d\TH:i'),
+            ...$this->clock($user),
         ]);
     }
 
@@ -77,6 +77,18 @@ class ReadingController extends Controller
         $request->user()->barometerReadings()->findOrFail($reading)->update($request->readingAttributes());
 
         return to_route('barometer.index')->with('status', 'reading-saved');
+    }
+
+    /**
+     * The user's local date and time now: the form's defaults and limits.
+     *
+     * @return array{today: string, now: string}
+     */
+    private function clock(User $user): array
+    {
+        $now = now($user->timezone ?? User::DEFAULT_TIMEZONE);
+
+        return ['today' => $now->toDateString(), 'now' => $now->format('H:i')];
     }
 
     /**

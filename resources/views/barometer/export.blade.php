@@ -64,10 +64,10 @@
         </thead>
         <tbody>
             @forelse ($readings as $reading)
-                @php($local = $reading->occurred_at->setTimezone($timezone))
+                @php($when = $reading->toPageArray($timezone))
                 <tr>
-                    <td class="when"><span class="date">{{ $local->format('D j M') }}</span>
-<span class="time">{{ $local->format('H:i') }}</span></td>
+                    <td class="when"><span class="date">{{ \Carbon\CarbonImmutable::parse($when['date'])->format('D j M') }}</span>
+<span class="time">{{ $when['time'] ?? 'Time not recorded' }}</span></td>
                     @foreach (array_keys($columns) as $key)
                         <td @class(['rating' => $key === 'rating_before' || $key === 'rating_after'])>{{ $reading->{$key} }}</td>
                     @endforeach

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One Barometer reading (#35): a row of the CBT anxiety-tracking form.
  * Owner-only health data — see the migration and spec §25.
  *
- * @property CarbonImmutable $occurred_at
+ * @property CarbonImmutable|null $occurred_at null = time not recorded
  * @property string $local_date Y-m-d. Deliberately not a date cast: that
  *                              stores a time too on SQLite, which breaks
  *                              range queries against plain dates.
@@ -52,6 +52,7 @@ class BarometerReading extends Model
 
     protected $fillable = [
         'occurred_at',
+        'local_date',
         'tzid',
         'situation',
         'thoughts',
@@ -78,8 +79,11 @@ class BarometerReading extends Model
 
     protected static function booted(): void
     {
+        // With a time, the day follows from it; without one, the day was given directly.
         static::saving(function (BarometerReading $reading) {
-            $reading->local_date = $reading->occurred_at->setTimezone($reading->tzid)->toDateString();
+            if ($reading->occurred_at !== null) {
+                $reading->local_date = $reading->occurred_at->setTimezone($reading->tzid)->toDateString();
+            }
         });
     }
 
@@ -99,13 +103,12 @@ class BarometerReading extends Model
      */
     public function toPageArray(string $timezone): array
     {
-        $local = $this->occurred_at->setTimezone($timezone);
+        $local = $this->occurred_at?->setTimezone($timezone);
 
         return [
             'id' => $this->id,
-            'occurred_at' => $local->format('Y-m-d\TH:i'),
-            'date' => $local->toDateString(),
-            'time' => $local->format('H:i'),
+            'date' => $local?->toDateString() ?? $this->local_date,
+            'time' => $local?->format('H:i'),
             'situation' => $this->situation,
             'thoughts' => $this->thoughts,
             'sensations' => $this->sensations,

@@ -28,7 +28,7 @@ describe('feature flag', function () {
 
         $this->actingAs($user)->get('/barometer')->assertNotFound();
         $this->actingAs($user)->get('/barometer/create')->assertNotFound();
-        $this->actingAs($user)->post('/barometer', ['occurred_at' => '2026-10-16T11:00', 'rating_before' => 5])->assertNotFound();
+        $this->actingAs($user)->post('/barometer', ['date' => '2026-10-16', 'time' => '11:00', 'rating_before' => 5])->assertNotFound();
         $this->actingAs($user)->get("/barometer/{$reading->id}/edit")->assertNotFound();
         $this->actingAs($user)->delete("/barometer/{$reading->id}")->assertNotFound();
         $this->actingAs($user)->get('/barometer/export?format=csv&from=2026-10-01&to=2026-10-16')->assertNotFound();
@@ -59,7 +59,7 @@ describe('recording', function () {
         $user = barometerUser();
 
         $this->actingAs($user)
-            ->post('/barometer', ['occurred_at' => '2026-10-16T10:15', 'rating_before' => 8])
+            ->post('/barometer', ['date' => '2026-10-16', 'time' => '10:15', 'rating_before' => 8])
             ->assertRedirect('/barometer')
             ->assertSessionHas('status', 'reading-saved');
 
@@ -77,7 +77,7 @@ describe('recording', function () {
         $user = barometerUser();
 
         $this->actingAs($user)->post('/barometer', [
-            'occurred_at' => '2026-10-16T10:15',
+            'date' => '2026-10-16', 'time' => '10:15',
             'situation' => '  Riding the bus, it was crowded  ',
             'thoughts' => 'Everyone is looking at me.',
             'sensations' => 'Heart pounding',
@@ -97,7 +97,7 @@ describe('recording', function () {
         $user = barometerUser();
 
         $this->actingAs($user)->post('/barometer', [
-            'occurred_at' => '2026-10-16T10:15',
+            'date' => '2026-10-16', 'time' => '10:15',
             'thoughts' => 'I am going to panic',
             'rating_before' => 7,
         ]);
@@ -111,7 +111,7 @@ describe('recording', function () {
     it('works out the local date in the user\'s own timezone', function () {
         $user = barometerUser(['timezone' => 'America/Los_Angeles']);
         // 12:00 London is 04:00 in Los Angeles on the same day; 23:30 LA on the 15th is the 16th in UTC.
-        $this->actingAs($user)->post('/barometer', ['occurred_at' => '2026-10-15T23:30', 'rating_before' => 4]);
+        $this->actingAs($user)->post('/barometer', ['date' => '2026-10-15', 'time' => '23:30', 'rating_before' => 4]);
 
         $reading = $user->barometerReadings()->sole();
         expect($reading->tzid)->toBe('America/Los_Angeles')
@@ -123,7 +123,7 @@ describe('recording', function () {
         $user = barometerUser();
 
         $this->actingAs($user)
-            ->post('/barometer', [...['occurred_at' => '2026-10-16T10:15', 'rating_before' => 5], ...$input])
+            ->post('/barometer', [...['date' => '2026-10-16', 'time' => '10:15', 'rating_before' => 5], ...$input])
             ->assertSessionHasErrors($field);
 
         expect(BarometerReading::count())->toBe(0);
@@ -132,9 +132,11 @@ describe('recording', function () {
         'rating above 10' => [['rating_before' => 11], 'rating_before'],
         'negative rating' => [['rating_before' => -1], 'rating_before'],
         'second rating above 10' => [['rating_after' => 11], 'rating_after'],
-        'missing time' => [['occurred_at' => ''], 'occurred_at'],
-        'garbled time' => [['occurred_at' => 'yesterday'], 'occurred_at'],
-        'in the future' => [['occurred_at' => '2026-10-16T13:30'], 'occurred_at'],
+        'missing day' => [['date' => ''], 'date'],
+        'garbled day' => [['date' => 'yesterday'], 'date'],
+        'garbled time' => [['time' => '25:99'], 'time'],
+        'later today' => [['time' => '13:30'], 'time'],
+        'a future day without a time' => [['date' => '2026-10-17', 'time' => null], 'date'],
         'too long' => [['thoughts' => str_repeat('a', 5001)], 'thoughts'],
     ]);
 
@@ -143,7 +145,7 @@ describe('recording', function () {
 
         // A winter (GMT) time logged from summer (BST): the offset is the date's, not today's.
         $this->actingAs($user)
-            ->post('/barometer', ['occurred_at' => '2026-01-20T21:40', 'rating_before' => 6])
+            ->post('/barometer', ['date' => '2026-01-20', 'time' => '21:40', 'rating_before' => 6])
             ->assertSessionHasNoErrors();
 
         $reading = $user->barometerReadings()->sole();
@@ -154,12 +156,31 @@ describe('recording', function () {
         expect($csv)->toContain('2026-01-20,21:40');
     });
 
+    it('saves a remembered worry against its day without inventing a time', function () {
+        $user = barometerUser();
+
+        $this->actingAs($user)
+            ->post('/barometer', ['date' => '2026-10-12', 'time' => '', 'rating_before' => 7, 'thoughts' => 'Kept replaying the meeting'])
+            ->assertSessionHasNoErrors();
+
+        $reading = $user->barometerReadings()->sole();
+        expect($reading->occurred_at)->toBeNull()
+            ->and($reading->local_date)->toBe('2026-10-12')
+            ->and($reading->tzid)->toBe('Europe/London');
+    });
+
+    it('allows today without a time', function () {
+        $this->actingAs(barometerUser())
+            ->post('/barometer', ['date' => '2026-10-16', 'rating_before' => 2])
+            ->assertSessionHasNoErrors();
+    });
+
     it('allows a few minutes of clock skew', function () {
         $user = barometerUser();
 
         // Now is 12:00 BST; a phone a couple of minutes fast is fine.
         $this->actingAs($user)
-            ->post('/barometer', ['occurred_at' => '2026-10-16T12:03', 'rating_before' => 5])
+            ->post('/barometer', ['date' => '2026-10-16', 'time' => '12:03', 'rating_before' => 5])
             ->assertSessionHasNoErrors();
     });
 });
@@ -187,6 +208,22 @@ describe('list', function () {
                 ->where('nextPageUrl', null));
     });
 
+    it('lists untimed readings with their day, after that day\'s timed ones', function () {
+        $me = barometerUser();
+        BarometerReading::factory()->for($me)->untimed('2026-10-14')->create(['rating_before' => 7]);
+        BarometerReading::factory()->for($me)->at('2026-10-14 08:00')->create(['rating_before' => 3]);
+        BarometerReading::factory()->for($me)->at('2026-10-13 22:00')->create(['rating_before' => 5]);
+
+        $this->actingAs($me)->get('/barometer')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('readings.0.date', '2026-10-14')
+                ->where('readings.0.time', '08:00')
+                ->where('readings.1.date', '2026-10-14')
+                ->where('readings.1.time', null)
+                ->where('readings.1.rating_before', 7)
+                ->where('readings.2.date', '2026-10-13'));
+    });
+
     it('pages after 50 readings', function () {
         $me = barometerUser();
         BarometerReading::factory()->for($me)->count(51)->create();
@@ -207,14 +244,31 @@ describe('editing and deleting', function () {
         $this->actingAs($me)->get("/barometer/{$reading->id}/edit")
             ->assertInertia(fn (Assert $page) => $page
                 ->component('barometer/edit')
-                ->where('reading.occurred_at', '2026-10-16T10:15')
+                ->where('reading.date', '2026-10-16')
+                ->where('reading.time', '10:15')
                 ->where('reading.rating_after', null));
 
         $this->actingAs($me)
-            ->patch("/barometer/{$reading->id}", ['occurred_at' => '2026-10-16T10:15', 'rating_before' => 8, 'rating_after' => 4])
+            ->patch("/barometer/{$reading->id}", ['date' => '2026-10-16', 'time' => '10:15', 'rating_before' => 8, 'rating_after' => 4])
             ->assertRedirect('/barometer');
 
         expect($reading->fresh()->rating_after)->toBe(4);
+    });
+
+    it('can drop the time from a reading, keeping its day', function () {
+        $me = barometerUser();
+        $reading = BarometerReading::factory()->for($me)->at('2026-10-14 10:15')->create(['rating_before' => 8]);
+
+        $this->actingAs($me)
+            ->patch("/barometer/{$reading->id}", ['date' => '2026-10-14', 'time' => '', 'rating_before' => 8])
+            ->assertSessionHasNoErrors();
+
+        $reading->refresh();
+        expect($reading->occurred_at)->toBeNull()
+            ->and($reading->local_date)->toBe('2026-10-14');
+
+        $this->actingAs($me)->get("/barometer/{$reading->id}/edit")
+            ->assertInertia(fn (Assert $page) => $page->where('reading.date', '2026-10-14')->where('reading.time', null));
     });
 
     it('hard-deletes, and audits without content', function () {
@@ -235,7 +289,7 @@ describe('editing and deleting', function () {
         $theirs = BarometerReading::factory()->for(barometerUser())->create();
 
         $this->actingAs($me)->get("/barometer/{$theirs->id}/edit")->assertNotFound();
-        $this->actingAs($me)->patch("/barometer/{$theirs->id}", ['occurred_at' => '2026-10-16T10:15', 'rating_before' => 1])->assertNotFound();
+        $this->actingAs($me)->patch("/barometer/{$theirs->id}", ['date' => '2026-10-16', 'time' => '10:15', 'rating_before' => 1])->assertNotFound();
         $this->actingAs($me)->delete("/barometer/{$theirs->id}")->assertNotFound();
 
         expect($theirs->fresh())->not->toBeNull();
