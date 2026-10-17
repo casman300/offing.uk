@@ -10,6 +10,9 @@ use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -24,7 +27,25 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ExportController extends Controller
 {
-    public function __invoke(ExportRequest $request): Response
+    /**
+     * The export options page: date range (last 30 days by default) and
+     * which columns to include.
+     */
+    public function show(Request $request): InertiaResponse
+    {
+        $today = $request->user()->today();
+
+        return Inertia::render('barometer/export', [
+            'defaults' => [
+                'from' => $today->subDays(29)->toDateString(),
+                'to' => $today->toDateString(),
+            ],
+            'columns' => BarometerReading::COLUMNS,
+            'omittable' => BarometerReading::OMITTABLE_COLUMNS,
+        ]);
+    }
+
+    public function download(ExportRequest $request): Response
     {
         $user = $request->user();
         $timezone = $user->timezone ?? User::DEFAULT_TIMEZONE;

@@ -1,15 +1,11 @@
 import Heading from '@/components/heading';
-import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
-import { type BarometerColumn, type BarometerReading, type BreadcrumbItem, type SharedData } from '@/types';
+import { type BarometerReading, type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ChevronRight, Download, Gauge, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Barometer', href: '/barometer' }];
 
@@ -18,13 +14,10 @@ interface Props {
     readings: BarometerReading[];
     nextPageUrl: string | null;
     previousPageUrl: string | null;
-    exportDefaults: { from: string; to: string };
-    columns: Record<BarometerColumn, string>;
-    omittable: BarometerColumn[];
 }
 
-export default function BarometerIndex({ today, readings, nextPageUrl, previousPageUrl, exportDefaults, columns, omittable }: Props) {
-    const { flash, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
+export default function BarometerIndex({ today, readings, nextPageUrl, previousPageUrl }: Props) {
+    const { flash } = usePage<SharedData>().props;
 
     const days = useMemo(() => {
         const groups: { date: string; readings: BarometerReading[] }[] = [];
@@ -47,11 +40,18 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
             <div className="mx-auto w-full max-w-2xl min-w-0 space-y-6 p-4">
                 <div className="flex items-start justify-between gap-4">
                     <Heading title="Barometer" description="Your private anxiety log. Only you can see it." />
-                    <Button asChild className="shrink-0">
-                        <Link href={route('barometer.create')}>
-                            <Plus /> Take a reading
-                        </Link>
-                    </Button>
+                    <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                        <Button asChild variant="outline">
+                            <Link href={route('barometer.export')}>
+                                <Download /> Export
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href={route('barometer.create')}>
+                                <Plus /> Take a reading
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <Transition
@@ -71,7 +71,7 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                     <div className="text-muted-foreground rounded-xl border border-dashed p-10 text-center">
                         <Gauge className="mx-auto mb-3 size-8" />
                         <p className="text-foreground font-medium">No readings yet</p>
-                        <p className="mt-1 text-sm">When anxiety shows up, take a reading: a time and a rating is enough.</p>
+                        <p className="mt-1 text-sm">When anxiety shows up, take a reading: a rating is all it needs.</p>
                     </div>
                 ) : (
                     <div className="space-y-5">
@@ -124,8 +124,6 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                     </div>
                 )}
 
-                <ExportPanel defaults={exportDefaults} columns={columns} omittable={omittable} errors={errors} />
-
                 <p className="text-muted-foreground border-t pt-4 text-xs leading-relaxed">
                     Barometer follows a common CBT (cognitive behavioural therapy) anxiety-tracking format. It works best alongside a therapist, and
                     isn’t a substitute for care. If you’re struggling right now, Samaritans are there day or night on{' '}
@@ -154,83 +152,6 @@ function Ratings({ reading }: { reading: BarometerReading }) {
                 <span className="text-muted-foreground text-xs">add 2nd</span>
             )}
         </span>
-    );
-}
-
-function ExportPanel({
-    defaults,
-    columns,
-    omittable,
-    errors,
-}: {
-    defaults: { from: string; to: string };
-    columns: Record<BarometerColumn, string>;
-    omittable: BarometerColumn[];
-    errors: Record<string, string>;
-}) {
-    const [from, setFrom] = useState(defaults.from);
-    const [to, setTo] = useState(defaults.to);
-    const [omit, setOmit] = useState<BarometerColumn[]>([]);
-
-    const href = (format: 'pdf' | 'csv') => route('barometer.export', { format, from, to, ...(omit.length > 0 ? { omit } : {}) });
-    const toggle = (column: BarometerColumn, included: boolean) =>
-        setOmit((current) => (included ? current.filter((c) => c !== column) : [...current, column]));
-
-    return (
-        <section aria-labelledby="export-heading" className="bg-card space-y-4 rounded-xl border p-4">
-            <div>
-                <h3 id="export-heading" className="font-medium">
-                    Export for your therapist
-                </h3>
-                <p className="text-muted-foreground text-sm">A printable PDF laid out like the paper form, or a CSV for a spreadsheet.</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-2">
-                    <Label htmlFor="export-from">From</Label>
-                    <Input id="export-from" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
-                    <InputError message={errors.from} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="export-to">To</Label>
-                    <Input id="export-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
-                    <InputError message={errors.to} />
-                </div>
-            </div>
-
-            <fieldset>
-                <legend className="mb-2 text-sm font-medium">Include</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                    {omittable.map((column) => (
-                        <div key={column} className="flex items-center gap-2">
-                            <Checkbox
-                                id={`include-${column}`}
-                                checked={!omit.includes(column)}
-                                onCheckedChange={(checked) => toggle(column, checked === true)}
-                            />
-                            <Label htmlFor={`include-${column}`} className="font-normal">
-                                {columns[column]}
-                            </Label>
-                        </div>
-                    ))}
-                </div>
-                <p className="text-muted-foreground mt-2 text-xs">The day, time and first rating are always included.</p>
-            </fieldset>
-
-            <div className="flex flex-wrap gap-2">
-                {/* Plain links, not Inertia visits: these are file downloads. */}
-                <Button asChild>
-                    <a href={href('pdf')}>
-                        <Download /> Download PDF
-                    </a>
-                </Button>
-                <Button asChild variant="outline">
-                    <a href={href('csv')}>
-                        <Download /> Download CSV
-                    </a>
-                </Button>
-            </div>
-        </section>
     );
 }
 

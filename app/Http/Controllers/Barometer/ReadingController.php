@@ -41,12 +41,6 @@ class ReadingController extends Controller
                 ->values(),
             'nextPageUrl' => $page->nextPageUrl(),
             'previousPageUrl' => $page->previousPageUrl(),
-            'exportDefaults' => [
-                'from' => $today->subDays(29)->toDateString(),
-                'to' => $today->toDateString(),
-            ],
-            'columns' => BarometerReading::COLUMNS,
-            'omittable' => BarometerReading::OMITTABLE_COLUMNS,
         ]);
     }
 

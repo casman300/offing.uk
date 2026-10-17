@@ -31,7 +31,8 @@ describe('feature flag', function () {
         $this->actingAs($user)->post('/barometer', ['date' => '2026-10-16', 'time' => '11:00', 'rating_before' => 5])->assertNotFound();
         $this->actingAs($user)->get("/barometer/{$reading->id}/edit")->assertNotFound();
         $this->actingAs($user)->delete("/barometer/{$reading->id}")->assertNotFound();
-        $this->actingAs($user)->get('/barometer/export?format=csv&from=2026-10-01&to=2026-10-16')->assertNotFound();
+        $this->actingAs($user)->get('/barometer/export')->assertNotFound();
+        $this->actingAs($user)->get('/barometer/export/download?format=csv&from=2026-10-01&to=2026-10-16')->assertNotFound();
 
         expect(BarometerReading::count())->toBe(1);
     });
@@ -152,7 +153,7 @@ describe('recording', function () {
         expect($reading->local_date)->toBe('2026-01-20')
             ->and($reading->occurred_at->utc()->format('Y-m-d H:i'))->toBe('2026-01-20 21:40');
 
-        $csv = $this->actingAs($user)->get('/barometer/export?format=csv&from=2026-01-01&to=2026-01-31')->streamedContent();
+        $csv = $this->actingAs($user)->get('/barometer/export/download?format=csv&from=2026-01-01&to=2026-01-31')->streamedContent();
         expect($csv)->toContain('2026-01-20,21:40');
     });
 
@@ -203,8 +204,6 @@ describe('list', function () {
                 ->where('readings.0.rating_after', 5)
                 ->where('readings.0.situation', 'Bus')
                 ->where('readings.1.date', '2026-10-14')
-                ->where('exportDefaults.from', '2026-09-17')
-                ->where('exportDefaults.to', '2026-10-16')
                 ->where('nextPageUrl', null));
     });
 

@@ -11,7 +11,8 @@ Route::middleware(['auth', EnsureFeaturesAreActive::using(Barometer::class)])->g
     Route::get('barometer', [ReadingController::class, 'index'])->name('barometer.index');
     Route::get('barometer/create', [ReadingController::class, 'create'])->name('barometer.create');
     Route::post('barometer', [ReadingController::class, 'store'])->name('barometer.store');
-    Route::get('barometer/export', ExportController::class)->middleware('throttle:10,1')->name('barometer.export');
+    Route::get('barometer/export', [ExportController::class, 'show'])->name('barometer.export');
+    Route::get('barometer/export/download', [ExportController::class, 'download'])->middleware('throttle:10,1')->name('barometer.export.download');
     Route::get('barometer/{reading}/edit', [ReadingController::class, 'edit'])->whereNumber('reading')->name('barometer.edit');
     Route::patch('barometer/{reading}', [ReadingController::class, 'update'])->whereNumber('reading')->name('barometer.update');
     Route::delete('barometer/{reading}', [ReadingController::class, 'destroy'])->whereNumber('reading')->name('barometer.destroy');

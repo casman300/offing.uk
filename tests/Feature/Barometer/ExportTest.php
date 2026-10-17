@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\BarometerReading;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Pennant\Feature;
 
 beforeEach(function () {
@@ -17,8 +18,21 @@ beforeEach(function () {
 
 function exportUrl(array $query): string
 {
-    return '/barometer/export?'.http_build_query([...['from' => '2026-10-01', 'to' => '2026-10-16'], ...$query]);
+    return '/barometer/export/download?'.http_build_query([...['from' => '2026-10-01', 'to' => '2026-10-16'], ...$query]);
 }
+
+describe('export page', function () {
+    it('offers the last 30 days and every column by default', function () {
+        $this->actingAs($this->me)->get('/barometer/export')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('barometer/export')
+                ->where('defaults.from', '2026-09-17')
+                ->where('defaults.to', '2026-10-16')
+                ->where('columns.thoughts', 'Thoughts')
+                ->where('omittable', BarometerReading::OMITTABLE_COLUMNS));
+    });
+});
 
 describe('csv', function () {
     it('exports my readings in range, oldest first, with a BOM and local times', function () {
@@ -152,15 +166,15 @@ describe('validation', function () {
 
         $this->actingAs($this->me)
             ->get(exportUrl(['format' => 'csv', 'from' => '2024-01-01']))
-            ->assertRedirect('/barometer')
+            ->assertRedirect('/barometer/export')
             ->assertSessionHasErrors(['to' => 'Export up to a year at a time.']);
 
         expect(AuditLog::where('action', 'barometer.exported')->count())->toBe(1);
     });
 
-    it('rejects bad input, back to the Barometer page', function (array $query) {
+    it('rejects bad input, back to the export page', function (array $query) {
         $this->actingAs($this->me)->get(exportUrl($query))
-            ->assertRedirect('/barometer')
+            ->assertRedirect('/barometer/export')
             ->assertSessionHasErrors();
 
         expect(AuditLog::where('action', 'barometer.exported')->count())->toBe(0);

@@ -12,7 +12,7 @@ use Illuminate\Validation\Validator;
 /**
  * Barometer export options (#35).
  *
- * Failures go to the Barometer page explicitly, never "back": the export is
+ * Failures go to the export page explicitly, never "back": the download is
  * a GET, so Laravel remembers the last one as the previous URL, and
  * redirecting back would quietly download the previous export again.
  */
@@ -21,7 +21,7 @@ class ExportRequest extends FormRequest
     /** Keeps one dompdf render within shared-hosting limits. */
     public const MAX_DAYS = 366;
 
-    protected $redirectRoute = 'barometer.index';
+    protected $redirectRoute = 'barometer.export';
 
     /**
      * @return array<string, ValidationRule|array<mixed>|string>

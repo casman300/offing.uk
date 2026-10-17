@@ -20,6 +20,6 @@ Deleting a reading removes it for good. There's no undo.
 
 ## Exporting for your therapist
 
-At the bottom of the Barometer page, pick a date range (up to a year) and choose **Download PDF** or **Download CSV**. The PDF prints on A4 and is laid out like the paper form, titled "Anxiety log". The CSV opens in Excel or Numbers.
+Choose **Export** at the top of the Barometer page, pick a date range (up to a year) and choose **Download PDF** or **Download CSV**. The PDF prints on A4 and is laid out like the paper form, titled "Anxiety log". The CSV opens in Excel or Numbers.
 
 Untick any column you'd rather not share that week. The time and first rating are always included.
