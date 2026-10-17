@@ -1,9 +1,10 @@
 {{--
     Barometer PDF export (#35), rendered by dompdf: A4 landscape, laid out
     like the paper anxiety-tracking form. Titled plainly ("Anxiety log") so
-    a therapist needn't know the product name. Remote resources and PHP are
+    it reads as the user's log, not our branding. Remote resources and PHP are
     disabled in ExportController; all user text goes through {{ }}. Page
-    numbers are stamped on by ExportController after rendering.
+    numbers are stamped on by ExportController after rendering. The footer
+    credit is plain text — no link, no tracking parameters.
 --}}
 @php
     $textColumns = array_values(array_diff(array_keys($columns), ['rating_before', 'rating_after']));
@@ -38,7 +39,7 @@
 </head>
 <body>
     <footer>
-        {{ $name }} · Anxiety log · {{ $from->format('j M Y') }} – {{ $to->format('j M Y') }}
+        {{ $name }} · Anxiety log · {{ $from->format('j M Y') }} – {{ $to->format('j M Y') }} · Made with Offing · offing.uk
     </footer>
 
     <h1>Anxiety log</h1>

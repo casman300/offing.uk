@@ -404,7 +404,7 @@ Diary layers (Spotify, fitness, past events — likely via nightly importers) ·
 
 An opt-in, owner-only anxiety/worry log modelled on the common CBT anxiety-tracking form. Each entry is a **reading**. Tracking epic: #34.
 
-**Naming.** "Barometer" in the UI and code (`Barometer` flag, `barometer_readings`): nautical, scaled like the ratings, and not a "diary" or "journal" — those words are kept free for a more general section later. Exports are titled plainly ("Anxiety log") so a therapist needn't know the product name.
+**Naming.** "Barometer" in the UI and code (`Barometer` flag, `barometer_readings`): nautical, scaled like the ratings, and not a "diary" or "journal" — those words are kept free for a more general section later. Exports are titled plainly ("Anxiety log") so they read as the user's log, not our branding; the PDF footer carries a small plain-text "Made with Offing · offing.uk" credit — no link, no tracking parameters.
 
 **Data model.** One fixed column per header of the paper form: no template engine until a second CBT worksheet gives us real cases to generalise from.
 

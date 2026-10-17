@@ -108,6 +108,7 @@ describe('pdf', function () {
             ->toContain('10:15')
             ->toContain('&lt;b&gt;Bus&lt;/b&gt;')
             ->toContain('Second rating')
+            ->toContain('Made with Offing · offing.uk')
             ->not->toContain('<b>Bus</b>')
             ->not->toContain('>Thoughts<');
     });
