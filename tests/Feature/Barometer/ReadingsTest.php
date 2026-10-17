@@ -138,6 +138,22 @@ describe('recording', function () {
         'too long' => [['thoughts' => str_repeat('a', 5001)], 'thoughts'],
     ]);
 
+    it('backfills an old reading onto its own day', function () {
+        $user = barometerUser();
+
+        // A winter (GMT) time logged from summer (BST): the offset is the date's, not today's.
+        $this->actingAs($user)
+            ->post('/barometer', ['occurred_at' => '2026-01-20T21:40', 'rating_before' => 6])
+            ->assertSessionHasNoErrors();
+
+        $reading = $user->barometerReadings()->sole();
+        expect($reading->local_date)->toBe('2026-01-20')
+            ->and($reading->occurred_at->utc()->format('Y-m-d H:i'))->toBe('2026-01-20 21:40');
+
+        $csv = $this->actingAs($user)->get('/barometer/export?format=csv&from=2026-01-01&to=2026-01-31')->streamedContent();
+        expect($csv)->toContain('2026-01-20,21:40');
+    });
+
     it('allows a few minutes of clock skew', function () {
         $user = barometerUser();
 

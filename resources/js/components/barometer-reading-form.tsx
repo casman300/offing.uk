@@ -68,8 +68,14 @@ export default function BarometerReadingForm({ reading, now, submitLabel, onCanc
                     value={data.occurred_at}
                     max={now}
                     onChange={(e) => setData('occurred_at', e.target.value)}
+                    aria-describedby="occurred_at-hint"
                     required
                 />
+                {!reading && (
+                    <p id="occurred_at-hint" className="text-muted-foreground text-sm">
+                        Set to now. Change it to log something from earlier.
+                    </p>
+                )}
                 <InputError message={errors.occurred_at} />
             </div>
 
