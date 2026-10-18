@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 class MagicLink extends Model
 {
@@ -22,6 +24,27 @@ class MagicLink extends Model
             'used_at' => 'datetime',
             'remember' => 'boolean',
         ];
+    }
+
+    /**
+     * Mint a fresh link for the user and return its signed URL. Only the
+     * token's hash is stored; the plain token lives in the URL alone.
+     */
+    public static function issue(User $user, bool $remember = true): string
+    {
+        $plainTextToken = Str::random(64);
+
+        $magicLink = $user->magicLinks()->create([
+            'token_hash' => hash('sha256', $plainTextToken),
+            'expires_at' => now()->addMinutes(15),
+            'remember' => $remember,
+        ]);
+
+        return URL::temporarySignedRoute(
+            'login.consume',
+            $magicLink->expires_at,
+            ['magicLink' => $magicLink->id, 'token' => $plainTextToken],
+        );
     }
 
     public function isUsable(): bool
