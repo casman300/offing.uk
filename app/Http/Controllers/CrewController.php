@@ -100,6 +100,15 @@ class CrewController extends Controller
             'members' => $members->whereNull('left_at')->map($row)->values(),
             'formerPassengers' => $members->whereNotNull('left_at')->whereNotNull('person_id')->map($row)->values(),
             'captainCount' => $crew->captainCount(),
+            // Your own People for the passenger picker — names only, and only
+            // ever yours; whether each is already aboard comes from the copies.
+            'myPeople' => $user->people()->orderBy('name')->get(['id', 'name', 'birth_day', 'birth_month'])
+                ->map(fn ($person) => [
+                    'id' => $person->id,
+                    'name' => $person->name,
+                    'has_birthday' => $person->birth_day !== null && $person->birth_month !== null,
+                    'aboard' => $members->whereNull('left_at')->contains('added_from_person_id', $person->id),
+                ])->values(),
             'invites' => $me->isCaptain()
                 ? $crew->invites()->pending()->latest()->get()->map(fn (CrewInvite $i) => [
                     'id' => $i->id,
@@ -245,7 +254,15 @@ class CrewController extends Controller
     {
         $user = $request->user();
         [$crew] = $this->aboard($user, $crew);
-        $data = $request->validate(['name' => ['required', 'string', 'max:100']]);
+        $data = $request->validate([
+            'person_id' => ['nullable', 'integer'],
+            'name' => ['required_without:person_id', 'nullable', 'string', 'max:100'],
+            'share_birthday' => ['boolean'],
+        ]);
+
+        if (! empty($data['person_id'])) {
+            return $this->addPassengerFromPeople($request, $crew, (int) $data['person_id'], (bool) ($data['share_birthday'] ?? false));
+        }
 
         $member = DB::transaction(function () use ($crew, $data) {
             $person = $crew->people()->create(['name' => trim($data['name'])]);
@@ -254,6 +271,53 @@ class CrewController extends Controller
         });
 
         AuditLog::record($user, 'crew.passenger_added', $crew, ['member_id' => $member->id, 'person_id' => $member->person_id], $request->ip());
+
+        return back()->with('status', "{$member->displayName()} is aboard as a passenger.");
+    }
+
+    /**
+     * From your own People: the crew gets a copy with the name — and the
+     * birthday only if you tick it — never notes or anything else (spec §6).
+     * Your person stays private and untouched. Picking someone who's already
+     * aboard is refused; a former passenger from the same person is re-added.
+     */
+    private function addPassengerFromPeople(Request $request, Crew $crew, int $personId, bool $shareBirthday): RedirectResponse
+    {
+        $user = $request->user();
+        $source = $user->people()->findOrFail($personId);
+        $existing = $crew->members()->where('added_from_person_id', $source->id)->first();
+
+        if ($existing !== null && $existing->left_at === null) {
+            throw ValidationException::withMessages(['person_id' => "{$existing->displayName()} is already aboard."]);
+        }
+
+        if ($existing !== null) {
+            $existing->forceFill(['left_at' => null, 'joined_at' => now()])->save();
+            AuditLog::record($user, 'crew.passenger_readded', $crew, ['member_id' => $existing->id], $request->ip());
+
+            return back()->with('status', "{$existing->displayName()} is back aboard.");
+        }
+
+        $member = DB::transaction(function () use ($crew, $source, $shareBirthday) {
+            $copy = $crew->people()->create([
+                'name' => $source->name,
+                ...($shareBirthday ? $source->only(['birth_day', 'birth_month', 'birth_year']) : []),
+            ]);
+
+            return $crew->members()->create([
+                'person_id' => $copy->id,
+                'added_from_person_id' => $source->id,
+                'role' => CrewMember::PASSENGER,
+                'joined_at' => now(),
+            ]);
+        });
+
+        AuditLog::record($user, 'crew.passenger_added', $crew, [
+            'member_id' => $member->id,
+            'person_id' => $member->person_id,
+            'from_people' => true,
+            'birthday_shared' => $shareBirthday,
+        ], $request->ip());
 
         return back()->with('status', "{$member->displayName()} is aboard as a passenger.");
     }

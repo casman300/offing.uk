@@ -168,6 +168,66 @@ describe('passengers', function () {
             ->and($home->activeMembers()->where('person_id', $alfie->id)->sole()->role)->toBe(CrewMember::PASSENGER);
     });
 
+    it('copies someone from your own People — name only unless you share the birthday', function () {
+        $captain = sailor();
+        $home = crewOf($captain);
+        $sue = Person::factory()->for($captain, 'owner')->birthday(14, 3, 1983)->create(['name' => 'Sue', 'notes' => 'Gift idea: dry robe']);
+        $bob = Person::factory()->for($captain, 'owner')->birthday(2, 11)->create(['name' => 'Bob']);
+
+        $this->actingAs($captain)->post("/crew/{$home->id}/passengers", ['person_id' => $sue->id])->assertSessionHasNoErrors();
+        $this->actingAs($captain)->post("/crew/{$home->id}/passengers", ['person_id' => $bob->id, 'share_birthday' => true])->assertSessionHasNoErrors();
+
+        $sueCopy = $home->people()->where('name', 'Sue')->sole();
+        $bobCopy = $home->people()->where('name', 'Bob')->sole();
+
+        expect($sueCopy->is($sue))->toBeFalse()
+            ->and($sueCopy->notes)->toBeNull()
+            ->and($sueCopy->birth_day)->toBeNull()
+            ->and($bobCopy->only(['birth_day', 'birth_month']))->toBe(['birth_day' => 2, 'birth_month' => 11])
+            ->and($sue->fresh()->owner->is($captain))->toBeTrue()
+            ->and($sue->fresh()->notes)->toBe('Gift idea: dry robe')
+            ->and(AuditLog::where('action', 'crew.passenger_added')->latest('id')->first()->meta)->toMatchArray(['from_people' => true, 'birthday_shared' => true]);
+
+        $this->actingAs($captain)->get("/crew/{$home->id}")->assertInertia(fn (Assert $page) => $page
+            ->has('myPeople', 2)
+            ->where('myPeople.0.name', 'Bob')
+            ->where('myPeople.0.aboard', true)
+            ->where('myPeople.1.has_birthday', true));
+    });
+
+    it("lets crew add from their own People, but never from someone else's", function () {
+        $captain = sailor();
+        $mate = sailor();
+        $home = crewOf($captain, $mate);
+        $theirs = Person::factory()->for($captain, 'owner')->create();
+        $mine = Person::factory()->for($mate, 'owner')->create(['name' => 'Gimli']);
+
+        $this->actingAs($mate)->post("/crew/{$home->id}/passengers", ['person_id' => $theirs->id])->assertNotFound();
+        $this->actingAs($mate)->post("/crew/{$home->id}/passengers", ['person_id' => $mine->id])->assertSessionHasNoErrors();
+
+        // Each crewmate's picker only ever lists their own People.
+        $this->actingAs($captain)->get("/crew/{$home->id}")->assertInertia(fn (Assert $page) => $page
+            ->has('myPeople', 1)
+            ->where('myPeople.0.id', $theirs->id));
+        expect($home->people()->pluck('name')->all())->toBe(['Gimli']);
+    });
+
+    it("won't add the same person twice, and re-adds a former passenger instead of copying again", function () {
+        $captain = sailor();
+        $home = crewOf($captain);
+        $sue = Person::factory()->for($captain, 'owner')->create(['name' => 'Sue']);
+
+        $this->actingAs($captain)->post("/crew/{$home->id}/passengers", ['person_id' => $sue->id]);
+        $this->actingAs($captain)->post("/crew/{$home->id}/passengers", ['person_id' => $sue->id])->assertSessionHasErrors('person_id');
+
+        $member = $home->activeMembers()->whereNotNull('person_id')->sole();
+        $this->actingAs($captain)->delete("/crew/{$home->id}/members/{$member->id}");
+        $this->actingAs($captain)->post("/crew/{$home->id}/passengers", ['person_id' => $sue->id])->assertSessionHasNoErrors();
+
+        expect($member->fresh()->left_at)->toBeNull()
+            ->and($home->people()->count())->toBe(1);
+    });
+
     it('keeps the person when a passenger is removed, and can re-add them', function () {
         $captain = sailor();
         $home = crewOf($captain);

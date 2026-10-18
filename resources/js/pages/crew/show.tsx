@@ -1,6 +1,7 @@
 import { ROLE_LABELS, RoleBadge } from '@/components/crew-roles';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,12 +35,20 @@ interface Props {
     formerPassengers: Member[];
     captainCount: number;
     invites: Invite[];
+    myPeople: MyPerson[];
+}
+
+interface MyPerson {
+    id: number;
+    name: string;
+    has_birthday: boolean;
+    aboard: boolean;
 }
 
 const selectClass =
     'border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 rounded-md border px-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden';
 
-export default function CrewShow({ crew, me, members, formerPassengers, captainCount, invites }: Props) {
+export default function CrewShow({ crew, me, members, formerPassengers, captainCount, invites, myPeople }: Props) {
     const { flash, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
     const isCaptain = me.role === 'captain';
 
@@ -148,7 +157,7 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
 
                 <div className={cn('grid gap-4', isCaptain && 'sm:grid-cols-2')}>
                     {isCaptain && <InviteForm crewId={crew.id} />}
-                    <PassengerForm crewId={crew.id} />
+                    <PassengerForm crewId={crew.id} crewName={crew.name} myPeople={myPeople} />
                 </div>
 
                 {isCaptain && invites.length > 0 && (
@@ -274,11 +283,20 @@ function InviteForm({ crewId }: { crewId: number }) {
     );
 }
 
-function PassengerForm({ crewId }: { crewId: number }) {
-    const { data, setData, post, processing, errors, reset } = useForm({ name: '' });
+function PassengerForm({ crewId, crewName, myPeople }: { crewId: number; crewName: string; myPeople: MyPerson[] }) {
+    const available = myPeople.filter((person) => !person.aboard);
+    const [source, setSource] = useState<'people' | 'new'>(available.length > 0 ? 'people' : 'new');
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
+        name: '',
+        person_id: '',
+        share_birthday: false as boolean,
+    });
+
+    const picked = myPeople.find((person) => String(person.id) === data.person_id);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        transform((form) => (source === 'people' ? { person_id: Number(form.person_id), share_birthday: form.share_birthday } : { name: form.name }));
         post(route('crew.passengers.store', crewId), { preserveScroll: true, onSuccess: () => reset() });
     };
 
@@ -287,15 +305,81 @@ function PassengerForm({ crewId }: { crewId: number }) {
             <h2 className="flex items-center gap-2 text-sm font-medium">
                 <UserPlus className="size-4" aria-hidden /> Add a passenger
             </h2>
-            <div className="grid gap-2">
-                <Label htmlFor="passenger-name">Name</Label>
-                <Input id="passenger-name" required maxLength={100} value={data.name} onChange={(e) => setData('name', e.target.value)} />
-                <InputError message={errors.name} />
-            </div>
+
+            {myPeople.length > 0 && (
+                <div role="group" aria-label="Who to add" className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1">
+                    {(['people', 'new'] as const).map((option) => (
+                        <button
+                            key={option}
+                            type="button"
+                            aria-pressed={source === option}
+                            onClick={() => setSource(option)}
+                            className={cn(
+                                'rounded-md px-2 py-1.5 text-sm font-medium',
+                                source === option ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                            )}
+                        >
+                            {option === 'people' ? 'From my People' : 'Someone new'}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {source === 'people' ? (
+                <>
+                    <div className="grid gap-2">
+                        <Label htmlFor="passenger-person">Person</Label>
+                        <select
+                            id="passenger-person"
+                            required
+                            className={cn(selectClass, 'h-10 w-full')}
+                            value={data.person_id}
+                            onChange={(e) => setData((form) => ({ ...form, person_id: e.target.value, share_birthday: false }))}
+                        >
+                            <option value="">Choose someone…</option>
+                            {myPeople.map((person) => (
+                                <option key={person.id} value={person.id} disabled={person.aboard}>
+                                    {person.name}
+                                    {person.aboard ? ' — already aboard' : ''}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.person_id} />
+                    </div>
+                    {picked?.has_birthday && (
+                        <div className="flex items-start gap-2">
+                            <Checkbox
+                                id="share-birthday"
+                                checked={data.share_birthday}
+                                onCheckedChange={(checked) => setData('share_birthday', checked === true)}
+                                className="mt-0.5"
+                            />
+                            <Label htmlFor="share-birthday" className="text-sm font-normal">
+                                Share their birthday with {crewName}
+                            </Label>
+                        </div>
+                    )}
+                    <p className="text-muted-foreground text-xs">
+                        {crewName} gets a copy with their name{data.share_birthday ? ' and birthday' : ''} — never your notes. Your own entry stays
+                        private.
+                    </p>
+                </>
+            ) : (
+                <>
+                    <div className="grid gap-2">
+                        <Label htmlFor="passenger-name">Name</Label>
+                        <Input id="passenger-name" required maxLength={100} value={data.name} onChange={(e) => setData('name', e.target.value)} />
+                        <InputError message={errors.name} />
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                        For someone without an account — a child, a club member. They're added to {crewName} only, not your People.
+                    </p>
+                </>
+            )}
+
             <Button disabled={processing} variant="outline" className="w-full">
                 Add passenger
             </Button>
-            <p className="text-muted-foreground text-xs">For someone without an account — a child, a lodger. Crewmates tick things off for them.</p>
         </form>
     );
 }

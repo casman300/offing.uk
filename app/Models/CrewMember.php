@@ -26,6 +26,7 @@ class CrewMember extends Model
         'crew_id',
         'user_id',
         'person_id',
+        'added_from_person_id',
         'role',
         'joined_at',
         'left_at',
