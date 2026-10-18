@@ -26,6 +26,7 @@ export interface Features {
     birthdayEngine: boolean;
     vcardImport: boolean;
     reminders: boolean;
+    crews: boolean;
 }
 
 export interface Flash {
@@ -72,3 +73,5 @@ export interface Person {
     turns: number | null;
     deleted_at: string | null;
 }
+
+export type CrewRole = 'captain' | 'crew' | 'passenger';

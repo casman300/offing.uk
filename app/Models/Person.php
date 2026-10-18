@@ -7,7 +7,7 @@ use Carbon\CarbonImmutable;
 use Database\Factories\PersonFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -39,11 +39,14 @@ class Person extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * A user (their private address book) or a crew (a passenger, shared
+     * with every crewmate). Spec §6.
+     *
+     * @return MorphTo<Model, $this>
      */
-    public function owner(): BelongsTo
+    public function owner(): MorphTo
     {
-        return $this->belongsTo(User::class, 'owner_user_id');
+        return $this->morphTo();
     }
 
     public function birthday(): Birthday

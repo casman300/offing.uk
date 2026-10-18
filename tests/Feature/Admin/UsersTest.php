@@ -1,6 +1,7 @@
 <?php
 
 use App\Features\BirthdayEngine;
+use App\Features\Features;
 use App\Features\Reminders;
 use App\Mail\MagicLinkMail;
 use App\Models\AuditLog;
@@ -47,7 +48,7 @@ describe('the list', function () {
             ->assertInertia(fn (Assert $page) => $page
                 ->component('admin/users')
                 ->where('defaultTimezone', 'Europe/London')
-                ->has('flags', 3)
+                ->has('flags', count(Features::all()))
                 ->has('users', 2)
                 ->where('users.0.email', 'sam@example.com')
                 ->where('users.0.passkeys', 1)

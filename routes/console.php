@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ContactImport;
+use App\Models\Crew;
 use App\Support\Users\CreateUser;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -38,8 +39,9 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->withoutOverlapping();
 
 // Pending vCard imports hold third parties' names and birthdays; drop any
-// review abandoned for more than a day (#14).
-Schedule::command('model:prune', ['--model' => [ContactImport::class]])
+// review abandoned for more than a day (#14). Deleted crews go for good
+// after 30 days (spec §7).
+Schedule::command('model:prune', ['--model' => [ContactImport::class, Crew::class]])
     ->hourly()
     ->withoutOverlapping();
 

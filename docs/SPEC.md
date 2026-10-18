@@ -122,7 +122,7 @@ people           id, owner(morph: user|crew), name, linked_user_id(null), ← vi
 addresses        id, person_id, line1, line2, city, region, postcode,  ← postal address for the card/post engine
                  country(iso2), notes                                    (§11); deliberately its own table, not
                                                                           columns on `people` — see notes below
-crews            id, name, slug, created_by, deleted_at                 ← shared spaces (§7); replace the old
+crews            id, name, created_by, deleted_at                       ← shared spaces (§7); replace the old
                                                                           `groups` idea (household, craft group)
 crew_members     id, crew_id, user_id(null), person_id(null),          ← exactly one of user/person; a person
                  role(captain|crew|passenger), joined_at, left_at         member is a passenger (no account)
@@ -209,7 +209,7 @@ The levels above answer *"how much of **my** calendar can you see?"* — one-way
 | **Passenger** | A crew-owned person, no account | Can't sign in. Can be assigned chores (crew tick them off on their behalf) and, later, receive things through feeds/tokenised views |
 
 - **Something is shared by who owns it.** Chore lists, and later calendars, are owned by a user (private) or a crew (shared with every crewmate). No per-item share lists — so nothing is ever half-shared, and a new housemate gets everything by joining once.
-- **Joining is offered and accepted** (§22 share consent): invites are by email, single-use and expiring; nothing appears until the invitee says yes (§15).
+- **Joining is offered and accepted** (§22 share consent): invites are by email, single-use and expiring (7 days); nothing appears until the invitee says yes (§15). The captain sees the same response whether or not the email has an account, so invites can't be used to probe who's on Offing. First slice: the account with that email accepts or declines on its own `/crew` page; the emailed link that doubles as signup follows.
 - **Every crew always has a captain.** The last captain can't leave or be demoted — hand over first. Deleting a crew is captain-only, confirmed by typing its name, soft for 30 days.
 - **Leaving** ends access at once. Chores pinned to the leaver become "anyone", they drop out of rotas (if it was their turn it passes to the next person), and the log keeps their name. Their private lists and People are untouched.
 - Every membership change, role change, invite (sent/accepted/declined/revoked) and list move hits `audit_log`.

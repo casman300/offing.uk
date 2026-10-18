@@ -21,6 +21,7 @@ final class Features
             BirthdayEngine::class,
             VcardImport::class,
             Reminders::class,
+            Crews::class,
         ];
     }
 
