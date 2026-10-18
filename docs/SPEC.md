@@ -10,16 +10,18 @@
 
 ## 1. What this is
 
-A web-based, PWA-installable calendar whose core reason to exist — the thing Google/Apple Calendar do badly — is the **sharing model**: partners who see everything, friends who see only what they're tagged in, and "virtual people" and groups (the D&D club, the craft group) who don't need accounts at all. Second priority is **AI access via MCP** with granular permissions. Birthdays and a card/gift reminder engine come next, with diary layers (Spotify, fitness) as a future delight.
+A web-based, PWA-installable calendar whose core reason to exist — the thing Google/Apple Calendar do badly — is the **sharing model**: partners who see everything, friends who see only what they're tagged in, and "virtual people" and crews (the household, the D&D club, the craft group) whose members don't all need accounts. Second priority is **AI access via MCP** with granular permissions. Birthdays and a card/gift reminder engine come next, with diary layers (Spotify, fitness) as a future delight.
 
 Priorities, in order (from discovery):
 
-1. Sharing model (partner / tagged friends / groups / virtual people)
+1. Sharing model (partner / tagged friends / crews / virtual people)
 2. AI access via MCP (read · write-new · edit scopes)
 3. Birthdays + card/gift reminder engine
 4. Diary layers (past events, Spotify, fitness)
 
 Non-goals for MVP: public signup, monetisation, public "book time with me" page, native apps, Betty chatbot. **Permanent non-goal: tasks/to-dos** — deliberate scope line; Reminders/Todoist do it well and calendar apps die of task creep.
+
+**One narrow carve-out: household chores (Shipshape, §25).** A chore is *recurring household upkeep* — it must repeat (daily/weekly/monthly/yearly), it belongs to a household that shares it, and it has no subtasks, priorities, projects or due times. One-offs are not chores, ever: "fix the shed door" is a task and stays out. The test for any future change is simple — if it only makes sense for something that happens once, it's task creep and the answer is no. Generic shared lists are **not** implied by this carve-out; they're a separate decision (§23 backlog).
 
 ---
 
@@ -114,15 +116,20 @@ passkeys         id, user_id, name, credential_id, credential(json),   ← WebAu
                  last_used_at                                             stays as fallback; credential = full record
 magic_links      id, user_id, token_hash, expires_at, used_at
 
-people           id, owner_user_id, name, linked_user_id(null),        ← virtual people; link = upgrade path
-                 birth_day, birth_month, birth_year(null), notes
+people           id, owner(morph: user|crew), name, linked_user_id(null), ← virtual people; link = upgrade path.
+                 birth_day, birth_month, birth_year(null), notes          user-owned = your private address book;
+                                                                          crew-owned = shared with that crew (§7)
 addresses        id, person_id, line1, line2, city, region, postcode,  ← postal address for the card/post engine
                  country(iso2), notes                                    (§11); deliberately its own table, not
                                                                           columns on `people` — see notes below
-groups           id, owner_user_id, name, slug                          ← first-class (D&D club, craft group)
-group_members    group_id, person_id
+crews            id, name, slug, created_by, deleted_at                 ← shared spaces (§7); replace the old
+                                                                          `groups` idea (household, craft group)
+crew_members     id, crew_id, user_id(null), person_id(null),          ← exactly one of user/person; a person
+                 role(captain|crew|passenger), joined_at, left_at         member is a passenger (no account)
+crew_invites     id, crew_id, email, role, invited_by_user_id,         ← single-use, hashed, 7-day expiry;
+                 token_hash, expires_at, accepted_at, revoked_at          accepting can create the account (§15)
 
-calendars        id, owner(morph: user|group), name, colour, slug
+calendars        id, owner(morph: user|crew), name, colour, slug
 events           id, calendar_id, uid, title, description, location,
                  starts_at(utc), ends_at(utc), tzid, all_day,
                  rrule(null), exdates(json), visibility(normal|private),
@@ -136,8 +143,8 @@ occurrences      event_id, starts_at, ends_at                           ← mate
 
 shares           id, grantor_user_id, grantee_user_id,
                  level(partner|full_read|tagged_only)
-feed_tokens      id, subject(morph: user|person|group|share), name, token_hash,
-                 scope(full|tagged|group), last_used_at, last_user_agent,
+feed_tokens      id, subject(morph: user|person|crew|share), name, token_hash,
+                 scope(full|tagged|crew), last_used_at, last_user_agent,
                  revoked_at                                             ← outbound secret ICS URLs; hash-only,
                                                                           shown once, max 3 active per subject
 feed_subscriptions id, user_id, url, name, colour, etag, last_hash,
@@ -149,13 +156,29 @@ notification_outbox id, user_id, channel, payload, send_at, sent_at     ← drai
                                                                           with Laravel's own `notifications` table/
                                                                           Notifiable trait (already used on `User`)
 
+chore_lists      id, owner(morph: user|crew), name, deleted_at          ← Shipshape (§25); the sharing unit —
+                                                                          chores inherit their list's visibility
+chores           id, chore_list_id, title, area(null), notes(null),
+                 mode(fixed|floating), rrule(null),                     ← fixed: RRULE on dates, via sabre
+                 every(null), unit(day|week|month|year, null),          ← floating: interval from last done
+                 due_on(date, null), lead_days(null),                   ← null due_on = "needs a date"
+                 assign(anyone|member|rota), assignee_member_id(null),
+                 rota_position, version, deleted_at                     ← version: optimistic lock on ticks
+chore_rota       chore_id, crew_member_id, position
+chore_entries    id, chore_id, kind(done|skip), done_on(date),          ← the ship's log; append-only apart
+                 done_by_member_id(null), done_by_name, chore_title,      from voiding. Names are snapshots so
+                 logged_by_user_id, reason(null), before(json),           history survives renames and leavers
+                 voided_at(null), voided_by_user_id(null), void_reason(null), created_at
+
 api_tokens       Sanctum table; abilities = [read | write-new | edit]
 audit_log        id, actor(morph), action, subject(morph), meta(json), ip, created_at  ← append-only
 ```
 
 Notes:
 - **Virtual → real upgrade keeps history** because everything references `people.id`; linking a `user_id` later changes nothing downstream.
-- **Groups are first-class** despite personal-subscription monetisation — they cost one table now and unlock club feeds immediately.
+- **Crews are first-class** despite personal-subscription monetisation — they're the one sharing primitive (§7): households, clubs and craft groups are all crews, and calendars, chore lists and anything shared later hang off them.
+- **People are owned by a user *or* a crew.** Your People stay your private address book. A crew-owned person is shared with that crew — a passenger like a child or a club member without an account. Adding one of *your* people to a crew shares their display name only, never notes, addresses, gift notes or (unless copied across) their birthday. **Membership changes never delete a person**: a removed passenger stays in the crew's People as a former passenger, and when a crew is deleted its people move to the deleting captain's People. Only an explicit delete removes a person (soft, restorable).
+- **People link to accounts by consent only.** `linked_user_id` is set when an invite is accepted (from a person's page, or a passenger being promoted) or when you confirm a suggestion between existing crewmates. No matching on phone numbers or emails, ever: it would tell anyone who adds a contact whether that number has an account (user enumeration), and it means storing more data about people who never agreed. The vCard importer keeps ignoring `TEL`/`EMAIL`. Each side links its own person; neither can see or change the other's.
 - **Birthdays are not events.** They're attributes of `people`; a generator projects them into the calendar/feeds/reminders. Year optional (unknown-year birthdays show no age).
 - **`addresses` (postal) and the future `places` concept (§23 backlog — named locations + travel buffers, e.g. Home) are deliberately separate and must stay that way.** An address is who-to-post-a-card-to, attached to a `person`; a place is calendar-event geography, attached to a `user`/`calendar`. Don't generalise these into one "location" table — they solve different problems for different owners.
 - **`notification_outbox` is named to avoid colliding with Laravel's own notifications system.** `User` already uses the `Notifiable` trait; Laravel's own database-channel notifications (`php artisan notifications:table`) would otherwise create a same-named `notifications` table with an incompatible schema. If Laravel's built-in notifications are ever used for something else (e.g. in-app toasts), that's a separate `notifications` table — don't merge it with the outbox.
@@ -175,10 +198,27 @@ Notes:
 - Tagging someone with a linked account makes the event appear in *their* app; tagging a virtual person surfaces it in their feed URL.
 - All grants/revocations hit `audit_log`.
 
-## 8. Virtual people, groups & feeds (MVP consumption = feed-only)
+### Crews — the shared spaces
 
-- Creating a person or group mints a revocable **secret ICS URL** (`/feed/{token}.ics`) they subscribe to in Apple/Google Calendar. HTTP caching headers (ETag) so calendar apps poll cheaply.
-- Phase 2: lightweight tokenised **web view** (agenda page, no account) at `/g/{slug}?k={token}`.
+The levels above answer *"how much of **my** calendar can you see?"* — one-way, grantor → grantee. A **crew** answers a different question: *"what do **we** own together?"* It's the single sharing primitive for jointly-owned things — a household's chore lists today, shared calendars and other shared things later. (It replaces the separate `groups` concept this spec used to have; a club or craft group is just a crew.)
+
+| Role | Who | Can do |
+|---|---|---|
+| **Captain** | Has an account | Everything Crew can, plus manage members and roles, rename/delete the crew, move a crew list back to private |
+| **Crew** | Has an account | See and edit everything shared with the crew; tick off and void chores; add passengers |
+| **Passenger** | A crew-owned person, no account | Can't sign in. Can be assigned chores (crew tick them off on their behalf) and, later, receive things through feeds/tokenised views |
+
+- **Something is shared by who owns it.** Chore lists, and later calendars, are owned by a user (private) or a crew (shared with every crewmate). No per-item share lists — so nothing is ever half-shared, and a new housemate gets everything by joining once.
+- **Joining is offered and accepted** (§22 share consent): invites are by email, single-use and expiring; nothing appears until the invitee says yes (§15).
+- **Every crew always has a captain.** The last captain can't leave or be demoted — hand over first. Deleting a crew is captain-only, confirmed by typing its name, soft for 30 days.
+- **Leaving** ends access at once. Chores pinned to the leaver become "anyone", they drop out of rotas (if it was their turn it passes to the next person), and the log keeps their name. Their private lists and People are untouched.
+- Every membership change, role change, invite (sent/accepted/declined/revoked) and list move hits `audit_log`.
+- **Promoting a passenger** to crew is an invite whose acceptance links the new account to the existing person (§6), so their history comes with them — the same virtual → real upgrade as §8.
+
+## 8. Virtual people, crews & feeds (MVP consumption = feed-only)
+
+- Creating a person or crew mints a revocable **secret ICS URL** (`/feed/{token}.ics`) they subscribe to in Apple/Google Calendar. HTTP caching headers (ETag) so calendar apps poll cheaply.
+- Phase 2: lightweight tokenised **web view** (agenda page, no account) for a crew's passengers at `/c/{slug}?k={token}`.
 - Phase 2/3: **upgrade flow** — invite a virtual person; they get magic link → passkey → their tagged history is already there.
 
 ## 9. Birthdays
@@ -244,6 +284,10 @@ Flow (target: under 60 seconds, zero passwords):
 1. Invite link (from an existing user) → enter email → **magic link**.
 2. First login prompts **passkey** creation → Face ID forever after.
 3. Pick a colour scheme, confirm timezone (pre-detected). Done.
+
+**Where accounts come from (still no public signup).** Exactly two routes, both audited:
+- **An admin creates it** — `/admin/users` ("Add user": name, email, timezone, which flags to switch on, optionally send a sign-in link now) or `artisan user:create` over SSH. The flag checkboxes matter: a new non-admin user gets nothing from an `Admins`-stage feature until it's switched on for them.
+- **A crew invite is the signup** (§7). The captain enters an email and a role; the invitee opens the link and either signs in (existing account) or gives a name (new account), then accepts or declines. Invite tokens reuse the magic-link machinery (hashed, single-use, atomic claim) rather than a second token system, with a 7-day expiry since invitations aren't sign-ins. While a feature is admin-only, the accept screen tells the captain if the newcomer doesn't have it yet, instead of failing silently.
 
 - Rolling 90-day sessions; "Your devices" page lists sessions/passkeys with revoke buttons.
 - Admin panel (you) sees users, sessions, audit log, feed health, outbox.
@@ -356,14 +400,17 @@ Repo (public, licence decided, community files, branch protection, secret scanni
 **Phase 1a — The Birthday Engine (week-one dogfood goal — no calendar UI at all)**
 The fastest path to solving your own problem: auth (magic link + passkey) · **people** (add/edit, list view) · **birthdays with optional year** · **vCard import moved up from Phase 2** (export contacts from iPhone → upload .vcf → parse BDAY → review/merge screen) · **outbound ICS feed URL** — the entire "UI" for viewing is *subscribe this URL in Google/Apple Calendar* · default reminder rule (email, 8pm day before + 8am on the day) via the cron pipeline. Deliverable: within week one, every birthday you care about is in your existing calendar app with reminders, and Offing is already useful before it has a single calendar view.
 
+**Phase 1a+ — Crews & Shipshape (ahead of the calendar)**
+Household chores are the next dogfood need, so they jump the queue — and they bring the crew sharing model with them, which the calendar then reuses. Built in this order, each PR dark behind its flag (§25): spec (this) · **`/admin/users`** (add users + switch flags on for them — unblocks a partner on day one) · **crews** (crews, members, roles, crew-owned people, `/crew`) · **Shipshape core + starter picker** (lists, chores, fixed/floating schedules, tick/skip/backdate, rota, undo, the board, and the Dashboard's "In the offing" view) · **crew invites** (invite = signup) · **the ship's log + voiding** · **guide page**.
+
 **Phase 1b — Full calendar MVP (daily-driveable)**
-Calendars & events (create/edit/delete, common recurrence, private + busy/free flags, all-day) · month/week/agenda views (FullCalendar) · timezone handling · people (virtual) & groups · tagging · partner + tagged + full-read shares · outbound feed tokens (ICS) · inbound ICS subscriptions + .ics import · birthdays (with/without year) + default reminder rule · email reminders via cron pipeline · installable PWA shell · MCP server with scoped tokens · settings (colour scheme global/per-device) · **event search** · **soft delete + undo/restore** (data already in audit log) · **UK bank holidays as a toggleable layer** (gov.uk feed, shared with card engine) · **full data export** (ICS + JSON) · **weekly "week ahead" digest email** (Sunday evening — proto-Betty voice) · **account deletion flow** · **share offer/accept consent** · **accessibility baseline** (keyboard nav, contrast-checked schemes, axe-core in CI) · **dynamic documentation** (in-app `/docs`, deploys with code, deep-linked both ways, flag-aware Preview/Premium badges — see §20).
+Calendars & events (create/edit/delete, common recurrence, private + busy/free flags, all-day) · month/week/agenda views (FullCalendar) · timezone handling · people (virtual) & crews · tagging · partner + tagged + full-read shares · outbound feed tokens (ICS) · inbound ICS subscriptions + .ics import · birthdays (with/without year) + default reminder rule · email reminders via cron pipeline · installable PWA shell · MCP server with scoped tokens · settings (colour scheme global/per-device) · **event search** · **soft delete + undo/restore** (data already in audit log) · **UK bank holidays as a toggleable layer** (gov.uk feed, shared with card engine) · **full data export** (ICS + JSON) · **weekly "week ahead" digest email** (Sunday evening — proto-Betty voice) · **account deletion flow** · **share offer/accept consent** · **accessibility baseline** (keyboard nav, contrast-checked schemes, axe-core in CI) · **dynamic documentation** (in-app `/docs`, deploys with code, deep-linked both ways, flag-aware Preview/Premium badges — see §20).
 
 **Phase 1.5 — Comfort**
 iOS web push · nicer onboarding coach for Add-to-Home-Screen · feed health dashboard · MCP `get_availability`.
 
 **Phase 2 — Differentiators**
-Card & post engine with bank holidays · vCard import *(moved to Phase 1a; Phase 2 adds re-import/merge improvements)* · group web views (tokenised, no account) · virtual→real account upgrade flow · OAuth 2.1 for MCP · reminder rule editor UI · **availability polls** ("when can the club meet?" — flagship group feature, future premium candidate) · **RSVPs on tagged events** (yes/no/maybe **+ custom questions per event** — dietary, plus-ones; answerable via tokenised links, no account needed) · **anniversaries & significant dates** (generalise birthdays into a person `dates` table with per-date **show** and **remind** toggles — e.g. a passed relative's birthday visible but never alerted; respectful rendering for remembrance dates, exempt from playful copy) · **conflict warnings across shared calendars** · **bin collection reminders** (council schedule import) · **email-to-event, stage 1** (private inbound address per user via inbound-parse webhook; attached .ics auto-imported using existing parser) · **places & travel buffers** (named places incl. Home; events with locations get a manual/default travel margin rendered as hatched "error bars") · **background layers, stage 1: work hours** (fixed weekly pattern or subscribed timesheet ICS; renders as greyed ambient shading, not events — week view shows shape, day view shows meetings).
+Card & post engine with bank holidays · vCard import *(moved to Phase 1a; Phase 2 adds re-import/merge improvements)* · crew web views for passengers (tokenised, no account) · virtual→real account upgrade flow · OAuth 2.1 for MCP · reminder rule editor UI · **availability polls** ("when can the club meet?" — flagship group feature, future premium candidate) · **RSVPs on tagged events** (yes/no/maybe **+ custom questions per event** — dietary, plus-ones; answerable via tokenised links, no account needed) · **anniversaries & significant dates** (generalise birthdays into a person `dates` table with per-date **show** and **remind** toggles — e.g. a passed relative's birthday visible but never alerted; respectful rendering for remembrance dates, exempt from playful copy) · **conflict warnings across shared calendars** · **bin collection reminders** (council schedule import) · **email-to-event, stage 1** (private inbound address per user via inbound-parse webhook; attached .ics auto-imported using existing parser) · **places & travel buffers** (named places incl. Home; events with locations get a manual/default travel margin rendered as hatched "error bars") · **background layers, stage 1: work hours** (fixed weekly pattern or subscribed timesheet ICS; renders as greyed ambient shading, not events — week view shows shape, day view shows meetings).
 
 **Phase 3 — Delight & revenue**
 Diary layers (Spotify, fitness, past events — likely via nightly importers) · **"On this day"** (surfaces past diary-layer entries) · **email-to-event, stage 2** (no .ics attached → AI-parse ticket/confirmation emails for date, time, venue via the Claude API) · **travel buffers, stage 2** (real travel-time estimates via open routing — OSRM/OpenRouteService, fitting the OSM ethos) · **background layers, stage 2: sleep** (usual sleep window as ambient shading; past days can overlay actual sleep from health-data diary layers) · Betty daily digest, then Betty chat · silly seasonal event packs · **public roadmap page with voting** (backlog items promoted from the repo; votes inform, not dictate) · **tide times layer** (UK Admiralty/EA data — nautical brand demands it) · **school term dates layer** (county council data; big for UK families) · public "request time with me" page (**security stance decided:** this is the *only* public availability surface — it shows offered bookable slots within defined hours and never raw free/busy, because a public "busy all week" feed advertises an empty house during holidays; tokenised free/busy feeds remain available for trusted people only) · **monetisation: personal subscription** (free = full family calendar; paid = layers, Betty, advanced reminder engine, polls, more feeds). Schema needs nothing new for billing beyond a `subscriptions` table when the time comes.
@@ -381,6 +428,10 @@ Diary layers (Spotify, fitness, past events — likely via nightly importers) ·
 - **Kitchen display mode** — a `/today` dashboard URL for a wall-mounted tablet: today + tomorrow, big type, auto-refresh.
 - **Siri Shortcuts support** — Shortcuts hitting the API ("Hey Siri, what's on today?"); closest thing to widgets without a native app (iOS home-screen widgets remain PWA-impossible).
 - **"Your Year in Offing"** — December wrapped-style recap from Betty: busiest month, most-seen people, cards posted. Shareable.
+- **Shipshape "On deck" digest** — one morning email of today's and overdue chores that are yours or anyone's (never other people's), skipped on empty days. Deliberately not in Shipshape v1; wants calendar context first so it can become one combined daily email.
+- **Chores as an optional feed layer** — opt-in, off by default. VTODO support in calendar apps is poor and fake all-day events clutter, so it needs a good answer before it ships.
+- **Shipshape stats & fairer rotas** — who's done what this month, effort points, "whoever did least". Fun, not v1.
+- **Shared generic lists** (shopping and the like) — would reuse the same owner-by-user-or-crew sharing as chore lists. **Not approved**: it needs its own decision against the tasks non-goal (§1) before anything is built.
 
 **Stretch goals (post-Phase 3, noted so the schema stays ready):**
 - **Card posting as a service.** The reminder engine already knows *who*, *when*, and *the last posting day*, and (§6) *where* — the natural upsell is "or tap here and we'll post it for you." Likely built on a print-and-post partner API (UK candidates to research: Prodigi, Stannp) rather than in-house fulfilment: user picks a design + message, we schedule the print job against the computed posting date and the person's `addresses` row, charge per card. This is the strongest per-transaction monetisation idea in the project because the moat is the *data* (dates + rules + address), not the printing. Needs: payments (Stripe), design catalogue, order tracking, a returns/failed-delivery policy, address validation (a bad postcode should surface before the print job fires, not after).
@@ -398,3 +449,62 @@ Diary layers (Spotify, fitness, past events — likely via nightly importers) ·
 | Name/domain | **Resolved:** Offing decided; register `offing.uk` via 20i once confirmed live in their domain search |
 | Email deliverability from shared hosting | Consider Postmark/Resend free tier from Phase 1 |
 | Licence | **Resolved:** AGPL-3.0 + DCO on external PRs (see §21) |
+| Chores becoming a to-do app | **Resolved:** recurring household upkeep only, no one-offs (§1, §25); generic lists need their own decision |
+| Groups vs shared spaces | **Resolved:** one concept, crews with captain/crew/passenger roles (§7); personal visibility shares stay separate |
+
+## 25. Shipshape — household chores
+
+*Decided October 2026. Flag `shipshape` (starts at `Admins`). Built before the Phase 1b calendar (§23, Phase 1a+).*
+
+**What it is.** Shared, recurring household chores you tick off: the bins, the hoovering, the monthly deep clean, the car MOT. It's the §1 carve-out — every chore repeats, and nothing here is a task. **Shipshape** is the section's name (nav, flag, docs); the copy still says "chores" so nobody has to guess. Ticking something off writes to the **log** (the ship's log).
+
+**Part of Offing, not beside it.** Shipshape lives in the normal app shell — a sidebar item next to People, the same shadcn components and breadcrumbs, no separate header or branding. **Crew** is its own top-level item, because calendars and anything shared later hang off it too. The **Dashboard** becomes the combined view, "In the offing": today's and overdue chores (tickable there, same undo) plus upcoming birthdays, and events once the calendar lands. Each part only appears if its flag is on for you.
+
+### Lists, areas and the board
+
+- A **chore list** is owned by **you** (private) or **a crew** (shared with every crewmate, §7). Sharing is set on the list only and chores inherit it. A private list can be moved to a crew (audited as a share); moving a crew list back to private is captain-only and confirmed, since it removes everyone else's access. Typical setup: a private "Mine" and the crew's "Home".
+- An **area** (Kitchen, Bathroom, Car, Admin…) is a free-text label with suggestions, for grouping and filtering only — not another level of hierarchy.
+- **The board merges every list you can see, sorted by urgency**: Overdue · Today · This week · Later · Needs a date — with filters for each list. Urgency, not list, is the primary grouping because that's what a chore board is for.
+
+### Schedules
+
+Every chore picks one of two modes; the starter suggestions come pre-set so most people never think about it:
+
+| Mode | Next due date | Stored as | Good for |
+|---|---|---|---|
+| **Floating** (default for cleaning) | `done_on` + interval — the clock restarts when you tick it | `every` + `unit` | Clean the oven every 3 months |
+| **Fixed** (default for bills/renewals) | The next date in its pattern after today, however late you were | RRULE on dates, expanded by sabre (§5) | Bins every Tuesday, car tax on 1 March |
+
+- **One live due date per chore, so missed ones never pile up.** Three missed weekly hoovers is "2 weeks overdue", not three outstanding copies; ticking it clears it.
+- **Chores are dates, not times** (like all-day events, §10): `due_on` is a DATE and "today" is the viewer's profile timezone. No DST maths anywhere.
+- **"Needs a date"**: a fixed chore without a date (e.g. a starter "Car MOT" whose date you don't know yet) sits in its own group and never shows as overdue. No invented dates, ever.
+- **Heads-up** (fixed only): `lead_days` puts it on the board early — car insurance shows 3 weeks before renewal so there's time to shop around — while the due date stays the renewal date.
+- **Skip ≠ done.** "Skip this one" (away on holiday) moves the date on and logs a *skip* with an optional reason, so history and any future stats stay honest. A skip doesn't move the rota.
+
+### Assignment & rotas
+
+- A chore is **anyone**, **pinned to one member**, or on a **rota** (an ordered list of crew members, passengers included). Private lists have no assignment — it's just you.
+- **Anyone can tick any chore.** Each entry records **done by** (who actually did it — defaults to you, can be a passenger), **logged by** (the signed-in account, always) and **when** (today, yesterday or a picked date; never the future).
+- **The rota advances on completion, from whoever it was assigned to — not whoever did it.** Covering for someone doesn't steal their turn or give yours away. Skips don't advance it.
+- Floating chores compute the next due date from the date it was **done**, not when it was logged ("cleaned the oven Saturday, logging it Monday").
+
+### Forgiveness: undo, voiding and the log
+
+- **Ticking is instant** — no confirmation dialog — with a 10-second **Undo** toast (the toast also links to "who/when").
+- After that, **any crewmate can void any entry** from the log ("logged by mistake"). Voiding is never a delete: the entry stays, struck through, with who voided it. Each entry stores the chore's `before` state (due date, rota position); voiding the chore's most recent live entry restores it. Voiding an older entry just strikes it from history and stats — later entries already superseded its effect on the schedule. An Undo from the toast is a void with `void_reason = undo`, which the log hides by default.
+- **Two people ticking at once**: ticks carry the chore's `version`; a stale tick gets a friendly "Sam just logged this" instead of a double entry.
+- **History never rewrites itself.** Entries snapshot the chore's title and the doer's name, so renames, leavers and deleted accounts don't change last month's log. Deleting a chore or list is soft with undo, and its entries stay in the list's history. The log is kept indefinitely (it's tiny), filterable by person and area.
+- **Audit.** Chore entries are their own append-only history, so ticks don't also go to `audit_log`. Everything about sharing does (§3.5): list moves between owners, list deletes and restores, and all crew events (§7).
+
+### Starter suggestions
+
+When a list is created you get **"Want a head start?"** — suggestions grouped Daily / Weekly / Monthly deep clean / Yearly & renewals, **all pre-ticked**, with tick-all/untick-all per group. Fixed items show an inline date field (left blank → "needs a date"); bins asks for bin day. Seeded **per list**, not per user, so a partner joining never duplicates anything. Also reachable later from "Browse suggestions". The set lives in code (a config/class), not the database, so improving it is a PR.
+
+Daily: wash up / load dishwasher · wipe kitchen sides · make the bed · feed pets.
+Weekly: hoover & mop floors · clean bathroom · change bedding · bins & recycling out *(fixed, bin day)* · dust surfaces · laundry · clear out fridge.
+Monthly deep clean: clean the oven & hob · inside the microwave · descale kettle & taps · windows & mirrors · wash the bins · test smoke & CO alarms *(fixed)* · dishwasher & washing-machine filters.
+Yearly & renewals *(all fixed, date needed unless noted)*: car tax · car MOT · car insurance · home insurance · boiler service · TV licence · gutters & drains *(floating)* · rotate the mattress *(floating, 6-monthly)*.
+
+### Deliberately not in v1
+
+No notifications (a daily "On deck" digest waits for calendar context — §23 backlog). Chores stay **out of ICS feeds**. No stats or leaderboards. No per-chore reminder times. No one-off chores, ever (§1).

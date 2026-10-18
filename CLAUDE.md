@@ -17,7 +17,7 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 
 - **No passwords, ever.** Magic link + passkey auth only — there is no `password` column anywhere in the schema.
 - **No ads, no tracking, no selling data.** Revenue is subscriptions/cards/affiliate links only, if ever.
-- **Tasks/to-dos are a permanent non-goal.** Don't add them even if it seems small.
+- **Tasks/to-dos are a permanent non-goal.** Don't add them even if it seems small. The one carve-out is **Shipshape household chores** (SPEC §1/§25): every chore *repeats* — no one-offs, subtasks, priorities or due times. If a change only makes sense for something that happens once, it's task creep: say no. Generic shared lists aren't approved either.
 - **Audit everything auth/share/token-related** from day one — `AuditLog::record()` (see `app/Models/AuditLog.php`), append-only, no `updated_at`.
 - **`private` and `busy/free` are independent flags on events** — don't collapse them into one visibility concept.
 - Licence is **AGPL-3.0-only** — this was a deliberate call given future paid-hosting plans; don't casually suggest MIT.
@@ -43,6 +43,8 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - The reminder outbox table is `notification_outbox`, **never** `notifications` — `User` already uses Laravel's `Notifiable` trait, and `php artisan notifications:table` creates its own incompatible `notifications` table. If Laravel's built-in notification system gets used for something else later (in-app toasts, etc.), that's the `notifications` table; don't merge it with the outbox. See `docs/SPEC.md` §6.
 - `addresses` (postal, per-`person`, for the card/post engine) and the future `places` concept (§23 backlog — named locations + travel buffers) are different things with different owners. Don't generalise them into one "location" table.
 - Domain `App\Models\Event` will share a bare name with Laravel's own eventing (`Illuminate\Support\Facades\Event`, the `event()` helper). Not a blocker, just alias or fully-qualify when both are in scope in the same file — most likely in tests using `Event::fake()` for framework events.
+- **Crew** is the one sharing primitive for jointly-owned things (SPEC §7) — roles Captain / Crew / Passenger. It replaced the old `groups` idea; don't reintroduce a separate groups table. Personal visibility `shares` (Partner / Full read / Tagged only) are a different, one-way concept and stay separate. Things are shared by **who owns them** (`owner` morph: user | crew), never per-item share lists.
+- **People are owned by a user or a crew** (`owner` morph). User-owned people are a private address book; adding one to a crew shares the name only. Membership changes never delete a person. People link to accounts only by accepted invite or confirmed crewmate suggestion — never by matching phone numbers/emails.
 - Keep domain "card" (the posted greeting card, §11/§23) out of PHP/TS class names that could collide with `resources/js/components/ui/card.tsx` (the shadcn UI primitive already in use everywhere). Name it something like `PostedCard`/`GreetingCard` when it's built, not bare `Card`.
 
 ## Where things are
