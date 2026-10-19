@@ -158,8 +158,8 @@ notification_outbox id, user_id, channel, payload, send_at, sent_at     ← drai
                                                                           with Laravel's own `notifications` table/
                                                                           Notifiable trait (already used on `User`)
 
-chore_lists      id, owner(morph: user|crew), name, deleted_at          ← Shipshape (§25); the sharing unit —
-                                                                          chores inherit their list's visibility
+chore_lists      id, owner(morph: user|crew), name,                     ← Shipshape (§25); the sharing unit —
+                 editors(crew|captains), deleted_at                       chores inherit their list's visibility
 chores           id, chore_list_id, title, area(null), notes(null),
                  mode(fixed|floating), rrule(null),                     ← fixed: RRULE on dates, via sabre
                  every(null), unit(day|week|month|year, null),          ← floating: interval from last done
@@ -169,7 +169,8 @@ chores           id, chore_list_id, title, area(null), notes(null),
 chore_rota       chore_id, crew_member_id, position
 chore_entries    id, chore_id, kind(done|skip), done_on(date),          ← the ship's log; append-only apart
                  done_by_member_id(null), done_by_name, chore_title,      from voiding. Names are snapshots so
-                 logged_by_user_id, reason(null), before(json),           history survives renames and leavers
+                 logged_by_user_id(null), via(app|pass), reason(null),    history survives renames and leavers;
+                 before(json),                                            via=pass when a passenger ticks (§7)
                  voided_at(null), voided_by_user_id(null), void_reason(null), created_at
 
 api_tokens       Sanctum table; abilities = [read | write-new | edit]
@@ -216,6 +217,28 @@ The levels above answer *"how much of **my** calendar can you see?"* — one-way
 - **Leaving** ends access at once. Chores pinned to the leaver become "anyone", they drop out of rotas (if it was their turn it passes to the next person), and the log keeps their name. Their private lists and People are untouched.
 - Every membership change, role change, invite (sent/accepted/declined/revoked) and list move hits `audit_log`.
 - **Promoting a passenger** to crew is an invite whose acceptance links the new account to the existing person (§6), so their history comes with them — the same virtual → real upgrade as §8.
+
+#### Getting aboard: links, not search
+
+**No Offing-wide people search, ever** — a name or email box that answers "they're on Offing" lets anyone probe who uses the app. Search only covers people you already have (your People, your crews' members). People get aboard through three kinds of link, all built on the magic-link token machinery (≥128-bit, stored hashed, revocable) and all audited:
+
+| Link | For | Opening it | Lifetime |
+|---|---|---|---|
+| **Personal invite** | One person — emailed, or "copy link" for WhatsApp | Sign in (or sign up with just a name), then accept or decline. Made from a **passenger's row** ("Give Gimli an account"), accepting turns *that same member* into crew — same row, same history | Single use, 7 days |
+| **Crew join link** | Anyone it's shared with (a club's group chat) | Sign in or sign up, then **ask to join**. Default: the captain approves each request ("Wants to join" list); per link the captain can switch on **auto-join**. Joiners always arrive as crew, never captain, and never see the passenger list before they're approved | Captain-set expiry and optional max uses; revocable |
+| **Passenger pass** | One passenger, no account | A no-account page showing *that crew's* shared things, greeting them by name. They can **respond** (vote, RSVP) and **tick their own assigned chores** ("✓ Alfie, via his pass") — never edit, never see emails or anyone's private People | One active per passenger; no expiry timer but a visible "last used"; any crewmate can create, copy, revoke or regenerate it |
+
+- **Merging**: if someone joins the "wrong" way (open link, while a passenger for them already exists), the captain gets "This is the same person as passenger Gimli" on their row — the two become one member with the passenger's history and the account. Joiners never claim a passenger themselves.
+- When a passenger copied from *your* People gets an account, your own entry for them is offered the consent link to it (§6) — that's what shows "Gimli (in D&D)" on your People page.
+- The passenger pass is built with the first feature that needs it (passenger ticks or polls), not in Shipshape v1 — but chore log entries carry a "via pass" marker from the start.
+
+#### Who can edit what's shared
+
+Every shared thing (chore list, calendar, poll…) has one switch — **who can edit: all crew / captains only** — defaulting to **all crew**. *Responding* is separate from editing and always allowed to anyone it's shared with: ticking your own chores, voting, RSVPing. Passengers never edit, whatever the switch. (The DM's campaign calendar: captains only; everyone still RSVPs.) No per-person permission lists.
+
+#### Crews and personal calendar shares
+
+Two questions, two concepts: personal shares (the table above) answer *how much of **my** calendar can you see* — one-way, offered and accepted; crews answer *what do **we** own together*. They stay separate — **joining a crew never shares your calendar** (the D&D group mustn't see your dentist) — but they're connected in the UI: "Share my calendar with…" offers your crewmates as quick picks, the crew page shows each crewmate's share status ("Sam sees your calendar · Partner"), and accepting a crew invite can *offer* a share on the welcome screen ("Also share your calendar with Charlie? Partner / Full read / Not now").
 
 ## 8. Virtual people, crews & feeds (MVP consumption = feed-only)
 
