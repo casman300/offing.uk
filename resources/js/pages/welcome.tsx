@@ -30,8 +30,8 @@ export default function Welcome() {
                     <p className="text-muted-foreground mb-3 text-sm font-medium tracking-wide uppercase">Coming soon</p>
                     <h1 className="mb-4 max-w-2xl text-4xl font-semibold text-balance lg:text-6xl">What's in the offing.</h1>
                     <p className="text-muted-foreground mb-10 max-w-md text-base lg:text-lg">
-                        A shared calendar for the people in your life — partners who see everything, friends who see what they're tagged in, and
-                        clubs that don't need an account at all. We're building it in the open.
+                        A shared calendar for the people in your life — partners who see everything, friends who see what they're tagged in, and clubs
+                        that don't need an account at all. We're building it in the open.
                     </p>
 
                     {auth.user ? (
