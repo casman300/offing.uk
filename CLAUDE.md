@@ -45,6 +45,21 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - Domain `App\Models\Event` will share a bare name with Laravel's own eventing (`Illuminate\Support\Facades\Event`, the `event()` helper). Not a blocker, just alias or fully-qualify when both are in scope in the same file — most likely in tests using `Event::fake()` for framework events.
 - Keep domain "card" (the posted greeting card, §11/§23) out of PHP/TS class names that could collide with `resources/js/components/ui/card.tsx` (the shadcn UI primitive already in use everywhere). Name it something like `PostedCard`/`GreetingCard` when it's built, not bare `Card`.
 
+## Cloud sessions (Claude Code on the web)
+
+The cloud container ships **PHP 8.3**, but `composer.lock` needs **≥ 8.4** — so `composer install` fails and there's no `vendor/`. Don't spend time on PPAs, static PHP builds or getcomposer.org: the egress proxy blocks them (and Debian mirrors, and GitHub zipball downloads). Instead, first thing:
+
+```sh
+.claude/cloud-php-setup.sh   # idempotent; ~3 min the first time, seconds after
+```
+
+It starts Docker, builds a PHP 8.5 image from `ubuntu:26.04` (archive.ubuntu.com is reachable), installs `dphp` as a wrapper, installs Composer deps on the host from git sources (with a workaround for `phpstan/phpstan`, which only has a zipball), sets up `.env`, and runs `npm run build`. Then run every PHP command through `dphp`: `dphp vendor/bin/pest`, `dphp vendor/bin/pint`, `dphp vendor/bin/phpstan analyse --memory-limit=1G`, `dphp php artisan …`.
+
+- Feature tests that render pages 500 with "Vite manifest not found" / "Unable to locate file in Vite manifest" until you `npm run build` again after adding a page.
+- To exercise the app: `docker run -d --network host -v "$PWD:$PWD" -w "$PWD" offing-php php artisan serve --host=127.0.0.1 --port=8123`. Log in by minting a signed `login.consume` URL in tinker (`URL::temporarySignedRoute`, with `APP_URL` set to the served host) — the route is `signed`, so a bare `/login/{id}/{token}` bounces to the login page. Drive it with Playwright (`executablePath: '/opt/pw-browsers/chromium'`).
+- `tests/Feature/Reminders/PushTest.php` fails about 1 run in 12 (`hex2bin(): … even length` inside minishlink/web-push with random keys). That's a known flake, not your change.
+- Larastan isn't in CI yet and reports existing errors; check only that the files you touched are clean.
+
 ## Where things are
 
 - `docs/SPEC.md` — the full design spec (naming, data model, sharing model, MCP integration, roadmap phases, security/licensing rationale). Roadmap phases (§23) drive GitHub milestones.
