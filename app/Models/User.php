@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -119,6 +120,34 @@ class User extends Authenticatable
         }
 
         return $slots;
+    }
+
+    /**
+     * @return MorphMany<Calendar, $this>
+     */
+    public function calendars(): MorphMany
+    {
+        return $this->morphMany(Calendar::class, 'owner');
+    }
+
+    /**
+     * Events on any calendar this user owns. Lookups go through here so
+     * someone else's event is a 404.
+     *
+     * @return HasManyThrough<Event, Calendar, $this>
+     */
+    public function events(): HasManyThrough
+    {
+        return $this->hasManyThrough(Event::class, Calendar::class, 'owner_id', 'calendar_id')
+            ->where('calendars.owner_type', $this->getMorphClass());
+    }
+
+    /**
+     * The "Personal" calendar new events go into, created on first use.
+     */
+    public function defaultCalendar(): Calendar
+    {
+        return $this->calendars()->firstOrCreate(['slug' => Calendar::DEFAULT_SLUG], ['name' => 'Personal']);
     }
 
     /**

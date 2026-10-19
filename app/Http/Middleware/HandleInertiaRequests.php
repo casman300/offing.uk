@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Features\BirthdayEngine;
+use App\Features\Calendar;
 use App\Features\Reminders;
 use App\Features\VcardImport;
 use Illuminate\Foundation\Inspiring;
@@ -54,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                 'birthdayEngine' => $request->user() !== null && Feature::for($request->user())->active(BirthdayEngine::class),
                 'vcardImport' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, VcardImport::class]),
                 'reminders' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, Reminders::class]),
+                'calendar' => $request->user() !== null && Feature::for($request->user())->active(Calendar::class),
             ],
             'flash' => fn () => [
                 'status' => $request->session()->get('status'),

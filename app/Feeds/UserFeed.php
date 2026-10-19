@@ -2,23 +2,30 @@
 
 namespace App\Feeds;
 
+use App\Models\Event as CalendarEvent;
 use App\Models\Person;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Spatie\IcalendarGenerator\Components\Alert;
 use Spatie\IcalendarGenerator\Components\Calendar;
 use Spatie\IcalendarGenerator\Components\Event;
+use Spatie\IcalendarGenerator\Enums\Classification;
 use Spatie\IcalendarGenerator\Enums\RecurrenceFrequency;
 use Spatie\IcalendarGenerator\ValueObjects\RRule;
 
 /**
- * The ICS a user's own feed token serves (spec §8, #15). Today that's
- * birthdays only; events join once they exist.
+ * The ICS a user's own feed token serves (spec §8, #15): birthdays, plus
+ * the events on the user's own calendars. It's the user's own feed, so
+ * private events are included (marked CLASS:PRIVATE); feeds for other
+ * people will need to drop them (spec §7).
  *
  * Birthdays go out as one yearly-recurring all-day event per person, not
  * expanded occurrences, so the feed never runs out and doesn't wait on the
  * occurrence builder. The trade-off: no "turns 43" in the title, because
  * one recurring event can't carry a different age every year.
+ *
+ * Timed events go out in UTC (spec §10 allows it), so no VTIMEZONE blocks;
+ * all-day events and birthdays are plain dates.
  *
  * Output must be byte-stable between requests when nothing has changed,
  * since the ETag is a hash of it. Nothing here may depend on "now".
@@ -38,10 +45,10 @@ final class UserFeed
     public function render(): string
     {
         $calendar = Calendar::create('Offing')
-            ->description('Birthdays from Offing')
+            ->description('Birthdays and events from Offing')
             ->productIdentifier('-//Offing//offing.uk//EN')
             ->refreshInterval(60)
-            ->withoutTimezone();
+            ->withoutAutoTimezoneComponents();
 
         $people = $this->user->people()
             ->whereNotNull('birth_day')
@@ -51,6 +58,15 @@ final class UserFeed
 
         foreach ($people as $person) {
             $calendar->event($this->birthday($person));
+        }
+
+        $events = $this->user->events()
+            ->orderBy('starts_at')
+            ->orderBy('events.id')
+            ->get();
+
+        foreach ($events as $event) {
+            $calendar->event($this->event($event));
         }
 
         return $calendar->get();
@@ -71,6 +87,7 @@ final class UserFeed
 
         $event = Event::create("{$person->name}'s birthday 🎂")
             ->uniqueIdentifier("person-{$person->id}-birthday@".self::uidHost())
+            ->withoutTimezone()
             ->createdAt($person->updated_at ?? $person->created_at)
             ->startsAt($start, withTime: false)
             ->endsAt($start->addDay(), withTime: false)
@@ -85,6 +102,41 @@ final class UserFeed
         }
 
         return $event;
+    }
+
+    private function event(CalendarEvent $event): Event
+    {
+        $ics = Event::create($event->title)
+            ->uniqueIdentifier($event->uid)
+            ->createdAt($event->updated_at ?? $event->created_at)
+            ->sequence($event->sequence);
+
+        if ($event->all_day) {
+            $ics->startsAt($event->starts_at->utc(), withTime: false)
+                ->endsAt($event->ends_at->utc(), withTime: false)
+                ->fullDay();
+        } else {
+            $ics->startsAt($event->starts_at->utc())
+                ->endsAt($event->ends_at->utc());
+        }
+
+        if ($event->description !== null) {
+            $ics->description($event->description);
+        }
+
+        if ($event->location !== null) {
+            $ics->address($event->location);
+        }
+
+        if ($event->isPrivate()) {
+            $ics->classification(Classification::Private);
+        }
+
+        if (! $event->isBusy()) {
+            $ics->transparent();
+        }
+
+        return $ics;
     }
 
     private static function uidHost(): string

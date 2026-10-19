@@ -20,6 +20,7 @@ Offing is in early development and features arrive gradually, so some of what's 
 
 - [Signing in](guide/Signing-in.md)
 - [Passkeys](guide/Passkeys.md)
+- [Your calendar](guide/Calendar.md)
 - [Calendar feeds](guide/Calendar-feeds.md)
 
 ## Building Offing

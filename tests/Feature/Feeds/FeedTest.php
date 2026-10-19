@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AuditLog;
+use App\Models\Event as CalendarEvent;
 use App\Models\FeedToken;
 use App\Models\Person;
 use App\Models\User;
@@ -139,6 +140,43 @@ describe('feed', function () {
 
         $bob = $events->first(fn ($e) => str_starts_with((string) $e->SUMMARY, 'Bob'));
         expect($bob->DESCRIPTION)->toBeNull();
+    });
+
+    it('carries the user’s events: UTC times, plain dates, and both flags', function () {
+        $user = User::factory()->create();
+        $f = fn () => CalendarEvent::factory()->ownedBy($user);
+        $dentist = $f()->at('2026-10-20 09:00', '2026-10-20 09:30')->create(['title' => 'Dentist', 'location' => 'The Surgery', 'description' => 'Bring the form']);
+        $f()->allDay('2026-10-24', '2026-10-31')->create(['title' => 'Cornwall']);
+        $f()->private()->create(['title' => 'Pick up flowers']);
+        $f()->free()->create(['title' => 'Gift shopping']);
+        $f()->create(['title' => 'Cancelled'])->delete();
+        CalendarEvent::factory()->ownedBy(User::factory()->create())->create(['title' => 'Stranger’s']);
+
+        $dentist->forceFill(['sequence' => 2])->save();
+
+        $calendar = parseFeed($this->get(mintFeed($user))->assertOk()->getContent());
+        expect($calendar->validate())->toBe([])
+            ->and($calendar->VTIMEZONE)->toBeNull();
+
+        $events = collect($calendar->VEVENT)->keyBy(fn ($e) => (string) $e->SUMMARY);
+        expect($events->keys()->sort()->values()->all())->toBe(['Cornwall', 'Dentist', 'Gift shopping', 'Pick up flowers']);
+
+        $event = $events['Dentist'];
+        expect((string) $event->DTSTART)->toBe('20261020T080000Z')
+            ->and((string) $event->DTEND)->toBe('20261020T083000Z')
+            ->and((string) $event->LOCATION)->toBe('The Surgery')
+            ->and((string) $event->DESCRIPTION)->toBe('Bring the form')
+            ->and((string) $event->SEQUENCE)->toBe('2')
+            ->and((string) $event->UID)->toBe($dentist->uid)
+            ->and($event->CLASS)->toBeNull()
+            ->and($event->TRANSP === null || (string) $event->TRANSP === 'OPAQUE')->toBeTrue();
+
+        expect($events['Cornwall']->DTSTART->hasTime())->toBeFalse()
+            ->and((string) $events['Cornwall']->DTSTART)->toBe('20261024')
+            ->and((string) $events['Cornwall']->DTEND)->toBe('20261101');
+
+        expect((string) $events['Pick up flowers']->CLASS)->toBe('PRIVATE')
+            ->and((string) $events['Gift shopping']->TRANSP)->toBe('TRANSPARENT');
     });
 
     it('observes 29 February birthdays on 28 February in non-leap years, like the app', function () {

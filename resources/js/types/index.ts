@@ -26,6 +26,7 @@ export interface Features {
     birthdayEngine: boolean;
     vcardImport: boolean;
     reminders: boolean;
+    calendar: boolean;
 }
 
 export interface Flash {
@@ -72,3 +73,41 @@ export interface Person {
     turns: number | null;
     deleted_at: string | null;
 }
+
+/** An event as the agenda shows it: dates and times are in the viewer's timezone (all-day events are plain dates). */
+export interface CalendarEvent {
+    id: number;
+    title: string;
+    location: string | null;
+    description: string | null;
+    all_day: boolean;
+    private: boolean;
+    busy: boolean;
+    tzid: string;
+    /** YYYY-MM-DD */
+    start_date: string;
+    /** HH:MM; null for all-day events. */
+    start_time: string | null;
+    /** YYYY-MM-DD; the last day for all-day events (inclusive). */
+    end_date: string;
+    end_time: string | null;
+    /** The start where the event was made, when it reads differently from the viewer's. */
+    origin: { date: string; time: string; tzid: string } | null;
+    deleted_at: string | null;
+}
+
+/** Form values for an event, in the event's own timezone. */
+// A type alias, not an interface, so Inertia's useForm accepts it.
+export type EventFormValues = {
+    title: string;
+    location: string;
+    description: string;
+    all_day: boolean;
+    tzid: string;
+    start_date: string;
+    start_time: string;
+    end_date: string;
+    end_time: string;
+    private: boolean;
+    busy: boolean;
+};
