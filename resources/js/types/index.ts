@@ -27,6 +27,7 @@ export interface Features {
     vcardImport: boolean;
     reminders: boolean;
     crews: boolean;
+    shipshape: boolean;
 }
 
 export interface Flash {

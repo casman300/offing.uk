@@ -22,6 +22,7 @@ final class Features
             VcardImport::class,
             Reminders::class,
             Crews::class,
+            Shipshape::class,
         ];
     }
 

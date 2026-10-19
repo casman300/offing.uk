@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Shipshape\CrewDeparture;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -94,5 +95,7 @@ class CrewMember extends Model
     public function leave(): void
     {
         $this->forceFill(['left_at' => now()])->save();
+
+        CrewDeparture::handle($this);
     }
 }
