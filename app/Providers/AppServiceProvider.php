@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Support\Push\PushSender;
+use App\Support\Push\WebPushSender;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -16,7 +18,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(PushSender::class, fn () => new WebPushSender(
+            config('offing.vapid.public_key'),
+            config('offing.vapid.private_key'),
+            (string) config('offing.vapid.subject'),
+        ));
     }
 
     /**
