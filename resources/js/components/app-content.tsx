@@ -7,7 +7,14 @@ interface AppContentProps extends React.ComponentProps<'div'> {
 
 export function AppContent({ variant = 'header', children, ...props }: AppContentProps) {
     if (variant === 'sidebar') {
-        return <SidebarInset {...props}>{children}</SidebarInset>;
+        // min-w-0: as a flex item the inset would otherwise refuse to shrink
+        // below its widest unbreakable content (a truncated chore title), and
+        // the whole page would scroll sideways on a phone.
+        return (
+            <SidebarInset className="min-w-0" {...props}>
+                {children}
+            </SidebarInset>
+        );
     }
 
     return (
