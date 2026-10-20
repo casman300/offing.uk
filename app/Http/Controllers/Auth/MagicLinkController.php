@@ -11,7 +11,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,19 +37,7 @@ class MagicLinkController extends Controller
         $user = User::whereRaw('lower(email) = ?', [Str::lower($request->string('email'))])->first();
 
         if ($user) {
-            $plainTextToken = Str::random(64);
-
-            $magicLink = $user->magicLinks()->create([
-                'token_hash' => hash('sha256', $plainTextToken),
-                'expires_at' => now()->addMinutes(15),
-                'remember' => $request->boolean('remember', true),
-            ]);
-
-            $signedUrl = URL::temporarySignedRoute(
-                'login.consume',
-                $magicLink->expires_at,
-                ['magicLink' => $magicLink->id, 'token' => $plainTextToken],
-            );
+            $signedUrl = MagicLink::issue($user, $request->boolean('remember', true));
 
             Mail::to($user->email)->queue(new MagicLinkMail($user, $signedUrl));
 

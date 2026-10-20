@@ -26,12 +26,15 @@ export interface Features {
     birthdayEngine: boolean;
     vcardImport: boolean;
     reminders: boolean;
+    crews: boolean;
+    shipshape: boolean;
 }
 
 export interface Flash {
     status: string | null;
     deleted: { id: number; name: string } | null;
     feedUrl: { id: number; url: string } | null;
+    logged: { entry_id: number; title: string; kind: 'done' | 'skip'; by: string } | null;
 }
 
 export interface SharedData {
@@ -72,3 +75,5 @@ export interface Person {
     turns: number | null;
     deleted_at: string | null;
 }
+
+export type CrewRole = 'captain' | 'crew' | 'passenger';

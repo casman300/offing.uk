@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Crews\CrewHandover;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,6 +15,19 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * People are owned through a morph, so there's no foreign key to cascade
+     * an account deletion to them — do it here, along with handing over any
+     * crew this was the last captain of (spec §7).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user) {
+            $user->people()->withTrashed()->forceDelete();
+            CrewHandover::forDeletedAccount($user);
+        });
+    }
 
     public const DEFAULT_TIMEZONE = 'Europe/London';
 
@@ -66,11 +80,22 @@ class User extends Authenticatable
     }
 
     /**
-     * @return HasMany<Person, $this>
+     * Your private address book. Crew-owned people (passengers) hang off
+     * the crew instead.
+     *
+     * @return MorphMany<Person, $this>
      */
-    public function people(): HasMany
+    public function people(): MorphMany
     {
-        return $this->hasMany(Person::class, 'owner_user_id');
+        return $this->morphMany(Person::class, 'owner');
+    }
+
+    /**
+     * @return HasMany<CrewMember, $this>
+     */
+    public function crewMemberships(): HasMany
+    {
+        return $this->hasMany(CrewMember::class)->whereNull('left_at');
     }
 
     /**

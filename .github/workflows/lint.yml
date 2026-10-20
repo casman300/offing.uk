@@ -27,16 +27,19 @@ jobs:
       - name: Install Dependencies
         run: |
           composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-          npm install
+          npm ci
 
+      # Check, don't fix: fix-mode tools always pass, and with nothing
+      # committing their changes, drift went unnoticed. Run `vendor/bin/pint`,
+      # `npm run format` and `npm run lint` locally to fix.
       - name: Run Pint
-        run: vendor/bin/pint
+        run: vendor/bin/pint --test
 
-      - name: Format Frontend
-        run: npm run format
+      - name: Check Frontend Formatting
+        run: npm run format:check
 
       - name: Lint Frontend
-        run: npm run lint
+        run: npx eslint .
 
       # - name: Commit Changes
       #   uses: stefanzweifel/git-auto-commit-action@v5

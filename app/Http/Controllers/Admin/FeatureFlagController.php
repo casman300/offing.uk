@@ -19,9 +19,9 @@ use Laravel\Pennant\Feature;
  * /admin/features — see every flag's rollout stage, override it per user,
  * or reset a flag so its stage is re-applied to everyone.
  *
- * Reads go straight to Pennant's `features` table rather than through
- * Feature::active(), because Pennant stores whatever it resolves: merely
- * looking at a user here would otherwise pin their value.
+ * Reads go straight to Pennant's `features` table (Features::stored())
+ * rather than through Feature::active(), because Pennant stores whatever it
+ * resolves: merely looking at a user here would otherwise pin their value.
  */
 class FeatureFlagController extends Controller
 {
@@ -39,7 +39,7 @@ class FeatureFlagController extends Controller
             ->limit(25)
             ->get();
 
-        $stored = $this->storedValues(array_keys($features), $users->all());
+        $stored = Features::stored(array_keys($features), $users->all());
 
         return Inertia::render('admin/features', [
             'q' => $search,
@@ -119,31 +119,5 @@ class FeatureFlagController extends Controller
         abort_if($feature === null, 404);
 
         return $feature;
-    }
-
-    /**
-     * @param  list<string>  $names
-     * @param  array<int, User>  $users
-     * @return array<string, array<int, bool>>
-     */
-    private function storedValues(array $names, array $users): array
-    {
-        $scopes = collect($users)->mapWithKeys(fn (User $user) => [Feature::serializeScope($user) => $user->id]);
-
-        if ($scopes->isEmpty()) {
-            return [];
-        }
-
-        $values = [];
-
-        DB::table('features')
-            ->whereIn('name', $names)
-            ->whereIn('scope', $scopes->keys())
-            ->get(['name', 'scope', 'value'])
-            ->each(function ($row) use (&$values, $scopes) {
-                $values[$row->name][$scopes[$row->scope]] = (bool) json_decode($row->value);
-            });
-
-        return $values;
     }
 }

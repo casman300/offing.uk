@@ -1,14 +1,13 @@
 <?php
 
-use App\Models\AuditLog;
 use App\Models\ContactImport;
-use App\Models\User;
+use App\Models\Crew;
+use App\Support\Users\CreateUser;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schedule;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -19,28 +18,18 @@ Artisan::command('inspire', function () {
 // only shell some environments get) mangles quoted PHP. Takes no quotes:
 // `artisan user:create someone@example.com Someone`.
 Artisan::command('user:create {email} {name?}', function (string $email, ?string $name = null) {
-    $email = Str::lower(trim($email));
-    $name ??= Str::before($email, '@');
-
-    $validator = Validator::make(compact('email', 'name'), [
-        'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-        'name' => ['required', 'string', 'max:255'],
-    ]);
-
-    if ($validator->fails()) {
-        foreach ($validator->errors()->all() as $error) {
+    try {
+        $user = CreateUser::create(['email' => $email, 'name' => $name], null, 'console');
+    } catch (ValidationException $e) {
+        foreach ($e->validator->errors()->all() as $error) {
             $this->error($error);
         }
 
         return 1;
     }
 
-    $user = User::create(['name' => $name, 'email' => $email]);
-
-    AuditLog::record(null, 'user.created', $user, ['via' => 'console']);
-
     $this->info("Created {$user->email} — request a magic link on the login page to sign in.");
-})->purpose('Create a user account (there is no sign-up flow yet)');
+})->purpose('Create a user account (there is no sign-up flow yet; /admin/users does the same)');
 
 // 20i has no daemons/queue workers (spec §4) — the scheduler drains the
 // database queue instead. Runs once a minute, processes whatever's due,
@@ -50,8 +39,9 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->withoutOverlapping();
 
 // Pending vCard imports hold third parties' names and birthdays; drop any
-// review abandoned for more than a day (#14).
-Schedule::command('model:prune', ['--model' => [ContactImport::class]])
+// review abandoned for more than a day (#14). Deleted crews go for good
+// after 30 days (spec §7).
+Schedule::command('model:prune', ['--model' => [ContactImport::class, Crew::class]])
     ->hourly()
     ->withoutOverlapping();
 
