@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
 import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, getPasskeyAssertion, isCancellation } from '@/lib/passkeys';
+import { store as loginStore } from '@/routes/login';
+import passkeys from '@/routes/passkeys';
 
 interface LoginProps {
     status?: string;
@@ -26,10 +28,10 @@ export default function Login({ status }: LoginProps) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('login.store'));
+        post(loginStore.url());
     };
 
-    const finishPasskey = (credential: string) => router.post(route('passkeys.login'), { credential }, { onFinish: () => setPasskeyBusy(false) });
+    const finishPasskey = (credential: string) => router.post(passkeys.login.url(), { credential }, { onFinish: () => setPasskeyBusy(false) });
 
     // Offer saved passkeys in the email field's autofill. It waits quietly;
     // nothing happens unless the user picks one.

@@ -5,6 +5,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import AppLayout from '@/layouts/app-layout';
 import { formatShortDate } from '@/lib/birthday';
 import { birthdayLongDate } from '@/lib/people';
+import people from '@/routes/people';
 import { type BreadcrumbItem, type Person, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -20,7 +21,7 @@ export default function ShowPerson({ person, today }: { person: Person; today: s
         { title: person.name, href: `/people/${person.id}` },
     ];
 
-    const destroy = () => router.delete(route('people.destroy', person.id));
+    const destroy = () => router.delete(people.destroy.url(person.id));
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

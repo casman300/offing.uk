@@ -1,6 +1,7 @@
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import reminders from '@/routes/reminders';
 import { router, usePage } from '@inertiajs/react';
 import { BellRing, Share, SquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -89,7 +90,7 @@ export default function PushDevices({ publicKey, devices }: { publicKey: string;
                     applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
                 }));
 
-            router.post(route('reminders.devices.store'), { subscription: subscription.toJSON() } as never, {
+            router.post(reminders.devices.store.url(), { subscription: subscription.toJSON() } as never, {
                 preserveScroll: true,
                 onFinish: () => setBusy(false),
             });
@@ -174,7 +175,7 @@ export default function PushDevices({ publicKey, devices }: { publicKey: string;
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => router.post(route('reminders.devices.test', device.id), {}, { preserveScroll: true })}
+                                    onClick={() => router.post(reminders.devices.test.url(device.id), {}, { preserveScroll: true })}
                                 >
                                     Send a test notification
                                 </Button>
@@ -182,7 +183,7 @@ export default function PushDevices({ publicKey, devices }: { publicKey: string;
                                     size="sm"
                                     variant="ghost"
                                     aria-label={`Remove ${device.name}`}
-                                    onClick={() => router.delete(route('reminders.devices.destroy', device.id), { preserveScroll: true })}
+                                    onClick={() => router.delete(reminders.devices.destroy.url(device.id), { preserveScroll: true })}
                                 >
                                     <Trash2 />
                                 </Button>

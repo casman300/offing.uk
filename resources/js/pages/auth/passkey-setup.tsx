@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/layouts/auth-layout';
 import { browserSupportsWebAuthn, createPasskey, deviceName, isAlreadyRegistered, isCancellation } from '@/lib/passkeys';
+import passkeys from '@/routes/passkeys';
 
 /** "Use Face ID next time?", shown after a magic-link sign-in (spec §15). */
 export default function PasskeySetup() {
@@ -14,14 +15,14 @@ export default function PasskeySetup() {
     const [message, setMessage] = useState<string | null>(null);
     const supported = typeof window !== 'undefined' && browserSupportsWebAuthn();
 
-    const notNow = () => router.post(route('passkeys.setup.dismiss'));
+    const notNow = () => router.post(passkeys.setup.dismiss.url());
 
     const setUp = async () => {
         setMessage(null);
         setBusy(true);
         try {
             const credential = await createPasskey();
-            router.post(route('passkeys.store'), { credential, device: deviceName(), from_setup: true }, { onFinish: () => setBusy(false) });
+            router.post(passkeys.store.url(), { credential, device: deviceName(), from_setup: true }, { onFinish: () => setBusy(false) });
         } catch (error) {
             setBusy(false);
             if (isAlreadyRegistered(error)) {

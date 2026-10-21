@@ -1,3 +1,4 @@
+import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import {
@@ -15,6 +16,7 @@ export default defineConfig({
         }),
         react(),
         tailwindcss(),
+        wayfinder(),
         VitePWA({
             registerType: 'autoUpdate',
             manifest: {

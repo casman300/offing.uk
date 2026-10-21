@@ -3,6 +3,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import people from '@/routes/people';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
@@ -17,7 +18,7 @@ export default function ImportContacts({ maxCards }: { maxCards: number }) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('people.import.store'), { forceFormData: true });
+        post(people.import.store.url(), { forceFormData: true });
     };
 
     return (
@@ -74,7 +75,7 @@ export default function ImportContacts({ maxCards }: { maxCards: number }) {
                     <div className="flex items-center gap-3">
                         <Button disabled={processing}>{processing ? 'Reading…' : 'Continue'}</Button>
                         <Button asChild variant="ghost">
-                            <Link href={route('people.index')}>Cancel</Link>
+                            <Link href={people.index.url()}>Cancel</Link>
                         </Button>
                     </div>
                 </form>

@@ -5,6 +5,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import AppLayout from '@/layouts/app-layout';
 import { birthdaySummary, byName, byUpcoming } from '@/lib/people';
 import { cn } from '@/lib/utils';
+import peopleRoutes from '@/routes/people';
 import { type BreadcrumbItem, type Person, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Cake, ChevronRight, Plus, RotateCcw, Search, Upload } from 'lucide-react';
@@ -26,7 +27,7 @@ export default function PeopleIndex({ people, recentlyDeleted }: { people: Perso
         return [...filtered].sort(sort === 'upcoming' ? byUpcoming : byName);
     }, [people, query, sort]);
 
-    const restore = (id: number) => router.post(route('people.restore', id));
+    const restore = (id: number) => router.post(peopleRoutes.restore.url(id));
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -38,13 +39,13 @@ export default function PeopleIndex({ people, recentlyDeleted }: { people: Perso
                     <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                         {features.vcardImport && (
                             <Button asChild variant="outline">
-                                <Link href={route('people.import.create')}>
+                                <Link href={peopleRoutes.import.create.url()}>
                                     <Upload /> Import contacts
                                 </Link>
                             </Button>
                         )}
                         <Button asChild>
-                            <Link href={route('people.create')}>
+                            <Link href={peopleRoutes.create.url()}>
                                 <Plus /> Add person
                             </Link>
                         </Button>
@@ -108,7 +109,7 @@ export default function PeopleIndex({ people, recentlyDeleted }: { people: Perso
                         {visible.map((person) => (
                             <li key={person.id}>
                                 <Link
-                                    href={route('people.show', person.id)}
+                                    href={peopleRoutes.show.url(person.id)}
                                     className="hover:bg-accent/60 focus-visible:bg-accent flex items-center gap-3 px-4 py-3 outline-none"
                                 >
                                     <div className="min-w-0 flex-1">

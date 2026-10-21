@@ -13,11 +13,9 @@
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/pennant": "^1.24",
-        "laravel/tinker": "^2.10.1",
+        "laravel/wayfinder": "^0.1.14",
         "minishlink/web-push": "^9.0",
         "sabre/vobject": "^5.0",
-        "spatie/icalendar-generator": "^3.3",
-        "tightenco/ziggy": "^2.4",
         "web-auth/webauthn-lib": "^5.2"
     },
     "require-dev": {
@@ -25,7 +23,7 @@
         "larastan/larastan": "^3.10",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.18",
-        "laravel/sail": "^1.41",
+        "laravel/tinker": "^2.10.1",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^3.8",

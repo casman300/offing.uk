@@ -34,9 +34,6 @@ jobs:
       - name: Install Node Dependencies
         run: npm ci
 
-      - name: Build Assets
-        run: npm run build
-
       - name: Create SQLite Database
         run: touch database/database.sqlite
 
@@ -48,6 +45,14 @@ jobs:
 
       - name: Generate Application Key
         run: php artisan key:generate
+
+      # After composer: Wayfinder's Vite plugin runs artisan to generate the
+      # typed route helpers the build imports.
+      - name: Build Assets
+        run: npm run build
+
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       - name: Tests
         run: ./vendor/bin/pest

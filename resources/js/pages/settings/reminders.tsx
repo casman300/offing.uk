@@ -6,6 +6,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import profile from '@/routes/profile';
+import reminders from '@/routes/reminders';
 import { type BreadcrumbItem } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -53,7 +55,7 @@ export default function ReminderSettings({
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        patch(route('reminders.update'), { preserveScroll: true });
+        patch(reminders.update.url(), { preserveScroll: true });
     };
 
     const setSlot = (key: SlotKey, patchSlot: Partial<Slot>) => setData('slots', { ...data.slots, [key]: { ...data.slots[key], ...patchSlot } });
@@ -108,7 +110,7 @@ export default function ReminderSettings({
                             ))}
                             <p className="text-muted-foreground text-sm">
                                 Times are in your timezone ({timezone.replaceAll('_', ' ')}) —{' '}
-                                <Link href={route('profile.edit')} className="underline">
+                                <Link href={profile.edit.url()} className="underline">
                                     change it in Profile
                                 </Link>
                                 . Several birthdays at the same time come as one message.
@@ -166,7 +168,7 @@ export default function ReminderSettings({
 
                     <div className="space-y-2 border-t pt-6">
                         <HeadingSmall title="Check it arrives" description="Sends a sample reminder for your next few birthdays to your email now." />
-                        <Button variant="outline" onClick={() => router.post(route('reminders.test'), {}, { preserveScroll: true })}>
+                        <Button variant="outline" onClick={() => router.post(reminders.test.url(), {}, { preserveScroll: true })}>
                             Send me a test reminder
                         </Button>
                         {status === 'reminders-test-sent' && <p className="text-muted-foreground text-sm">Sent — check your inbox (and spam).</p>}

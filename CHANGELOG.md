@@ -37,6 +37,15 @@ functionality, **patch** = fixes.
 - Installable web app: the manifest is now linked with root scope and placeholder icons, so Add to Home Screen opens Offing as a standalone app.
 - `docs/` is published to the GitHub wiki on every push to `main`, with a user-facing Home page and a first guide page (signing in). The app's Repository and Documentation links now point at this repo and its wiki instead of the Laravel starter kit.
 
+### Changed
+
+- Frontend URLs come from Laravel Wayfinder's generated, typed route helpers instead of Ziggy. A mistyped route name is now a `tsc` error, and pages no longer carry the app's full route list (admin routes included) in their HTML. CI now type-checks (`tsc --noEmit`).
+- The calendar feed is generated with sabre/vobject (already used for parsing) instead of spatie/icalendar-generator. Names containing double quotes are now escaped correctly per RFC 5545 (previously `\"`).
+
+### Removed
+
+- `spatie/icalendar-generator`, `tightenco/ziggy` and `laravel/sail` (unused). `laravel/tinker` is dev-only and no longer ships to the hosts.
+
 ### Security
 
 - Updated vulnerable transitive dependencies flagged by `composer audit`: `league/commonmark` 2.10.4, `guzzlehttp/guzzle` 7.16.0, `laravel/framework` 12.70.0, `symfony/http-foundation` 7.4.21, `league/flysystem` 3.36.0, `symfony/yaml` 8.1.9 (dev). Lockfile-only; no constraint changes.

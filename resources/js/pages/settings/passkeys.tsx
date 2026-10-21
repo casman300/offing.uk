@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { browserSupportsWebAuthn, createPasskey, deviceName, isAlreadyRegistered, isCancellation } from '@/lib/passkeys';
+import passkeyRoutes from '@/routes/passkeys';
 
 interface Passkey {
     id: number;
@@ -38,7 +39,7 @@ export default function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
         setBusy(true);
         try {
             const credential = await createPasskey();
-            router.post(route('passkeys.store'), { credential, device: deviceName() }, { preserveScroll: true, onFinish: () => setBusy(false) });
+            router.post(passkeyRoutes.store.url(), { credential, device: deviceName() }, { preserveScroll: true, onFinish: () => setBusy(false) });
         } catch (error) {
             setBusy(false);
             if (isAlreadyRegistered(error)) {
@@ -101,10 +102,10 @@ function PasskeyRow({ passkey }: { passkey: Passkey }) {
 
     const rename: FormEventHandler = (e) => {
         e.preventDefault();
-        patch(route('passkeys.update', passkey.id), { preserveScroll: true, onSuccess: () => setRenaming(false) });
+        patch(passkeyRoutes.update.url(passkey.id), { preserveScroll: true, onSuccess: () => setRenaming(false) });
     };
 
-    const remove = () => router.delete(route('passkeys.destroy', passkey.id), { preserveScroll: true });
+    const remove = () => router.delete(passkeyRoutes.destroy.url(passkey.id), { preserveScroll: true });
 
     return (
         <li className="flex items-center justify-between gap-4 px-4 py-3">
