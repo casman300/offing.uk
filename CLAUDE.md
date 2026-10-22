@@ -37,6 +37,7 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 ## Conventions
 
 - Conventional-commit-style prefixes (`feat:`, `fix:`, `chore:`, `security:`) map to `CHANGELOG.md`'s Keep a Changelog categories.
+- **Every commit needs a `Signed-off-by:` trailer** — the `dco` workflow (`.github/workflows/dco.yml`) fails any PR into `rc`/`main` with an unsigned commit (see CONTRIBUTING.md). Always `git commit -s`; Claude sessions sign off as their own git identity (`Claude <noreply@anthropic.com>`), never as the user. Forgot? On your own branch, `git rebase --signoff origin/rc` then `git push --force-with-lease` — content unchanged, only trailers added.
 - Semver: major = breaking/migrations required, minor = new backward-compatible functionality, patch = fixes.
 - Before committing PHP/TS changes: `vendor/bin/pint`, `vendor/bin/pest`, `npx tsc --noEmit`, `npm run build`. Don't just trust the diff — boot the app (`php artisan serve`) and exercise the actual flow when touching auth, payments, or anything security-relevant; feature tests alone have already missed at least one real bug in this codebase (a mail-rendering bug invisible to `Mail::fake()`).
 - Timezones: store UTC + origin IANA TZID, expand recurrence in the origin timezone (sabre does this), render in the viewer's profile timezone.
