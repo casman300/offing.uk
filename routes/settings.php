@@ -1,7 +1,7 @@
 <?php
 
 use App\Features\ConnectClaude;
-use App\Http\Controllers\Settings\ConnectClaudeController;
+use App\Http\Controllers\Settings\AiAssistantsController;
 use App\Http\Controllers\Settings\FeedTokenController;
 use App\Http\Controllers\Settings\PasskeyController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -31,9 +31,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('settings/feeds/{token}', [FeedTokenController::class, 'destroy'])->whereNumber('token')->name('feeds.destroy');
 });
 
-// Connect Claude (spec §12).
+// AI assistants — Connect Claude (spec §12), for any MCP client.
 Route::middleware(['auth', EnsureFeaturesAreActive::using(ConnectClaude::class)])->group(function () {
-    Route::get('settings/connect-claude', [ConnectClaudeController::class, 'index'])->name('connect-claude.index');
-    Route::patch('settings/connect-claude/{grant}', [ConnectClaudeController::class, 'update'])->whereNumber('grant')->name('connect-claude.update');
-    Route::delete('settings/connect-claude/{grant}', [ConnectClaudeController::class, 'destroy'])->whereNumber('grant')->name('connect-claude.destroy');
+    Route::get('settings/ai-assistants', [AiAssistantsController::class, 'index'])->name('ai-assistants.index');
+    Route::patch('settings/ai-assistants/{grant}', [AiAssistantsController::class, 'update'])->whereNumber('grant')->name('ai-assistants.update');
+    Route::delete('settings/ai-assistants/{grant}', [AiAssistantsController::class, 'destroy'])->whereNumber('grant')->name('ai-assistants.destroy');
 });

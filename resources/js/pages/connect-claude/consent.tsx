@@ -23,7 +23,7 @@ interface ConsentProps {
 }
 
 /**
- * The Connect Claude consent screen (spec §12). Plain HTML forms, not
+ * The consent screen for any AI assistant (spec §12). Plain HTML forms, not
  * Inertia visits: approving ends in a redirect back to Claude, which an XHR
  * can't follow.
  */
@@ -36,7 +36,7 @@ export default function Consent({ client, authToken, csrfToken, levels, level: i
             title={`Connect ${client.name} to Offing`}
             description="Choose what it can do. You can change this or disconnect at any time in Settings."
         >
-            <Head title="Connect Claude" />
+            <Head title={`Connect ${client.name}`} />
 
             <form method="post" action={connectClaude.approve.url()} className="flex flex-col gap-6">
                 <input type="hidden" name="_token" value={csrfToken} />

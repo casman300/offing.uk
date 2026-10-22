@@ -21,8 +21,8 @@ use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The Connect Claude consent screen (spec §12): access level + "include my
- * private events". Passport validates the OAuth request and keeps it in the
+ * The consent screen for Claude, ChatGPT or any MCP client (spec §12):
+ * access level (defaulting to read + add new) + "include my private events". Passport validates the OAuth request and keeps it in the
  * session; we record the user's choices as an AiGrant, then hand back to
  * Passport to issue the code.
  */
@@ -60,7 +60,7 @@ class ConsentController extends Controller
                 'label' => $level->label(),
                 'description' => $level->description(),
             ])->values(),
-            'level' => ($existing?->level ?? AccessLevel::Read)->value,
+            'level' => ($existing?->level ?? AccessLevel::WriteNew)->value,
             'includePrivate' => (bool) $existing?->include_private,
         ]);
     }

@@ -6,8 +6,8 @@ import { dashboard } from '@/routes';
 
 export default function Unavailable() {
     return (
-        <AuthLayout title="Connect Claude isn’t on for you yet" description="It’s still being tried out. Nothing has been connected.">
-            <Head title="Connect Claude" />
+        <AuthLayout title="Connecting AI assistants isn’t on for you yet" description="It’s still being tried out. Nothing has been connected.">
+            <Head title="AI assistants" />
             <Button asChild variant="outline" className="w-full">
                 <Link href={dashboard.url()}>Back to Offing</Link>
             </Button>

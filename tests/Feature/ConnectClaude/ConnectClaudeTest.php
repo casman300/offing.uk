@@ -136,13 +136,18 @@ describe('discovery and registration', function () {
             ->assertJsonPath('error', 'invalid_redirect_uri');
     });
 
+    it('registers ChatGPT too', function () {
+        $this->postJson('/oauth/register', ['client_name' => 'ChatGPT', 'redirect_uris' => ['https://chatgpt.com/connector/oauth/abc123']])->assertCreated();
+        $this->postJson('/oauth/register', ['redirect_uris' => ['https://chatgpt.com/connector_platform_oauth_redirect']])->assertCreated();
+    });
+
     it('allows Claude Code on localhost', function () {
         $this->postJson('/oauth/register', ['redirect_uris' => ['http://localhost:33418/callback']])->assertCreated();
     });
 });
 
 describe('consent', function () {
-    it('asks for an access level and private events, defaulting to the safest', function () {
+    it('asks for an access level and private events, defaulting to read and add new without private', function () {
         $user = connectingUser();
         [, $challenge] = pkce();
 
@@ -151,7 +156,7 @@ describe('consent', function () {
             ->component('connect-claude/consent')
             ->where('client.name', 'Claude')
             ->where('client.host', 'claude.ai')
-            ->where('level', 'read')
+            ->where('level', 'write-new')
             ->where('includePrivate', false)
             ->has('levels', 3));
     });
@@ -226,7 +231,7 @@ describe('the MCP endpoint', function () {
         $token = connect($user);
         mcp($token, 'tools/list')->assertOk();
 
-        $this->actingAs($user)->delete('/settings/connect-claude/'.AiGrant::sole()->id)->assertRedirect('/settings/connect-claude');
+        $this->actingAs($user)->delete('/settings/ai-assistants/'.AiGrant::sole()->id)->assertRedirect('/settings/ai-assistants');
 
         mcp($token, 'tools/list')->assertUnauthorized();
         expect(AuditLog::where('action', 'connect_claude.revoked')->exists())->toBeTrue();
@@ -257,8 +262,8 @@ describe('settings', function () {
         connect($user);
         connect(connectingUser(['email' => 'someone@example.com']));
 
-        $this->actingAs($user)->get('/settings/connect-claude')->assertInertia(fn (Assert $page) => $page
-            ->component('settings/connect-claude')
+        $this->actingAs($user)->get('/settings/ai-assistants')->assertInertia(fn (Assert $page) => $page
+            ->component('settings/ai-assistants')
             ->where('mcpUrl', url('/mcp'))
             ->has('connections', 1)
             ->where('connections.0.name', 'Claude')
@@ -270,7 +275,7 @@ describe('settings', function () {
         $token = connect($user);
         $grant = AiGrant::sole();
 
-        $this->actingAs($user)->patch("/settings/connect-claude/{$grant->id}", ['level' => 'edit', 'include_private' => true])->assertRedirect();
+        $this->actingAs($user)->patch("/settings/ai-assistants/{$grant->id}", ['level' => 'edit', 'include_private' => true])->assertRedirect();
 
         expect($grant->fresh()->level)->toBe(AccessLevel::Edit);
         expect(AuditLog::where('action', 'connect_claude.updated')->sole()->meta)
@@ -283,12 +288,12 @@ describe('settings', function () {
         connect(connectingUser(['email' => 'someone@example.com']));
         $grant = AiGrant::sole();
 
-        $this->actingAs(connectingUser())->patch("/settings/connect-claude/{$grant->id}", ['level' => 'edit', 'include_private' => true])->assertNotFound();
-        $this->delete("/settings/connect-claude/{$grant->id}")->assertNotFound();
+        $this->actingAs(connectingUser())->patch("/settings/ai-assistants/{$grant->id}", ['level' => 'edit', 'include_private' => true])->assertNotFound();
+        $this->delete("/settings/ai-assistants/{$grant->id}")->assertNotFound();
     });
 
     it('is behind the flag', function () {
-        $this->actingAs(User::factory()->create())->get('/settings/connect-claude')->assertNotFound();
+        $this->actingAs(User::factory()->create())->get('/settings/ai-assistants')->assertNotFound();
     });
 });
 

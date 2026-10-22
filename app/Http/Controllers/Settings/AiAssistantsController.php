@@ -13,14 +13,15 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Settings → Connect Claude (spec §12): how to connect, and the list of
- * connected apps with their access, which can be changed or revoked here.
+ * Settings → AI assistants (spec §12): how to connect Claude, ChatGPT or any
+ * other MCP client, and the connected apps, whose access can be changed or
+ * revoked here. Tested with Claude; nothing here is Claude-specific.
  */
-class ConnectClaudeController extends Controller
+class AiAssistantsController extends Controller
 {
     public function index(Request $request): Response
     {
-        return Inertia::render('settings/connect-claude', [
+        return Inertia::render('settings/ai-assistants', [
             'mcpUrl' => url('/mcp'),
             'levels' => collect(AccessLevel::cases())->map(fn (AccessLevel $level) => [
                 'value' => $level->value,
@@ -51,7 +52,7 @@ class ConnectClaudeController extends Controller
 
         Connections::update($model, AccessLevel::from($validated['level']), $request->boolean('include_private'), $request->ip());
 
-        return to_route('connect-claude.index')->with('status', 'connection-updated');
+        return to_route('ai-assistants.index')->with('status', 'connection-updated');
     }
 
     public function destroy(Request $request, int $grant): RedirectResponse
@@ -60,6 +61,6 @@ class ConnectClaudeController extends Controller
 
         Connections::revoke($model, $request->ip());
 
-        return to_route('connect-claude.index')->with('status', 'connection-revoked');
+        return to_route('ai-assistants.index')->with('status', 'connection-revoked');
     }
 }

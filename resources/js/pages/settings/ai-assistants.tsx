@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import connectClaude from '@/routes/connect-claude';
+import aiAssistants from '@/routes/ai-assistants';
 
 interface Level {
     value: string;
@@ -30,48 +30,56 @@ interface Connection {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Connect Claude',
-        href: '/settings/connect-claude',
+        title: 'AI assistants',
+        href: '/settings/ai-assistants',
     },
 ];
 
 const selectClass =
     'border-input bg-background ring-offset-background focus-visible:ring-ring h-10 rounded-md border px-3 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50 md:text-sm';
 
-export default function ConnectClaude({ mcpUrl, levels, connections }: { mcpUrl: string; levels: Level[]; connections: Connection[] }) {
+export default function AiAssistants({ mcpUrl, levels, connections }: { mcpUrl: string; levels: Level[]; connections: Connection[] }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Connect Claude" />
+            <Head title="AI assistants" />
 
             <SettingsLayout>
                 <div className="space-y-8">
                     <div className="space-y-6">
                         <HeadingSmall
-                            title="Connect Claude"
-                            description="Let your own Claude see your Offing: ask it what’s coming up, whose birthday is next or what chores are due."
+                            title="AI assistants"
+                            description="Connect your own AI assistant to Offing, then ask it what’s coming up, whose birthday is next or what chores are due."
                         />
 
                         <CopyUrl url={mcpUrl} />
 
-                        <ol className="list-decimal space-y-2 pl-5 text-sm">
+                        <ul className="space-y-2 text-sm">
                             <li>
-                                <span className="font-medium">Claude on the web or desktop:</span> Settings → Connectors → Add custom connector. Name
-                                it “Offing”, paste the address above and choose Add, then Connect.
+                                <span className="font-medium">Claude (web, desktop and phone):</span> on the web or desktop, Settings → Connectors →
+                                Add custom connector. Name it “Offing”, paste the address above, then Connect. It’s on your phone from then on.
                             </li>
                             <li>
-                                <span className="font-medium">Claude on your phone:</span> once it’s added on the web or desktop, it’s there on your
-                                phone too.
+                                <span className="font-medium">ChatGPT:</span> Settings → Apps & Connectors, then add a connector with the address
+                                above. Depending on your plan, you may need to turn on developer mode first.
                             </li>
                             <li>
                                 <span className="font-medium">Claude Code:</span>{' '}
                                 <code className="bg-muted rounded px-1 py-0.5 text-xs">claude mcp add --transport http offing {mcpUrl}</code>, then{' '}
                                 <code className="bg-muted rounded px-1 py-0.5 text-xs">/mcp</code> to sign in.
                             </li>
-                        </ol>
+                            <li>
+                                <span className="font-medium">Other assistants:</span> anything that supports remote MCP connectors with OAuth sign-in
+                                should work. Use the address above.
+                            </li>
+                        </ul>
 
                         <p className="text-muted-foreground text-sm">
-                            When you connect, Offing asks what Claude may do. It sees what you can see here. Anything it reads is sent to Anthropic,
-                            under their privacy policy.
+                            We test with Claude, but Offing uses the open MCP standard, so other assistants should work too.
+                        </p>
+
+                        <p className="text-muted-foreground text-sm">
+                            When you connect, Offing asks what the assistant may do. It sees what you can see here. Anything it reads is sent to the
+                            company that runs it, under their privacy policy.
                         </p>
                     </div>
 
@@ -126,10 +134,10 @@ function ConnectionRow({ connection, levels }: { connection: Connection; levels:
 
     const save: FormEventHandler = (e) => {
         e.preventDefault();
-        patch(connectClaude.update.url(connection.id), { preserveScroll: true });
+        patch(aiAssistants.update.url(connection.id), { preserveScroll: true });
     };
 
-    const revoke = () => router.delete(connectClaude.destroy.url(connection.id), { preserveScroll: true });
+    const revoke = () => router.delete(aiAssistants.destroy.url(connection.id), { preserveScroll: true });
 
     return (
         <li className="space-y-3 px-4 py-3">
@@ -152,7 +160,7 @@ function ConnectionRow({ connection, levels }: { connection: Connection; levels:
                     </DialogTrigger>
                     <DialogContent>
                         <DialogTitle>Disconnect “{connection.name}”?</DialogTitle>
-                        <DialogDescription>It loses access straight away. You can connect again from Claude whenever you like.</DialogDescription>
+                        <DialogDescription>It loses access straight away. You can connect it again whenever you like.</DialogDescription>
                         <DialogFooter>
                             <DialogClose asChild>
                                 <Button variant="secondary">Cancel</Button>

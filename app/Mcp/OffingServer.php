@@ -8,8 +8,9 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 /**
- * Connect Claude (spec §12): one OAuth MCP server for the Directory listing
- * and self-hosters alike. Few, broad tools; the briefing comes first.
+ * Connect Claude (spec §12): one OAuth MCP server for Claude, ChatGPT and any
+ * other MCP client, hosted or self-hosted. Few, broad tools; the briefing
+ * comes first.
  */
 #[Name('Offing')]
 #[Version('0.1.0')]

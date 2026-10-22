@@ -3,7 +3,7 @@
 namespace App\Support\ConnectClaude;
 
 /**
- * What a connected Claude may do (spec §12). Stored on the AiGrant, not as
+ * What a connected assistant may do (spec §12). Stored on the AiGrant, not as
  * OAuth scopes: laravel/mcp advertises the single `mcp:use` scope, and this
  * way a change applies straight away without reconnecting.
  */
@@ -25,9 +25,9 @@ enum AccessLevel: string
     public function description(): string
     {
         return match ($this) {
-            self::Read => 'Claude can look things up but not change anything.',
-            self::WriteNew => 'Claude can also add new things, like a person or a chore you’ve done.',
-            self::Edit => 'Claude can also change or remove things that are already there.',
+            self::Read => 'It can look things up but not change anything.',
+            self::WriteNew => 'It can also add new things, like a person or a chore you’ve done.',
+            self::Edit => 'It can also change or remove things that are already there.',
         };
     }
 

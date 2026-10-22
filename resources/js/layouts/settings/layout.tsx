@@ -34,7 +34,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     const navItems: NavItem[] = [
         ...sidebarNavItems,
         ...(features.reminders ? [{ title: 'Reminders', url: '/settings/reminders', icon: null }] : []),
-        ...(features.connectClaude ? [{ title: 'Connect Claude', url: '/settings/connect-claude', icon: null }] : []),
+        ...(features.connectClaude ? [{ title: 'AI assistants', url: '/settings/ai-assistants', icon: null }] : []),
     ];
 
     return (
