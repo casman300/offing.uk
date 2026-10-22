@@ -29,7 +29,7 @@ final class Text
     public static function chore(array $chore, string $listName): string
     {
         $due = $chore['due_on'] === null ? 'needs a date' : 'due '.self::date($chore['due_on']);
-        $late = ($chore['days'] ?? 0) < 0 ? ', '.self::days(abs($chore['days'])).' late' : '';
+        $late = ($chore['days'] ?? 0) < 0 ? ', '.self::days(abs((int) $chore['days'])).' late' : '';
         $who = match (true) {
             $chore['who'] === null => '',
             $chore['who']['is_me'] => ' — your turn',

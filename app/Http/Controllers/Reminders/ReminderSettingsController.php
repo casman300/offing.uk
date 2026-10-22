@@ -98,11 +98,10 @@ class ReminderSettingsController extends Controller
     {
         $user = $request->user();
         $today = $user->today();
-        $entries = collect((new BirthdaySource)->between($user, $today, $today->addYear()))
+        $entries = array_values(collect((new BirthdaySource)->between($user, $today, $today->addYear()))
             ->sortBy(fn (array $e) => $e['date']->getTimestamp())
             ->take(3)
-            ->values()
-            ->all();
+            ->all());
 
         if ($entries === []) {
             return back()->with('status', 'reminders-test-empty');

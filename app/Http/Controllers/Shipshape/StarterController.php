@@ -32,7 +32,7 @@ class StarterController extends Controller
                 ...$group,
                 'items' => collect($group['items'])->map(fn ($item) => $item + [
                     'present' => in_array(mb_strtolower($item['title']), $existing, true),
-                ])->values(),
+                ])->values()->all(),
             ])->values(),
         ]);
     }

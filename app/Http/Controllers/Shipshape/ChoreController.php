@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Shipshape\Concerns\FindsChores;
 use App\Models\Chore;
 use App\Models\ChoreList;
+use App\Models\User;
 use App\Support\Shipshape\Board;
 use App\Support\Shipshape\ChoreSchedule;
 use Illuminate\Http\RedirectResponse;
@@ -86,7 +87,7 @@ class ChoreController extends Controller
         return back()->with('status', "“{$model->title}” is back.");
     }
 
-    private function form(ChoreList $list, $user, ?Chore $chore): Response
+    private function form(ChoreList $list, User $user, ?Chore $chore): Response
     {
         return Inertia::render('shipshape/chore-form', [
             'today' => $user->today()->toDateString(),
@@ -130,7 +131,7 @@ class ChoreController extends Controller
 
         $members = $list->assignableMembers()->keyBy('id');
         $assign = $list->isCrewList() ? $data['assign'] : Chore::ANYONE;
-        $rota = collect($data['rota'] ?? [])->map(fn ($id) => (int) $id);
+        $rota = collect((array) ($data['rota'] ?? []))->map(fn ($id) => (int) $id);
 
         if ($assign === Chore::MEMBER && ! $members->has((int) ($data['assignee_member_id'] ?? 0))) {
             throw ValidationException::withMessages(['assignee_member_id' => 'Pick who it’s for.']);

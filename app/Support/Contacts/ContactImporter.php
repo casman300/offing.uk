@@ -156,7 +156,7 @@ final class ContactImporter
             $kept = [];
 
             foreach ($result['created'] ?? [] as $entry) {
-                $person = $this->user->people()->find($entry['id']);
+                $person = $this->user->people()->find((int) $entry['id']);
 
                 if ($person === null) {
                     continue; // already deleted
@@ -172,8 +172,8 @@ final class ContactImporter
                 $removed++;
             }
 
-            foreach (collect($result['filled'] ?? [])->groupBy('person_id') as $personId => $fields) {
-                $person = $this->user->people()->find($personId);
+            foreach (collect((array) ($result['filled'] ?? []))->groupBy('person_id') as $personId => $fields) {
+                $person = $this->user->people()->find((int) $personId);
 
                 if ($person === null) {
                     continue;
@@ -234,7 +234,7 @@ final class ContactImporter
         // Never leave an impossible combination (29 Feb + a non-leap year).
         $day = $target['birth_day'] ?? $person->birth_day;
         $month = $target['birth_month'] ?? $person->birth_month;
-        $year = array_key_exists('birth_year', $target) ? $target['birth_year'] : $person->birth_year;
+        $year = $target['birth_year'];
         if ($year !== null && ! Birthday::isValidDate($day, $month, $year)) {
             $target['birth_year'] = $person->birth_year !== null && Birthday::isValidDate($day, $month, $person->birth_year) ? $person->birth_year : null;
         }
@@ -258,6 +258,7 @@ final class ContactImporter
 
     /**
      * @param  array<string, mixed>  $row
+     * @return 'duplicates'|'no_birthday'|'new'|'conflict'|'match'
      */
     private function sectionFor(array $row, ?Person $match): string
     {
@@ -278,7 +279,7 @@ final class ContactImporter
 
     /**
      * @param  array<string, mixed>  $row
-     * @param  Collection<string, Collection<int, Person>>  $people
+     * @param  Collection<array-key, Collection<int, Person>>  $people
      */
     private function matchFor(array $row, Collection $people): ?Person
     {
@@ -292,11 +293,11 @@ final class ContactImporter
     }
 
     /**
-     * @return Collection<string, Collection<int, Person>>
+     * @return Collection<array-key, Collection<int, Person>>
      */
     private function peopleByName(): Collection
     {
-        return $this->user->people()->orderBy('id')->get()
+        return $this->user->people()->orderBy('id')->get()->toBase()
             ->groupBy(fn (Person $person) => VcardParser::normalise($person->name));
     }
 }

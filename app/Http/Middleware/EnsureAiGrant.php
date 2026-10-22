@@ -7,6 +7,7 @@ use App\Models\AiGrant;
 use App\Models\AuditLog;
 use Closure;
 use Illuminate\Http\Request;
+use Laravel\Passport\AccessToken;
 use Laravel\Pennant\Feature;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -21,7 +22,9 @@ class EnsureAiGrant
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        $clientId = $user?->currentAccessToken()?->oauth_client_id;
+        $token = $user?->currentAccessToken();
+        // Only a real OAuth token names a client; a TransientToken (cookie auth) doesn't.
+        $clientId = $token instanceof AccessToken ? $token->oauth_client_id : null;
 
         if ($user === null || $clientId === null || ! Feature::for($user)->active(ConnectClaude::class)) {
             return response()->json(['error' => 'access_denied'], 403);

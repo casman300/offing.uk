@@ -58,7 +58,7 @@ final class WebPushSender implements PushSender
 
         $webPush = $this->client(['TTL' => self::TTL, 'urgency' => 'normal', 'topic' => Str::limit(preg_replace('/[^A-Za-z0-9_-]/', '', $payload['tag']), 32, '')]);
         $byEndpoint = $devices->keyBy(fn (UserDevice $d) => $d->push_subscription['endpoint']);
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         foreach ($devices as $device) {
             // Always RFC 8291 aes128gcm: the library's default for a subscription

@@ -36,6 +36,9 @@ class AuditLog extends Model
         return $this->morphTo();
     }
 
+    /**
+     * @param  array<string, mixed>  $meta
+     */
     public static function record(?Model $actor, string $action, ?Model $subject = null, array $meta = [], ?string $ip = null): self
     {
         return self::create([

@@ -52,6 +52,6 @@ class ContactImport extends Model
      */
     public function prunable(): Builder
     {
-        return static::where('status', self::PENDING)->where('created_at', '<', now()->subDay());
+        return static::query()->where('status', self::PENDING)->where('created_at', '<', now()->subDay());
     }
 }

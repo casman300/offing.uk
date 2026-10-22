@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Controllers\ConnectClaude\ConsentController;
+use App\Models\User;
 use App\Support\Push\PushSender;
 use App\Support\Push\WebPushSender;
 use Carbon\CarbonInterval;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
 use Laravel\Pennant\Middleware\EnsureFeaturesAreActive;
 
@@ -51,7 +53,10 @@ class AppServiceProvider extends ServiceProvider
         // Connect Claude (spec §12): our own consent screen, and short-lived
         // access tokens — Claude refreshes them, and a revoke or a lost
         // device then stops mattering within the hour.
-        Passport::authorizationView(fn (array $parameters) => app(ConsentController::class)->show($parameters));
+        Passport::authorizationView(function (array $parameters) {
+            /** @var array{client: Client, user: User, authToken: string, request: Request} $parameters */
+            return app(ConsentController::class)->show($parameters)->toResponse($parameters['request']);
+        });
         Passport::tokensExpireIn(CarbonInterval::hour());
         Passport::refreshTokensExpireIn(CarbonInterval::days(90));
     }

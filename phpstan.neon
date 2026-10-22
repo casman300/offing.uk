@@ -5,7 +5,18 @@ parameters:
     paths:
         - app
 
-    level: 5
+    level: 7
+
+    # Read the cast arrays out of `casts()` — its declared return type is a
+    # bare `array`, so without this every datetime column looks like a string.
+    parseModelCastsMethod: true
+
+    ignoreErrors:
+        # sabre/vobject components are iterable but not generic, so there's
+        # no way to give them a value type.
+        -
+            identifier: missingType.iterableValue
+            message: '#iterable type Sabre\\VObject\\#'
 
     excludePaths:
         - app/**/*Test.php

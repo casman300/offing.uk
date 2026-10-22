@@ -18,8 +18,14 @@ class ConnectClaudeKeysCommand extends Command
     public function handle(): int
     {
         $key = openssl_pkey_new(['private_key_bits' => 4096, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-        openssl_pkey_export($key, $private);
-        $public = openssl_pkey_get_details($key)['key'];
+
+        if ($key === false || ! openssl_pkey_export($key, $private) || ($details = openssl_pkey_get_details($key)) === false) {
+            $this->error('OpenSSL couldn’t generate the key pair: '.(openssl_error_string() ?: 'unknown error'));
+
+            return self::FAILURE;
+        }
+
+        $public = $details['key'];
 
         $this->line('PASSPORT_PRIVATE_KEY="'.self::oneLine($private).'"');
         $this->line('PASSPORT_PUBLIC_KEY="'.self::oneLine($public).'"');

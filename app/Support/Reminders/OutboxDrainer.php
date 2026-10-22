@@ -6,6 +6,7 @@ use App\Features\BirthdayEngine;
 use App\Features\Reminders;
 use App\Mail\BirthdayReminderMail;
 use App\Models\OutboxMessage;
+use App\Models\Person;
 use App\Models\User;
 use App\Support\Push\PushSender;
 use Carbon\CarbonImmutable;
@@ -57,6 +58,7 @@ final class OutboxDrainer
 
     /**
      * @param  Collection<int, OutboxMessage>  $batch
+     * @return 'sent'|'skipped'|'failed'|'retrying'
      */
     private function sendBatch(Collection $batch, CarbonImmutable $now): string
     {
@@ -70,6 +72,7 @@ final class OutboxDrainer
         }
 
         $people = $user->people()->whereIn('id', $batch->pluck('payload.person_id'))->get()->keyBy('id');
+        /** @var list<array{person: Person, date: CarbonImmutable, turns: ?int}> $entries the filter drops anyone deleted */
         $entries = $batch
             ->filter(fn (OutboxMessage $m) => $people->has($m->payload['person_id']))
             ->map(fn (OutboxMessage $m) => [
@@ -165,6 +168,7 @@ final class OutboxDrainer
 
     /**
      * @param  Collection<int, OutboxMessage>  $batch
+     * @return 'retrying'
      */
     private function retry(Collection $batch, CarbonImmutable $now, string $reason): string
     {
@@ -186,6 +190,7 @@ final class OutboxDrainer
 
     /**
      * @param  Collection<int, OutboxMessage>  $batch
+     * @return 'failed'|'retrying'
      */
     private function failed(Collection $batch, CarbonImmutable $now, Throwable $e): string
     {
@@ -207,6 +212,8 @@ final class OutboxDrainer
 
     /**
      * @param  Collection<int, OutboxMessage>  $batch
+     * @param  'skipped'  $status
+     * @return 'skipped'
      */
     private function mark(Collection $batch, string $status, string $reason): string
     {

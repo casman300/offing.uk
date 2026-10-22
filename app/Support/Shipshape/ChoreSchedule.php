@@ -6,6 +6,7 @@ use App\Models\Chore;
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 use Sabre\VObject\Recur\RRuleIterator;
 
 /**
@@ -45,6 +46,7 @@ final class ChoreSchedule
             // No overflow: a floating "monthly" done on 31 Jan is due 28/29 Feb.
             'month' => $date->addMonthsNoOverflow($every),
             'year' => $date->addYearsNoOverflow($every),
+            default => throw new InvalidArgumentException("Unknown chore unit [{$unit}]."),
         };
     }
 
