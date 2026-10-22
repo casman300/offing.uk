@@ -176,7 +176,7 @@ chore_entries    id, chore_id, kind(done|skip), done_on(date),          ← the 
 oauth_*          Passport tables (clients, access/refresh tokens);      ← Connect Claude (§12); scopes =
                  one row per connected Claude                             read | write-new | edit
 ai_grants        oauth_client_id, user_id, level, include_private,      ← consent choices per connection
-                 last_used_at, revoked_at
+                 barometer(bool), last_used_at, revoked_at
 audit_log        id, actor(morph), action, subject(morph), meta(json), ip, created_at  ← append-only
 ```
 
@@ -297,7 +297,7 @@ Design reminders to tolerate 5-minute cron granularity in case 20i limits freque
 
 ### Consent: access level + private toggle
 
-The consent screen asks two things, nothing more:
+The consent screen asks two things (three for Barometer users), nothing more:
 
 1. **Access level** (one of three, = Passport scopes):
 
@@ -308,10 +308,24 @@ The consent screen asks two things, nothing more:
    | Change/delete existing events, people, reminders; undo a chore log | | | ✅ |
 
 2. **"Include my private events"** — off by default. When off, the connection sees the user's own private events exactly as a Partner would (private+busy = detail-free Busy block, private+free = absent).
+3. **Barometer** (only if the user has it) — a separate opt-in; see below.
 
 No per-calendar/per-crew pickers — the connection otherwise sees what the user sees, under the rules below.
 
 **Settings → Connect Claude** page: this instance's own MCP URL with a copy button; per-surface steps (web/desktop add the connector, mobile inherits it, Claude Code one-liner); a download of the Offing skill; and the **Connected apps** list — one row per OAuth client with level, private toggle, last used, edit (no reconnect needed to widen/narrow) and Revoke. Grants, edits, revokes and every tool call are audited (`AuditLog::record()`).
+
+### Barometer: write in, stats out (health data)
+
+Barometer (the private anxiety log, `feat/barometer`) is UK GDPR special-category health data, so it sits **outside** the access levels as its own opt-in:
+
+- **Separate consent switch**: "Barometer: let Claude add readings and see stats". Off by default, shown only to users who have the Barometer flag, and it's its own Passport scope (`barometer:log`). When it's off, the Barometer tools aren't listed to that connection at all, so Claude doesn't know they exist.
+- **`log_reading`** (write): day/time (optional, as in the app), first rating (required) and the optional text fields. Content goes *in*: the user already said it to Claude, so writing it adds no exposure. The result is a bare confirmation ("Logged, 7/10 at 14:20") and **never echoes the text**. It can also add a second rating to the user's latest reading from today that doesn't have one ("I'm down to 3 now"). There's no edit, delete, list or read-back: corrections happen in the app.
+- **`get_barometer_stats`** (read, aggregates only): reading count, average first rating, average drop from first to second rating, weekly averages, and time-of-day/weekday buckets over a range. **No per-reading rows and no free text, ever.** The same "describe, don't diagnose" rule applies as in the app (§25 on the Barometer branch), and results carry that framing.
+- **Never in `get_briefing`, `find` or any other tool**, and never in any other share or connection. Reviewing details, editing, exports and anything safeguarding-related stay in the app.
+- **Server instructions** (only when the scope is granted): don't interpret severity or diagnose. If the user mentions risk to themselves, signpost Samaritans (116 123) and their GP or therapist, and point to the app for the full log.
+- **Audit**: grant/revoke, each logged reading and each stats call, with no content (matches Barometer's own audit rule).
+- **Directory**: the submission's data-handling step asks whether the connector handles personal health data. Answer **yes** and describe this write-only/aggregate design.
+- **Rollout**: `log_reading` once Barometer is merged; `get_barometer_stats` once Barometer's stats phase (#37) exists. Both require `connect-claude` *and* `barometer` flags. When the branches meet, update Barometer's "never in MCP" line to point here.
 
 ### Other people's data
 
@@ -333,6 +347,7 @@ Aim: most questions answered in **1–2 calls**. About eight tools, each returni
 | `delete_event` | edit | Soft delete — undo window applies. `destructiveHint`. |
 | `save_person` | write-new / edit | Own address book only (crew-owned people per role); birthdays included. |
 | `log_chore` | write-new (log) / edit (undo) | "I've done the bins." Creating/editing chore lists stays in the app. |
+| `log_reading`, `get_barometer_stats` | `barometer:log` only | Health data. Write in, aggregates out, never details. See Barometer above. |
 
 Plus:
 
