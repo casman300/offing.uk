@@ -31,6 +31,15 @@ trait ActsForGrant
         return $this->level()->allows($needed);
     }
 
+    /**
+     * Barometer's own opt-in on this connection (spec §12): health data sits
+     * outside the access levels. No grant reads as off.
+     */
+    protected function barometerGranted(): bool
+    {
+        return (bool) $this->grant()?->barometer;
+    }
+
     protected function notAllowed(AccessLevel $needed, string $what): Response
     {
         return Response::error("This connection can't {$what}: its access is “{$this->level()->label()}” and that needs “{$needed->label()}”. "

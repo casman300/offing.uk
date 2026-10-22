@@ -327,7 +327,7 @@ Barometer (the private anxiety log, §26) is UK GDPR special-category health dat
 - **Server instructions** (only when the scope is granted): don't interpret severity or diagnose. If the user mentions risk to themselves, signpost Samaritans (116 123) and their GP or therapist, and point to the app for the full log.
 - **Audit**: grant/revoke, each logged reading and each stats call, with no content (matches Barometer's own audit rule).
 - **Directory**: the submission's data-handling step asks whether the connector handles personal health data. Answer **yes** and describe this write-only/aggregate design.
-- **Rollout**: `log_reading` once Barometer is merged; `get_barometer_stats` once Barometer's stats phase (#37) exists. Both require `connect-claude` *and* `barometer` flags. When the branches meet, update Barometer's "never in MCP" line to point here.
+- **Rollout**: both ship with Barometer's first slice (#35). Both need the `connect-claude` *and* `barometer` flags plus the grant's switch. `log_reading` also needs "Read and add new". `get_barometer_stats` works at any level (it's read-only) and returns counts and averages computed from the dates and ratings only; the query never selects the text columns. #37 builds the in-app stats on the same numbers. If no time is given, a new reading is logged as now. A date with no time is logged with the time not recorded. A repeat of the same reading within two minutes is treated as a retry and not logged again.
 
 ### Other people's data
 

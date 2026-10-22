@@ -24,6 +24,7 @@ interface Connection {
     host: string | null;
     level: string;
     include_private: boolean;
+    barometer: boolean;
     created_at: string;
     last_used_at: string | null;
 }
@@ -38,7 +39,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 const selectClass =
     'border-input bg-background ring-offset-background focus-visible:ring-ring h-10 rounded-md border px-3 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50 md:text-sm';
 
-export default function AiAssistants({ mcpUrl, levels, connections }: { mcpUrl: string; levels: Level[]; connections: Connection[] }) {
+export default function AiAssistants({
+    mcpUrl,
+    levels,
+    connections,
+    barometerAvailable,
+}: {
+    mcpUrl: string;
+    levels: Level[];
+    connections: Connection[];
+    barometerAvailable: boolean;
+}) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="AI assistants" />
@@ -94,7 +105,12 @@ export default function AiAssistants({ mcpUrl, levels, connections }: { mcpUrl: 
                         ) : (
                             <ul className="bg-card divide-border divide-y rounded-xl border">
                                 {connections.map((connection) => (
-                                    <ConnectionRow key={connection.id} connection={connection} levels={levels} />
+                                    <ConnectionRow
+                                        key={connection.id}
+                                        connection={connection}
+                                        levels={levels}
+                                        barometerAvailable={barometerAvailable}
+                                    />
                                 ))}
                             </ul>
                         )}
@@ -126,10 +142,11 @@ function CopyUrl({ url }: { url: string }) {
     );
 }
 
-function ConnectionRow({ connection, levels }: { connection: Connection; levels: Level[] }) {
+function ConnectionRow({ connection, levels, barometerAvailable }: { connection: Connection; levels: Level[]; barometerAvailable: boolean }) {
     const { data, setData, patch, processing, isDirty } = useForm({
         level: connection.level,
         include_private: connection.include_private,
+        barometer: connection.barometer,
     });
 
     const save: FormEventHandler = (e) => {
@@ -194,6 +211,16 @@ function ConnectionRow({ connection, levels }: { connection: Connection; levels:
                     />
                     <Label htmlFor={`private-${connection.id}`}>Include private events</Label>
                 </div>
+                {barometerAvailable && (
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id={`barometer-${connection.id}`}
+                            checked={data.barometer}
+                            onCheckedChange={(checked) => setData('barometer', checked === true)}
+                        />
+                        <Label htmlFor={`barometer-${connection.id}`}>Barometer: add readings and see summary numbers</Label>
+                    </div>
+                )}
                 {isDirty && (
                     <Button size="sm" disabled={processing}>
                         Save

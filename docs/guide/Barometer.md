@@ -23,3 +23,9 @@ Deleting a reading removes it for good. There's no undo.
 Choose **Export** at the top of the Barometer page, pick a date range (up to a year) and choose **Download PDF** or **Download CSV**. The PDF prints on A4 and is laid out like the paper form, titled "Anxiety log". The CSV opens in Excel or Numbers.
 
 Untick any column you'd rather not share that week. The time and first rating are always included.
+
+## With an AI assistant
+
+If you've [connected an AI assistant](AI-assistants.md), you can let it log readings for you and tell you your summary numbers. Turn on the **Barometer** switch when you connect it, or later in **Settings → AI assistants**. It's off unless you turn it on.
+
+The assistant can add a reading you tell it about and see counts and averages. It never sees your readings or what you wrote, and it can't change or delete anything.

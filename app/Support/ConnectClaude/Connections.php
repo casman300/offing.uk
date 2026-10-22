@@ -19,11 +19,14 @@ final class Connections
     /** Dynamic registration is open to anyone, so unused clients don't linger. */
     public const ABANDONED_AFTER_HOURS = 24;
 
-    public static function approve(User $user, Client $client, AccessLevel $level, bool $includePrivate, ?string $ip = null): AiGrant
+    /**
+     * @param  bool  $barometer  Barometer's own opt-in (§12); callers pass false unless the user has the Barometer flag.
+     */
+    public static function approve(User $user, Client $client, AccessLevel $level, bool $includePrivate, ?string $ip = null, bool $barometer = false): AiGrant
     {
         $grant = AiGrant::updateOrCreate(
             ['user_id' => $user->id, 'oauth_client_id' => $client->getKey()],
-            ['level' => $level, 'include_private' => $includePrivate],
+            ['level' => $level, 'include_private' => $includePrivate, 'barometer' => $barometer],
         );
 
         AuditLog::record($user, 'connect_claude.approved', $grant, self::meta($grant, $client), $ip);
@@ -36,10 +39,10 @@ final class Connections
         AuditLog::record($user, 'connect_claude.denied', $client, ['client' => $client->name], $ip);
     }
 
-    public static function update(AiGrant $grant, AccessLevel $level, bool $includePrivate, ?string $ip = null): void
+    public static function update(AiGrant $grant, AccessLevel $level, bool $includePrivate, ?string $ip = null, bool $barometer = false): void
     {
-        $before = ['level' => $grant->level->value, 'include_private' => $grant->include_private];
-        $grant->update(['level' => $level, 'include_private' => $includePrivate]);
+        $before = ['level' => $grant->level->value, 'include_private' => $grant->include_private, 'barometer' => $grant->barometer];
+        $grant->update(['level' => $level, 'include_private' => $includePrivate, 'barometer' => $barometer]);
 
         AuditLog::record($grant->user, 'connect_claude.updated', $grant, [...self::meta($grant, $grant->client), 'before' => $before], $ip);
     }
@@ -110,6 +113,7 @@ final class Connections
             'client' => $client?->name,
             'level' => $grant->level->value,
             'include_private' => $grant->include_private,
+            'barometer' => $grant->barometer,
         ];
     }
 }

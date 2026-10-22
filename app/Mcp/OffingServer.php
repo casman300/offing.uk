@@ -2,13 +2,18 @@
 
 namespace App\Mcp;
 
+use App\Features\Barometer;
 use App\Mcp\Tools\Find;
+use App\Mcp\Tools\GetBarometerStats;
 use App\Mcp\Tools\GetBriefing;
 use App\Mcp\Tools\LogChore;
+use App\Mcp\Tools\LogReading;
 use App\Mcp\Tools\SavePerson;
+use App\Models\AiGrant;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
+use Laravel\Pennant\Feature;
 
 /**
  * Connect Claude (spec §12): one OAuth MCP server for Claude, ChatGPT and any
@@ -46,5 +51,31 @@ class OffingServer extends Server
         Find::class,
         SavePerson::class,
         LogChore::class,
+        GetBarometerStats::class,
+        LogReading::class,
     ];
+
+    /**
+     * Barometer's guidance (spec §12) goes out only to connections the user
+     * gave Barometer access; everyone else's assistant never hears of it.
+     */
+    private const BAROMETER_INSTRUCTIONS = <<<'MARKDOWN'
+
+        Barometer (this connection has access): the user's private anxiety log — health data. `log_reading` adds a
+        reading the user tells you about (a rating from 0 calm to 10 most anxious, optional details) or a second
+        rating to today's latest reading; `get_barometer_stats` returns summary numbers only. You can't read
+        individual readings or anything the user wrote, and there's no edit or delete: the full log, corrections and
+        exports are in the Offing app. Never interpret severity or diagnose; describe the numbers plainly. If the user
+        mentions risk to themselves, signpost Samaritans (116 123, free, UK, any time) and their GP or therapist.
+    MARKDOWN;
+
+    protected function boot(): void
+    {
+        $grant = app()->bound(AiGrant::class) ? app(AiGrant::class) : null;
+        $user = $grant?->user;
+
+        if ($grant?->barometer && $user !== null && Feature::for($user)->active(Barometer::class)) {
+            $this->instructions .= self::BAROMETER_INSTRUCTIONS;
+        }
+    }
 }

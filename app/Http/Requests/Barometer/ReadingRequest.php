@@ -4,7 +4,7 @@ namespace App\Http\Requests\Barometer;
 
 use App\Models\BarometerReading;
 use App\Models\User;
-use Carbon\CarbonImmutable;
+use App\Support\Barometer\ReadingTime;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -21,9 +21,6 @@ use Illuminate\Validation\Validator;
  */
 class ReadingRequest extends FormRequest
 {
-    /** A little slack for clock skew between phone and server. */
-    private const FUTURE_SLACK_MINUTES = 5;
-
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -65,12 +62,10 @@ class ReadingRequest extends FormRequest
                     return;
                 }
 
-                $occurredAt = $this->occurredAt();
+                $problem = ReadingTime::problem($this->localDate(), $this->time(), $this->timezone());
 
-                if ($occurredAt === null && $this->localDate() > now($this->timezone())->toDateString()) {
-                    $validator->errors()->add('date', 'That day is in the future.');
-                } elseif ($occurredAt?->isAfter(now()->addMinutes(self::FUTURE_SLACK_MINUTES))) {
-                    $validator->errors()->add('time', 'That time is in the future.');
+                if ($problem !== null) {
+                    $validator->errors()->add(...$problem);
                 }
             },
         ];
@@ -86,14 +81,9 @@ class ReadingRequest extends FormRequest
         return $this->string('date')->toString();
     }
 
-    /** Null when the time wasn't recorded. */
-    public function occurredAt(): ?CarbonImmutable
+    public function time(): ?string
     {
-        if (! $this->filled('time')) {
-            return null;
-        }
-
-        return CarbonImmutable::createFromFormat('Y-m-d H:i', $this->localDate().' '.$this->string('time'), $this->timezone())->utc();
+        return $this->filled('time') ? $this->string('time')->toString() : null;
     }
 
     /**
@@ -102,7 +92,7 @@ class ReadingRequest extends FormRequest
     public function readingAttributes(): array
     {
         $attributes = [
-            'occurred_at' => $this->occurredAt(),
+            'occurred_at' => ReadingTime::occurredAt($this->localDate(), $this->time(), $this->timezone()),
             'local_date' => $this->localDate(),
             'tzid' => $this->timezone(),
             'rating_before' => $this->integer('rating_before'),
