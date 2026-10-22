@@ -6,6 +6,7 @@ use App\Features\BirthdayEngine;
 use App\Features\Reminders;
 use App\Mail\BirthdayReminderMail;
 use App\Models\OutboxMessage;
+use App\Models\Person;
 use App\Models\User;
 use App\Support\Push\PushSender;
 use Carbon\CarbonImmutable;

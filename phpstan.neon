@@ -7,5 +7,9 @@ parameters:
 
     level: 5
 
+    # Read the cast arrays out of `casts()` — its declared return type is a
+    # bare `array`, so without this every datetime column looks like a string.
+    parseModelCastsMethod: true
+
     excludePaths:
         - app/**/*Test.php

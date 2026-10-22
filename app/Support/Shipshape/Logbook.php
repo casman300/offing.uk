@@ -48,7 +48,7 @@ final class Logbook
 
             if ($chore->version !== $expectedVersion) {
                 $latest = $chore->entries()->whereNull('voided_at')->latest('id')->first();
-                $who = $latest?->done_by_name ?? 'Someone';
+                $who = $latest->done_by_name ?? 'Someone';
 
                 throw ValidationException::withMessages(['chore' => "{$who} just updated “{$chore->title}” — have a look before logging it again."]);
             }

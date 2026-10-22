@@ -75,7 +75,7 @@ class FeatureFlagController extends Controller
                     // null = not checked yet; Pennant will resolve it from the stage.
                     'stored' => $stored[$feature->name][$user->id] ?? null,
                     'stage_default' => $feature->resolve($user),
-                ]),
+                ])->all(),
             ])->values(),
         ]);
     }
@@ -83,6 +83,7 @@ class FeatureFlagController extends Controller
     public function update(Request $request, string $feature, User $user): RedirectResponse
     {
         $flag = $this->findOrFail($feature);
+        /** @var 'on'|'off'|'default' $value */
         $value = $request->validate(['value' => ['required', Rule::in(['on', 'off', 'default'])]])['value'];
 
         match ($value) {

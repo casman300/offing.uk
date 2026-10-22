@@ -7,6 +7,7 @@ use App\Models\ChoreList;
 use App\Models\CrewMember;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,9 +22,9 @@ final class Board
     /**
      * Every list the user can see, with who can be picked as "done by".
      *
-     * @return Collection<int, ChoreList>
+     * @return EloquentCollection<int, ChoreList>
      */
-    public static function visibleLists(User $user): Collection
+    public static function visibleLists(User $user): EloquentCollection
     {
         return ChoreList::query()->visibleTo($user)->with('owner')->orderBy('name')->get();
     }
