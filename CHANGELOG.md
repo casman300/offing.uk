@@ -36,3 +36,7 @@ functionality, **patch** = fixes.
 - Push notifications for reminders: Settings → Reminders → "Turn on notifications on this device" (iPhone: after Add to Home Screen, with a short how-to). Delivery is "Notifications, with email as backup", "Email only" or "Both"; email takes over when there are no devices, push isn't set up on the host, or the push service keeps failing. Devices are listed with "Send a test notification" and Remove. Needs VAPID keys from `php artisan push:keys` in `.env`; `php artisan push:check` reports readiness, and Admin → Outbox warns if push is broken.
 - Installable web app: the manifest is now linked with root scope and placeholder icons, so Add to Home Screen opens Offing as a standalone app.
 - `docs/` is published to the GitHub wiki on every push to `main`, with a user-facing Home page and a first guide page (signing in). The app's Repository and Documentation links now point at this repo and its wiki instead of the Laravel starter kit.
+
+### Security
+
+- Updated vulnerable transitive dependencies flagged by `composer audit`: `league/commonmark` 2.10.4, `guzzlehttp/guzzle` 7.16.0, `laravel/framework` 12.70.0, `symfony/http-foundation` 7.4.21, `league/flysystem` 3.36.0, `symfony/yaml` 8.1.9 (dev). Lockfile-only; no constraint changes.
