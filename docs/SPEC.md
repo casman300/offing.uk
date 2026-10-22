@@ -281,7 +281,7 @@ Design reminders to tolerate 5-minute cron granularity in case 20i limits freque
 
 ## 12. Connect Claude (MCP integration)
 
-**Goal:** any Offing user links their own Claude in under a minute, and it works on every Claude surface (web, desktop, mobile, Claude Code) and with other MCP clients (ChatGPT, Cursor…) for free. Decided in the October 2026 research slice; supersedes the earlier "pasted token MVP, OAuth in Phase 2" plan.
+**Goal:** any Offing user links their own Claude in under a minute, and it works on every Claude surface (web, desktop, mobile, Claude Code) and with other MCP clients (ChatGPT, Cursor…) for free. We test with Claude; the user-facing name is generic ("AI assistants") because nothing in the server is Claude-specific. Decided in the October 2026 research slice; supersedes the earlier "pasted token MVP, OAuth in Phase 2" plan.
 
 ### One server, OAuth from day one
 
@@ -299,7 +299,7 @@ Design reminders to tolerate 5-minute cron granularity in case 20i limits freque
 
 The consent screen asks two things (three for Barometer users), nothing more:
 
-1. **Access level** (one of three):
+1. **Access level** (one of three; **read + write-new is pre-selected**):
 
    | | read | + write-new | + edit |
    |---|---|---|---|
@@ -314,7 +314,7 @@ No per-calendar/per-crew pickers — the connection otherwise sees what the user
 
 **Where the choices live:** in our own `ai_grants` row per user + OAuth client, **not** in OAuth scopes. `laravel/mcp` advertises a single scope (`mcp:use`) and MCP clients request what's advertised, so every token carries just `mcp:use`; the MCP server reads the grant on each request. Bonus: changing a connection's level takes effect immediately, with no re-consent and no token reissue.
 
-**Settings → Connect Claude** page: this instance's own MCP URL with a copy button; per-surface steps (web/desktop add the connector, mobile inherits it, Claude Code one-liner); a download of the Offing skill; and the **Connected apps** list — one row per OAuth client with level, private toggle, last used, edit (no reconnect needed to widen/narrow) and Revoke. Grants, edits, revokes and every tool call are audited (`AuditLog::record()`).
+**Settings → AI assistants** page: this instance's own MCP URL with a copy button; steps for Claude (web/desktop add the connector, mobile inherits it), ChatGPT, Claude Code and "any other MCP client with OAuth", plus a note that we test with Claude; a download of the Offing skill; and the **Connected apps** list — one row per OAuth client with level, private toggle, last used, edit (no reconnect needed to widen/narrow) and Revoke. Grants, edits, revokes and every tool call are audited (`AuditLog::record()`).
 
 ### Barometer: write in, stats out (health data)
 
@@ -354,7 +354,7 @@ Aim: most questions answered in **1–2 calls**. About eight tools, each returni
 Plus:
 
 - **Server `instructions`** (sent once at connect): vocabulary (Partner, Crew/Captain/Passenger, private vs busy), "call `get_briefing` first", UK date style, confirm with the user before tagging a crew. This is the condensed form of the skill, so users who never install it still get the key habits.
-- **Offing skill** (`SKILL.md`, downloadable from Settings → Connect Claude for upload to claude.ai): the fuller version of those habits.
+- **Offing skill** (`SKILL.md`, downloadable from Settings → AI assistants for upload to claude.ai): the fuller version of those habits.
 - **MCP prompts**: "Plan my week", "Birthdays coming up", "What's due on Shipshape?" — cheap, shown where clients support them.
 - **Outward effects** (tagging notifies real people): rely on Claude's per-tool approval via `destructiveHint`, explicit "who was notified" in results, audit, and soft-delete undo. No held/draft notifications.
 - Annotations on every tool (`title` + `readOnlyHint`/`destructiveHint`) — a Directory requirement anyway.
@@ -371,7 +371,7 @@ Plus:
 
 - `laravel/mcp` issue #92 (the `mcp:use` scope skipped under `route:cache`) is fixed in v1.1: the service provider registers the scope after boot. Verified with cached routes and config.
 - `laravel/mcp` v1.1.1 has server-side DCR but **not CIMD**. Claude falls back to DCR, so we can launch without it; add CIMD later (exact redirect-URI match, SSRF-safe fetch, cache).
-- DCR is an open endpoint: throttle it, keep the redirect-domain allowlist (`config/mcp.php` — claude.ai, claude.com, localhost for Claude Code; env-extendable for self-hosters) and prune clients never authorised within a day.
+- DCR is an open endpoint: throttle it, keep the redirect-domain allowlist (`config/mcp.php` — claude.ai, claude.com, chatgpt.com, localhost for Claude Code and desktop clients; env-extendable for self-hosters) and prune clients never authorised within a day.
 - Self-hosted instances under one Directory listing — ask Anthropic (above).
 - Briefing size budget — cap lists (e.g. people by recency, events to 7 days) so one call stays small; `find` is the escape hatch.
 - Later (backlog): **MCP Apps** — interactive UI inside Claude (a week view or the Shipshape board rendered in-chat); also a Claude Code/Directory plugin bundling connector + skill.
