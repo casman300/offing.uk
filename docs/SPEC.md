@@ -15,7 +15,7 @@ A web-based, PWA-installable calendar whose core reason to exist — the thing G
 Priorities, in order (from discovery):
 
 1. Sharing model (partner / tagged friends / crews / virtual people)
-2. AI access via MCP (read · write-new · edit scopes)
+2. AI access via MCP — "Connect Claude" with OAuth (read · write-new · edit scopes)
 3. Birthdays + card/gift reminder engine
 4. Diary layers (past events, Spotify, fitness)
 
@@ -70,7 +70,7 @@ An offing is the stretch of sea visible from shore but not yet arrived at port �
 You asked for a recommendation. Laravel wins because almost every hard requirement here is a Laravel batteries-included feature rather than something to build:
 
 - **Sharing/permissions** → Policies & Gates map cleanly onto partner/tagged/private rules.
-- **MCP tokens with scopes** → Sanctum personal access tokens *are* scoped bearer tokens; the three MCP levels become token abilities (`calendar:read`, `calendar:write-new`, `calendar:edit`).
+- **MCP access** → `laravel/mcp` + Passport give an OAuth 2.1 MCP server out of the box; the three access levels (read / write-new / edit) live on our own per-connection grant. See §12.
 - **Email reminders on shared hosting** → Laravel's scheduler runs off a single cron entry (`php artisan schedule:run` every minute); queued mail uses the **database queue driver** drained by the scheduler — no daemon needed.
 - **Migrations, seeding, testing, mail, notifications, validation** → all free.
 - **Audit logging** → model observers + one package or ~50 lines of code.
@@ -173,7 +173,10 @@ chore_entries    id, chore_id, kind(done|skip), done_on(date),          ← the 
                  before(json),                                            via=pass when a passenger ticks (§7)
                  voided_at(null), voided_by_user_id(null), void_reason(null), created_at
 
-api_tokens       Sanctum table; abilities = [read | write-new | edit]
+oauth_*          Passport tables (clients, access/refresh tokens);      ← Connect Claude (§12); every token
+                 one client per connected Claude                          has the one scope `mcp:use`
+ai_grants        oauth_client_id, user_id, level, include_private,      ← consent choices per connection
+                 barometer(bool), last_used_at, revoked_at
 audit_log        id, actor(morph), action, subject(morph), meta(json), ip, created_at  ← append-only
 ```
 
@@ -200,6 +203,7 @@ Notes:
 - `private` (visibility) and `busy/free` (transparency, = iCal TRANSP) are **independent flags on every event**. For a Partner: *private + busy* renders as a detail-free "Busy" block (the "pick up flowers" reminder); *private + free* doesn't render at all (the online gift-shopping session). Non-private events use busy/free for availability display as normal. Everyone below Partner level never sees private events either way.
 - Tagging someone with a linked account makes the event appear in *their* app; tagging a virtual person surfaces it in their feed URL.
 - All grants/revocations hit `audit_log`.
+- **AI connections** (§12) see what their user sees, minus private events unless the user ticked "include my private events". Each share and crew has an **"Allow in AI connections"** setting (on by default; sharer or Captain controls it) — off downgrades that source to busy/free for the grantee's connections only.
 
 ### Crews — the shared spaces
 
@@ -275,18 +279,102 @@ Design reminders to tolerate 5-minute cron granularity in case 20i limits freque
 
 **Card & post engine (Phase 2, schema ready now):** per-person "send a card" rule computes *last posting date* = birthday − postal transit days, rolled **back** past weekends and UK bank holidays (free JSON feed: `gov.uk/bank-holidays.json`, cached locally). Reminder fires the evening before that date: *"Post Auntie Sue's card tomorrow — Monday's a bank holiday."* This is a genuinely differentiating feature; keep it high on the Phase 2 list. Needs a postal `addresses` row on the recipient's `person` (§6) — populate it by hand on the person's page, or parse it from the vCard `ADR` field on import (§9) — no address, no reminder.
 
-## 12. MCP integration
+## 12. Connect Claude (MCP integration)
 
-**MVP recommendation: authless-transport MCP server + Sanctum bearer token** (the "pasted token" model, resolved in favour of tokens):
+**Goal:** any Offing user links their own Claude in under a minute, and it works on every Claude surface (web, desktop, mobile, Claude Code) and with other MCP clients (ChatGPT, Cursor…) for free. We test with Claude; the user-facing name is generic ("AI assistants") because nothing in the server is Claude-specific. Decided in the October 2026 research slice; supersedes the earlier "pasted token MVP, OAuth in Phase 2" plan.
 
-- Endpoint: Streamable HTTP at `/mcp` (Claude supports authless and OAuth remote servers; SSE is being phased out, so Streamable HTTP only). Use the official PHP MCP SDK or a Laravel MCP package.
-- User mints a token in Settings choosing exactly one scope set: **read** / **read + write-new** / **read + write-new + edit**. Token is passed as a bearer header where the client supports it, or embedded in the connector URL path (`/mcp/{token}`) where it doesn't. Revocable; every call audited.
-- Works day-one with Claude custom connectors, Claude Code, ChatGPT developer-mode connectors, and local scripts.
-- **Platform coverage (Claude web / desktop / mobile):** custom connectors are added once via claude.ai or Claude Desktop settings and are then usable from the Claude mobile apps too (servers can't be *added* from mobile, but already-added ones work there). This is true for authless/token servers as well as OAuth ones — so **the token-based MVP already covers all three surfaces**. OAuth (below) is about doing auth *properly* — per-user consent screens, no token handling, revocation UX — not about unlocking platforms. That's why it's safe to hold as Phase 2 expansion.
+### One server, OAuth from day one
 
-**Phase 2: OAuth 2.1** (required for polish + any public listing): PKCE (S256), Dynamic Client Registration, protected-resource metadata document, form-urlencoded token endpoint, refresh-token rotation. Laravel Passport covers most of this; DCR is the main gap to add. Do it once the MVP tools are proven.
+- **Remote MCP server** at `/mcp`, Streamable HTTP only (SSE is deprecated). Built on **`laravel/mcp`** with **Passport** as the authorization server: `Mcp::oauthRoutes()` provides protected-resource and auth-server metadata, PKCE (S256) and **Dynamic Client Registration**. Add **Client ID Metadata Documents** (CIMD, the MCP 2025-11-25 preferred registration path, which Claude uses) if the package doesn't yet. Refresh-token rotation on.
+- **No pasted tokens, no token-in-URL.** The token-in-URL MVP is dropped — it would be built only to be thrown away, and secret URLs leak into logs. Sanctum is not needed for MCP.
+- The UX this buys: *Connect* in Claude → Offing's consent screen (already signed in by passkey) → choose access → done. Revocation is a normal "Connected apps" list.
 
-**MCP tools (MVP):** `list_calendars`, `get_events(range, calendar?)`, `search_events(query)`, `create_event(...)` *(write-new)*, `update_event(id, ...)` / `delete_event(id)` *(edit)*, `list_people`, `get_availability(range)`. Private events are excluded from all responses unless the token owner is the event owner — decide and document before build; spec default: **owner's own token sees private events; scope names never leak them to shares**.
+### Distribution: Directory listing + custom connector, same code
+
+- **offing.uk is listed in Claude's Connectors Directory** (one-click Connect on every surface). Requirements as of Oct 2026: OAuth, every tool has a `title` plus `readOnlyHint` or `destructiveHint`, documentation URL, privacy policy URL, support contact, icon, and a reviewer test account with fake sample data. Submitted via `claude.ai/directory/manage`; auto-scanned and listed as *Community* by default, with Verified as a later step. Submit once the flag is promoted to `Rollout::Everyone` and the tools are stable — renaming tools after listing is a breaking change for users.
+- **Self-hosters get the identical flow, no separate path.** Every instance implements the same OAuth, so "Add custom connector → `https://their-host/mcp`" gives the same consent screen. The Directory form also has a *users connect to different URLs* option (URL pattern / user-supplied URL) — **open question:** ask `mcp-review@anthropic.com` whether one Offing listing can cover arbitrary self-hosted instances. If not, custom connector is the documented self-host route.
+- Claude Code: `claude mcp add --transport http offing https://<host>/mcp`. No Claude Code plugin for now (decided); revisit if we want the skill one-click, since the Directory only accepts skills bundled in a plugin.
+
+### Consent: access level + private toggle
+
+The consent screen asks two things (three for Barometer users), nothing more:
+
+1. **Access level** (one of three; **read + write-new is pre-selected**):
+
+   | | read | + write-new | + edit |
+   |---|---|---|---|
+   | Briefing, find, availability | ✅ | ✅ | ✅ |
+   | Create events (incl. tags + reminders), add people/birthdays, log a chore done | | ✅ | ✅ |
+   | Change/delete existing events, people, reminders; undo a chore log | | | ✅ |
+
+2. **"Include my private events"** — off by default. When off, the connection sees the user's own private events exactly as a Partner would (private+busy = detail-free Busy block, private+free = absent).
+3. **Barometer** (only if the user has it) — a separate opt-in; see below.
+
+No per-calendar/per-crew pickers — the connection otherwise sees what the user sees, under the rules below.
+
+**Where the choices live:** in our own `ai_grants` row per user + OAuth client, **not** in OAuth scopes. `laravel/mcp` advertises a single scope (`mcp:use`) and MCP clients request what's advertised, so every token carries just `mcp:use`; the MCP server reads the grant on each request. Bonus: changing a connection's level takes effect immediately, with no re-consent and no token reissue.
+
+**Settings → AI assistants** page: this instance's own MCP URL with a copy button; steps for Claude (web/desktop add the connector, mobile inherits it), ChatGPT, Claude Code and "any other MCP client with OAuth", plus a note that we test with Claude; a download of the Offing skill; and the **Connected apps** list — one row per OAuth client with level, private toggle, last used, edit (no reconnect needed to widen/narrow) and Revoke. Grants, edits, revokes and every tool call are audited (`AuditLog::record()`).
+
+### Barometer: write in, stats out (health data)
+
+Barometer (the private anxiety log, `feat/barometer`) is UK GDPR special-category health data, so it sits **outside** the access levels as its own opt-in:
+
+- **Separate consent switch**: "Barometer: let Claude add readings and see stats". Off by default, shown only to users who have the Barometer flag, and it's its own flag on the grant (`ai_grants.barometer`). When it's off, the Barometer tools aren't listed to that connection at all, so Claude doesn't know they exist.
+- **`log_reading`** (write): day/time (optional, as in the app), first rating (required) and the optional text fields. Content goes *in*: the user already said it to Claude, so writing it adds no exposure. The result is a bare confirmation ("Logged, 7/10 at 14:20") and **never echoes the text**. It can also add a second rating to the user's latest reading from today that doesn't have one ("I'm down to 3 now"). There's no edit, delete, list or read-back: corrections happen in the app.
+- **`get_barometer_stats`** (read, aggregates only): reading count, average first rating, average drop from first to second rating, weekly averages, and time-of-day/weekday buckets over a range. **No per-reading rows and no free text, ever.** The same "describe, don't diagnose" rule applies as in the app (§25 on the Barometer branch), and results carry that framing.
+- **Never in `get_briefing`, `find` or any other tool**, and never in any other share or connection. Reviewing details, editing, exports and anything safeguarding-related stay in the app.
+- **Server instructions** (only when the scope is granted): don't interpret severity or diagnose. If the user mentions risk to themselves, signpost Samaritans (116 123) and their GP or therapist, and point to the app for the full log.
+- **Audit**: grant/revoke, each logged reading and each stats call, with no content (matches Barometer's own audit rule).
+- **Directory**: the submission's data-handling step asks whether the connector handles personal health data. Answer **yes** and describe this write-only/aggregate design.
+- **Rollout**: `log_reading` once Barometer is merged; `get_barometer_stats` once Barometer's stats phase (#37) exists. Both require `connect-claude` *and* `barometer` flags. When the branches meet, update Barometer's "never in MCP" line to point here.
+
+### Other people's data
+
+Connecting Claude sends data to a third party, including data other people shared with you. Rule: **a connection sees what you see in Offing, never others' private events, and sharers can opt out.**
+
+- Every personal share and every crew gets an **"Allow in AI connections"** setting, **on by default**, controlled by the sharer (crews: the Captain). When off, the grantee's connections see that source as busy/free blocks only — the grantee's own app view is unchanged.
+- Person notes about third parties (gift memory, sizes — §23 backlog) are only ever returned to the owning user's own connections, never via a share or crew.
+
+### Tool design: few, broad, rich (minimal round trips)
+
+Aim: most questions answered in **1–2 calls**. About eight tools, each returning dense **compact text** (not verbose JSON) with **names + ids inline** ("Sue (person 12)") so Claude can act without a lookup call.
+
+| Tool | Scope | Notes |
+|---|---|---|
+| `get_briefing` | read | One call: who you are, timezone, today's date, access level, calendars, crews (with your role), people (names + ids), today + next 7 days, upcoming birthdays, chores due. Server instructions say "call this first". |
+| `find` | read | One broad query: date range, free text, person, crew, calendar — any combination. Covers search, range fetch and "what's on with Sue". |
+| `get_availability` | read | Free/busy across you + chosen people/crews for a range. |
+| `save_event` | write-new (create) / edit (update) | Create or update; takes tags (people/crews) and reminders as parameters. `destructiveHint`. Result states who was notified ("Sue and 3 crew were notified"). |
+| `delete_event` | edit | Soft delete — undo window applies. `destructiveHint`. |
+| `save_person` | write-new / edit | Own address book only (crew-owned people per role); birthdays included. |
+| `log_chore` | write-new (log) / edit (undo) | "I've done the bins." Creating/editing chore lists stays in the app. |
+| `log_reading`, `get_barometer_stats` | Barometer grant only | Health data. Write in, aggregates out, never details. See Barometer above. |
+
+Plus:
+
+- **Server `instructions`** (sent once at connect): vocabulary (Partner, Crew/Captain/Passenger, private vs busy), "call `get_briefing` first", UK date style, confirm with the user before tagging a crew. This is the condensed form of the skill, so users who never install it still get the key habits.
+- **Offing skill** (`SKILL.md`, downloadable from Settings → AI assistants for upload to claude.ai): the fuller version of those habits.
+- **MCP prompts**: "Plan my week", "Birthdays coming up", "What's due on Shipshape?" — cheap, shown where clients support them.
+- **Outward effects** (tagging notifies real people): rely on Claude's per-tool approval via `destructiveHint`, explicit "who was notified" in results, audit, and soft-delete undo. No held/draft notifications.
+- Annotations on every tool (`title` + `readOnlyHint`/`destructiveHint`) — a Directory requirement anyway.
+
+### Rollout
+
+`connect-claude` StagedFeature, starting at `Rollout::Admins`. Built **now (Phase 1a+)**, after Crews & Shipshape, and grows with the app:
+
+1. OAuth + consent + Connected apps + Settings page; `get_briefing`, `find`, `save_person`, `log_chore` over people, birthdays and chores (all exist today).
+2. Event tools (`save_event`, `delete_event`, `get_availability`) and the "Allow in AI connections" share setting as the Phase 1b calendar lands.
+3. Promote to Everyone → Directory submission (needs a privacy policy page and a seeded reviewer account first).
+
+### Open questions / known risks
+
+- `laravel/mcp` issue #92 (the `mcp:use` scope skipped under `route:cache`) is fixed in v1.1: the service provider registers the scope after boot. Verified with cached routes and config.
+- `laravel/mcp` v1.1.1 has server-side DCR but **not CIMD**. Claude falls back to DCR, so we can launch without it; add CIMD later (exact redirect-URI match, SSRF-safe fetch, cache).
+- DCR is an open endpoint: throttle it, keep the redirect-domain allowlist (`config/mcp.php` — claude.ai, claude.com, chatgpt.com, localhost for Claude Code and desktop clients; env-extendable for self-hosters) and prune clients never authorised within a day.
+- Self-hosted instances under one Directory listing — ask Anthropic (above).
+- Briefing size budget — cap lists (e.g. people by recency, events to 7 days) so one call stays small; `find` is the escape hatch.
+- Later (backlog): **MCP Apps** — interactive UI inside Claude (a week view or the Shipshape board rendered in-chat); also a Claude Code/Directory plugin bundling connector + skill.
 
 ## 13. Importing external calendars
 
@@ -392,7 +480,7 @@ Public repo from day one is viable and healthy **if** we treat the repo as hosti
 - Branch protection on `main`/`rc`; Actions pinned to SHAs for third-party actions.
 
 **Application security (public code = attackers can read the map, so the locks must be real)**
-- Security comes from secrets and design, not obscurity: all tokens (feed URLs, magic links, MCP) are ≥128-bit random, **stored hashed**, revocable, and rate-limited.
+- Security comes from secrets and design, not obscurity: all tokens (feed URLs, magic links, MCP OAuth access/refresh tokens) are ≥128-bit random, **stored hashed**, revocable, and rate-limited.
 - Magic links: single-use, 15-minute expiry, bound to requesting session where possible.
 - Standard hardening: CSRF (Laravel default), strict CSP headers, HSTS, signed cookies, throttled auth endpoints, audit log on everything (§3.5).
 - `SECURITY.md` with a private disclosure route (email), so researchers don't open public issues for vulns.
@@ -428,14 +516,16 @@ The fastest path to solving your own problem: auth (magic link + passkey) · **p
 **Phase 1a+ — Crews & Shipshape (ahead of the calendar)**
 Household chores are the next dogfood need, so they jump the queue — and they bring the crew sharing model with them, which the calendar then reuses. Built in this order, each PR dark behind its flag (§25): spec (this) · **`/admin/users`** (add users + switch flags on for them — unblocks a partner on day one) · **crews** (crews, members, roles, crew-owned people, `/crew`) · **Shipshape core + starter picker** (lists, chores, fixed/floating schedules, tick/skip/backdate, rota, undo, the board, and the Dashboard's "In the offing" view) · **crew invites** (invite = signup) · **the ship's log + voiding** · **guide page**.
 
+Then **Connect Claude** (§12): OAuth MCP connector behind `connect-claude` — briefing, find, people/birthdays and chore logging first; event tools join as Phase 1b lands.
+
 **Phase 1b — Full calendar MVP (daily-driveable)**
-Calendars & events (create/edit/delete, common recurrence, private + busy/free flags, all-day) · month/week/agenda views (FullCalendar) · timezone handling · people (virtual) & crews · tagging · partner + tagged + full-read shares · outbound feed tokens (ICS) · inbound ICS subscriptions + .ics import · birthdays (with/without year) + default reminder rule · email reminders via cron pipeline · installable PWA shell · MCP server with scoped tokens · settings (colour scheme global/per-device) · **event search** · **soft delete + undo/restore** (data already in audit log) · **UK bank holidays as a toggleable layer** (gov.uk feed, shared with card engine) · **full data export** (ICS + JSON) · **weekly "week ahead" digest email** (Sunday evening — proto-Betty voice) · **account deletion flow** · **share offer/accept consent** · **accessibility baseline** (keyboard nav, contrast-checked schemes, axe-core in CI) · **dynamic documentation** (in-app `/docs`, deploys with code, deep-linked both ways, flag-aware Preview/Premium badges — see §20).
+Calendars & events (create/edit/delete, common recurrence, private + busy/free flags, all-day) · month/week/agenda views (FullCalendar) · timezone handling · people (virtual) & crews · tagging · partner + tagged + full-read shares · outbound feed tokens (ICS) · inbound ICS subscriptions + .ics import · birthdays (with/without year) + default reminder rule · email reminders via cron pipeline · installable PWA shell · Connect Claude event tools (§12 — the connector itself ships in 1a+) · settings (colour scheme global/per-device) · **event search** · **soft delete + undo/restore** (data already in audit log) · **UK bank holidays as a toggleable layer** (gov.uk feed, shared with card engine) · **full data export** (ICS + JSON) · **weekly "week ahead" digest email** (Sunday evening — proto-Betty voice) · **account deletion flow** · **share offer/accept consent** · **accessibility baseline** (keyboard nav, contrast-checked schemes, axe-core in CI) · **dynamic documentation** (in-app `/docs`, deploys with code, deep-linked both ways, flag-aware Preview/Premium badges — see §20).
 
 **Phase 1.5 — Comfort**
-iOS web push · nicer onboarding coach for Add-to-Home-Screen · feed health dashboard · MCP `get_availability`.
+iOS web push · nicer onboarding coach for Add-to-Home-Screen · feed health dashboard.
 
 **Phase 2 — Differentiators**
-Card & post engine with bank holidays · vCard import *(moved to Phase 1a; Phase 2 adds re-import/merge improvements)* · crew web views for passengers (tokenised, no account) · virtual→real account upgrade flow · OAuth 2.1 for MCP · reminder rule editor UI · **availability polls** ("when can the club meet?" — flagship group feature, future premium candidate) · **RSVPs on tagged events** (yes/no/maybe **+ custom questions per event** — dietary, plus-ones; answerable via tokenised links, no account needed) · **anniversaries & significant dates** (generalise birthdays into a person `dates` table with per-date **show** and **remind** toggles — e.g. a passed relative's birthday visible but never alerted; respectful rendering for remembrance dates, exempt from playful copy) · **conflict warnings across shared calendars** · **bin collection reminders** (council schedule import) · **email-to-event, stage 1** (private inbound address per user via inbound-parse webhook; attached .ics auto-imported using existing parser) · **places & travel buffers** (named places incl. Home; events with locations get a manual/default travel margin rendered as hatched "error bars") · **background layers, stage 1: work hours** (fixed weekly pattern or subscribed timesheet ICS; renders as greyed ambient shading, not events — week view shows shape, day view shows meetings).
+Card & post engine with bank holidays · vCard import *(moved to Phase 1a; Phase 2 adds re-import/merge improvements)* · crew web views for passengers (tokenised, no account) · virtual→real account upgrade flow · reminder rule editor UI · **availability polls** ("when can the club meet?" — flagship group feature, future premium candidate) · **RSVPs on tagged events** (yes/no/maybe **+ custom questions per event** — dietary, plus-ones; answerable via tokenised links, no account needed) · **anniversaries & significant dates** (generalise birthdays into a person `dates` table with per-date **show** and **remind** toggles — e.g. a passed relative's birthday visible but never alerted; respectful rendering for remembrance dates, exempt from playful copy) · **conflict warnings across shared calendars** · **bin collection reminders** (council schedule import) · **email-to-event, stage 1** (private inbound address per user via inbound-parse webhook; attached .ics auto-imported using existing parser) · **places & travel buffers** (named places incl. Home; events with locations get a manual/default travel margin rendered as hatched "error bars") · **background layers, stage 1: work hours** (fixed weekly pattern or subscribed timesheet ICS; renders as greyed ambient shading, not events — week view shows shape, day view shows meetings).
 
 **Phase 3 — Delight & revenue**
 Diary layers (Spotify, fitness, past events — likely via nightly importers) · **"On this day"** (surfaces past diary-layer entries) · **email-to-event, stage 2** (no .ics attached → AI-parse ticket/confirmation emails for date, time, venue via the Claude API) · **travel buffers, stage 2** (real travel-time estimates via open routing — OSRM/OpenRouteService, fitting the OSM ethos) · **background layers, stage 2: sleep** (usual sleep window as ambient shading; past days can overlay actual sleep from health-data diary layers) · Betty daily digest, then Betty chat · silly seasonal event packs · **public roadmap page with voting** (backlog items promoted from the repo; votes inform, not dictate) · **tide times layer** (UK Admiralty/EA data — nautical brand demands it) · **school term dates layer** (county council data; big for UK families) · public "request time with me" page (**security stance decided:** this is the *only* public availability surface — it shows offered bookable slots within defined hours and never raw free/busy, because a public "busy all week" feed advertises an empty house during holidays; tokenised free/busy feeds remain available for trusted people only) · **monetisation: personal subscription** (free = full family calendar; paid = layers, Betty, advanced reminder engine, polls, more feeds). Schema needs nothing new for billing beyond a `subscriptions` table when the time comes.
@@ -470,7 +560,8 @@ Diary layers (Spotify, fitness, past events — likely via nightly importers) ·
 | RRULE edge cases | Delegated to sabre/vobject; UI limits creation patterns |
 | Shared-hosting cron limits | Architecture tolerates 5-min granularity; jobs idempotent |
 | Partner view of private events | **Resolved:** independent `private` + `busy/free` flags; private+busy = Busy block, private+free = hidden |
-| MCP token in URL (for clients without header support) | Acceptable for dogfood; OAuth in Phase 2 removes it |
+| MCP token in URL (for clients without header support) | **Resolved:** dropped — OAuth from day one (§12) |
+| Other people's data reaching Claude via a connection | **Resolved:** sees what you see minus private; sharers/Captains can switch a share/crew to busy-only for AI connections (§12) |
 | Name/domain | **Resolved:** Offing decided; register `offing.uk` via 20i once confirmed live in their domain search |
 | Email deliverability from shared hosting | Consider Postmark/Resend free tier from Phase 1 |
 | Licence | **Resolved:** AGPL-3.0 + DCO on external PRs (see §21) |

@@ -31,8 +31,12 @@ function browserSubscription(string $endpoint = 'https://fcm.googleapis.com/fcm/
     $key = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
     $ec = openssl_pkey_get_details($key)['ec'];
     $b64 = fn (string $bin) => rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
+    // OpenSSL drops leading zero bytes from the coordinates; browsers always
+    // send both at full 32-byte width (65-byte key). Unpadded, about 1 run
+    // in 64 makes a short key and web-push's hex2bin() fails.
+    $coord = fn (string $c) => str_pad($c, 32, "\0", STR_PAD_LEFT);
 
-    return ['endpoint' => $endpoint, 'keys' => ['p256dh' => $b64("\x04".$ec['x'].$ec['y']), 'auth' => $b64(random_bytes(16))]];
+    return ['endpoint' => $endpoint, 'keys' => ['p256dh' => $b64("\x04".$coord($ec['x']).$coord($ec['y'])), 'auth' => $b64(random_bytes(16))]];
 }
 
 /** A PushSender test double: records sends, answers with a scripted result. */

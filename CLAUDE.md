@@ -12,6 +12,7 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - **Laravel Wayfinder** for frontend URLs: typed route helpers generated at build time (`import people from '@/routes/people'; people.show.url(id)`), never hard-coded paths. Generated files (`resources/js/{routes,actions,wayfinder}`) are gitignored — `php artisan wayfinder:generate` (or any Vite build) recreates them, so the CI build must run after `composer install`.
 - **Keep the dependency list short.** Prefer what the Laravel starter kit ships over a third-party package; don't add a library for what a few lines of our own code (or an existing dependency) already covers.
 - **Laravel Pennant** for feature flags — ship meaty features dark, flag them on progressively. Every flag extends `App\Features\StagedFeature` (stable `$name`, `$description`, `$stage`), is listed in `App\Features\Features`, and starts at `Rollout::Admins`; promote it by changing `$stage` in a PR. Pennant stores each user's first resolved value, so a stage change only reaches already-checked users after "Reset to default" on `/admin/features`. Admins are `ADMIN_EMAILS` in each host's `.env` — never a DB flag.
+- **`laravel/mcp` + Passport** for "Connect Claude" (SPEC §12): one OAuth 2.1 MCP server at `/mcp` serves the Claude Directory listing *and* self-hosters' custom connectors — no pasted tokens, no token-in-URL. Keep tools few and broad (`get_briefing` first), every tool annotated with `title` + `readOnlyHint`/`destructiveHint`.
 - **Pest** for tests, **Pint** for style, **Larastan** for static analysis (`phpstan.neon`).
 - Hosting has **no daemons, no queue workers, no Node** — the scheduler (`schedule:run` via cron) drains the database queue; Vite/PWA assets are built in CI and shipped as static files.
 
@@ -36,9 +37,32 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 ## Conventions
 
 - Conventional-commit-style prefixes (`feat:`, `fix:`, `chore:`, `security:`) map to `CHANGELOG.md`'s Keep a Changelog categories.
+- **Every commit needs a `Signed-off-by:` trailer** — the `dco` workflow (`.github/workflows/dco.yml`) fails any PR into `rc`/`main` with an unsigned commit (see CONTRIBUTING.md). Always `git commit -s`; Claude sessions sign off as their own git identity (`Claude <noreply@anthropic.com>`), never as the user. Forgot? On your own branch, `git rebase --signoff origin/rc` then `git push --force-with-lease` — content unchanged, only trailers added.
 - Semver: major = breaking/migrations required, minor = new backward-compatible functionality, patch = fixes.
 - Before committing PHP/TS changes: `vendor/bin/pint`, `vendor/bin/pest`, `npx tsc --noEmit`, `npm run build`. Don't just trust the diff — boot the app (`php artisan serve`) and exercise the actual flow when touching auth, payments, or anything security-relevant; feature tests alone have already missed at least one real bug in this codebase (a mail-rendering bug invisible to `Mail::fake()`).
 - Timezones: store UTC + origin IANA TZID, expand recurrence in the origin timezone (sabre does this), render in the viewer's profile timezone.
+
+## Claude Code cloud sessions: getting PHP 8.5
+
+The cloud container ships PHP 8.3, but the lock file needs ≥ 8.4 (Symfony 8). Don't try apt PPAs, Debian mirrors or static-PHP downloads (the network policy blocks them all) — Docker Hub works. Recipe, in order:
+
+1. **Start Docker and pull PHP:** `(dockerd > /tmp/dockerd.log 2>&1 &)`, wait for `docker info`, then `docker pull php:8.5-cli`. The image has pdo_sqlite, sodium, mbstring etc. — enough for the app and tests.
+2. **Wrapper script** (e.g. `p` in your scratchpad) to run anything under 8.5 with the repo mounted:
+   ```sh
+   #!/bin/sh
+   exec docker run --rm -i --network host -v /home/user/offing.uk:/home/user/offing.uk -w /home/user/offing.uk php:8.5-cli "$@"
+   ```
+   Then `p php artisan …`, `p vendor/bin/pest --parallel`, `p vendor/bin/pint`. Pass `</dev/null` when calling it from a non-interactive script, or it waits on stdin.
+3. **`composer install` runs on the host, not in the container.** GitHub zip downloads (api.github.com / codeload) are blocked but `git clone` works, so use source installs and ignore the host's PHP version:
+   `COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_PROCESS_TIMEOUT=900 composer install --ignore-platform-req=php --prefer-source --no-scripts`.
+   - `phpstan/phpstan` has no `source` in the lock (dist only) and its repo is huge. Shallow-fetch the locked commit into a scratch repo (`git init x && cd x && git fetch --depth 1 https://github.com/phpstan/phpstan.git <ref> && git checkout -b master FETCH_HEAD`), temporarily add `"source": {"type": "git", "url": "<that path>", "reference": "<ref>"}` to its lock entry, install, then **restore the original `composer.lock`** — never commit the hack.
+   - `composer require` works the same way (same flags). CI resolves dists normally, so the committed lock is fine.
+   - Afterwards delete the checkouts' `.git` dirs (`find vendor -maxdepth 3 -name .git -type d -prune -exec rm -rf {} +`): otherwise `sebastian/version` tries to run `git` inside the container and prints `proc_open(): posix_spawn() failed` warnings into HTTP responses.
+   - Then `p php artisan package:discover`.
+4. **Frontend:** `npm ci` and `npx tsc --noEmit` run on the host. `npm run build` calls `php artisan wayfinder:generate`, so put a `php` shim first on `PATH` (`exec p php "$@"`) — `PATH=<shim dir>:$PATH npm run build`. Feature tests need the built manifest (`public/build/manifest.json`), so build before running Pest.
+5. **Boot the app** for real flows: `cp .env.example .env`, `p php artisan key:generate`, `touch database/database.sqlite`, `p php artisan migrate`, `p php artisan user:create you@example.com You`, `p php artisan offing:feature <flag> you@example.com --on`, then serve in the background with
+   `docker run -d --rm --name offing-serve --network host -v /home/user/offing.uk:/home/user/offing.uk -w /home/user/offing.uk php:8.5-cli php artisan serve --host=127.0.0.1 --port=8000`.
+   Set `APP_URL=http://localhost:8000`. Magic links are queued: run `p php artisan queue:work --stop-when-empty`, then find the link in `storage/logs/laravel.log` (`MAIL_MAILER=log`; unescape `&amp;`). Drive it with Playwright's preinstalled Chromium (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). Repeated logins hit the rate limiter — `p php artisan cache:clear`. `docker kill offing-serve` when done.
 
 ## Naming — decided, don't relitigate
 
