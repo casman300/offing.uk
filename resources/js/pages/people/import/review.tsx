@@ -4,6 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { formatBirthday } from '@/lib/birthday';
+import people from '@/routes/people';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
@@ -100,7 +101,7 @@ export default function ReviewImport({ import: contactImport, rows }: { import: 
     const submit = () => {
         setProcessing(true);
         router.post(
-            route('people.import.commit', contactImport.id),
+            people.import.commit.url(contactImport.id),
             {
                 rows: Object.fromEntries(Object.entries(choices).filter(([, c]) => c.include)),
                 import_notes: importNotes,
@@ -109,7 +110,7 @@ export default function ReviewImport({ import: contactImport, rows }: { import: 
         );
     };
 
-    const cancel = () => router.delete(route('people.import.destroy', contactImport.id));
+    const cancel = () => router.delete(people.import.destroy.url(contactImport.id));
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'People', href: '/people' },

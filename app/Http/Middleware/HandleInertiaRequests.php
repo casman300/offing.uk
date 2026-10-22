@@ -4,7 +4,10 @@ namespace App\Http\Middleware;
 
 use App\Features\Barometer;
 use App\Features\BirthdayEngine;
+use App\Features\ConnectClaude;
+use App\Features\Crews;
 use App\Features\Reminders;
+use App\Features\Shipshape;
 use App\Features\VcardImport;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -55,12 +58,16 @@ class HandleInertiaRequests extends Middleware
                 'birthdayEngine' => $request->user() !== null && Feature::for($request->user())->active(BirthdayEngine::class),
                 'vcardImport' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, VcardImport::class]),
                 'reminders' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, Reminders::class]),
+                'crews' => $request->user() !== null && Feature::for($request->user())->active(Crews::class),
+                'shipshape' => $request->user() !== null && Feature::for($request->user())->active(Shipshape::class),
+                'connectClaude' => $request->user() !== null && Feature::for($request->user())->active(ConnectClaude::class),
                 'barometer' => $request->user() !== null && Feature::for($request->user())->active(Barometer::class),
             ],
             'flash' => fn () => [
                 'status' => $request->session()->get('status'),
                 'deleted' => $request->session()->get('deleted'),
                 'feedUrl' => $request->session()->get('feedUrl'),
+                'logged' => $request->session()->get('logged'),
             ],
         ];
     }

@@ -17,6 +17,11 @@ const sidebarNavItems: NavItem[] = [
         icon: null,
     },
     {
+        title: 'Passkeys',
+        url: '/settings/passkeys',
+        icon: null,
+    },
+    {
         title: 'Calendar feeds',
         url: '/settings/feeds',
         icon: null,
@@ -26,9 +31,11 @@ const sidebarNavItems: NavItem[] = [
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
     const currentPath = window.location.pathname;
     const { features } = usePage<SharedData>().props;
-    const navItems: NavItem[] = features.reminders
-        ? [...sidebarNavItems, { title: 'Reminders', url: '/settings/reminders', icon: null }]
-        : sidebarNavItems;
+    const navItems: NavItem[] = [
+        ...sidebarNavItems,
+        ...(features.reminders ? [{ title: 'Reminders', url: '/settings/reminders', icon: null }] : []),
+        ...(features.connectClaude ? [{ title: 'AI assistants', url: '/settings/ai-assistants', icon: null }] : []),
+    ];
 
     return (
         <div className="px-4 py-6">

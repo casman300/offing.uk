@@ -2,6 +2,7 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
+import people from '@/routes/people';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { CheckCircle2, RotateCcw } from 'lucide-react';
@@ -41,7 +42,7 @@ export default function ImportResultPage({ import: result }: { import: ImportRes
 
                         <div className="flex flex-wrap gap-3">
                             <Button asChild>
-                                <Link href={route('people.index')}>See people</Link>
+                                <Link href={people.index.url()}>See people</Link>
                             </Button>
                             <Dialog>
                                 <DialogTrigger asChild>
@@ -60,7 +61,7 @@ export default function ImportResultPage({ import: result }: { import: ImportRes
                                             <Button variant="secondary">Cancel</Button>
                                         </DialogClose>
                                         <DialogClose asChild>
-                                            <Button variant="destructive" onClick={() => router.post(route('people.import.undo', result.id))}>
+                                            <Button variant="destructive" onClick={() => router.post(people.import.undo.url(result.id))}>
                                                 Undo import
                                             </Button>
                                         </DialogClose>
@@ -84,7 +85,7 @@ export default function ImportResultPage({ import: result }: { import: ImportRes
                             )}
                         </div>
                         <Button asChild>
-                            <Link href={route('people.index')}>Back to people</Link>
+                            <Link href={people.index.url()}>Back to people</Link>
                         </Button>
                     </>
                 )}

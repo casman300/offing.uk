@@ -52,6 +52,11 @@ final class VcardParser
                 break;
             }
 
+            // The splitter only yields VCARD components; this narrows the type.
+            if (! $card instanceof VCard) {
+                continue;
+            }
+
             if (++$count > self::MAX_CARDS) {
                 throw new VcardImportException('That file has more than '.number_format(self::MAX_CARDS).' contacts — export a smaller list.');
             }
@@ -156,6 +161,7 @@ final class VcardParser
      */
     private function collapse(array $contacts): array
     {
+        /** @var array<string, array{key: string, name: string, match_names: list<string>, birthdays: list<array{day: int, month: int, year: ?int}>, notes: ?string, warnings: list<string>, cards: int}> $rows */
         $rows = [];
 
         foreach ($contacts as $contact) {

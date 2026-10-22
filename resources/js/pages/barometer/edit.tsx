@@ -3,6 +3,7 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
+import barometer from '@/routes/barometer';
 import { type BarometerReading, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
@@ -13,7 +14,7 @@ export default function EditReading({ reading, today, now }: { reading: Baromete
         { title: 'Edit reading', href: `/barometer/${reading.id}/edit` },
     ];
 
-    const destroy = () => router.delete(route('barometer.destroy', reading.id));
+    const destroy = () => router.delete(barometer.destroy.url(reading.id));
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -47,7 +48,7 @@ export default function EditReading({ reading, today, now }: { reading: Baromete
                     today={today}
                     now={now}
                     submitLabel="Save"
-                    onCancel={() => router.visit(route('barometer.index'))}
+                    onCancel={() => router.visit(barometer.index.url())}
                 />
             </div>
         </AppLayout>

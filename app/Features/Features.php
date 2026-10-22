@@ -2,6 +2,10 @@
 
 namespace App\Features;
 
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Laravel\Pennant\Feature;
+
 /**
  * Every feature flag, in one place — the admin page and `offing:feature`
  * both read from here. Add new features to this list.
@@ -17,6 +21,9 @@ final class Features
             BirthdayEngine::class,
             VcardImport::class,
             Reminders::class,
+            Crews::class,
+            Shipshape::class,
+            ConnectClaude::class,
             Barometer::class,
         ];
     }
@@ -39,5 +46,36 @@ final class Features
     public static function find(string $name): ?StagedFeature
     {
         return self::all()[$name] ?? null;
+    }
+
+    /**
+     * What Pennant has stored for these users, read straight from its table
+     * rather than through Feature::active() — Pennant stores whatever it
+     * resolves, so merely looking at a user in the admin would pin them.
+     * Missing = not checked yet (the stage decides).
+     *
+     * @param  list<string>  $names
+     * @param  array<int, User>  $users
+     * @return array<string, array<int, bool>> feature name => user id => value
+     */
+    public static function stored(array $names, array $users): array
+    {
+        $scopes = collect($users)->mapWithKeys(fn (User $user) => [Feature::serializeScope($user) => $user->id]);
+
+        if ($scopes->isEmpty()) {
+            return [];
+        }
+
+        $values = [];
+
+        DB::table('features')
+            ->whereIn('name', $names)
+            ->whereIn('scope', $scopes->keys())
+            ->get(['name', 'scope', 'value'])
+            ->each(function ($row) use (&$values, $scopes) {
+                $values[(string) $row->name][(int) $scopes[$row->scope]] = (bool) json_decode($row->value);
+            });
+
+        return $values;
     }
 }

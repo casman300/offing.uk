@@ -19,7 +19,8 @@ class PersonFactory extends Factory
         $date = fake()->dateTimeBetween('-80 years', '-1 year');
 
         return [
-            'owner_user_id' => User::factory(),
+            'owner_type' => (new User)->getMorphClass(),
+            'owner_id' => User::factory(),
             'name' => fake()->name(),
             'birth_day' => (int) $date->format('j'),
             'birth_month' => (int) $date->format('n'),

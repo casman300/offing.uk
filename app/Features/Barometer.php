@@ -4,7 +4,8 @@ namespace App\Features;
 
 /**
  * Barometer (#34, #35): a private CBT-style anxiety log. Health data —
- * owner-only, never shared, never in feeds or MCP. Spec §25.
+ * owner-only, never shared or in feeds; AI assistants only via its own
+ * consent switch (spec §12). Spec §26.
  */
 class Barometer extends StagedFeature
 {

@@ -1,16 +1,26 @@
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
+import PushDevices, { type PushDevice } from '@/components/push-devices';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import profile from '@/routes/profile';
+import reminders from '@/routes/reminders';
 import { type BreadcrumbItem } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
 type Slot = { enabled: boolean; time: string };
+type Delivery = 'email' | 'push' | 'both';
+
+const DELIVERY_LABELS: Record<Delivery, string> = {
+    push: 'Notifications, with email as backup',
+    email: 'Email only',
+    both: 'Notifications and email',
+};
 type SlotKey = 'day_before' | 'on_the_day';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reminder settings', href: '/settings/reminders' }];
@@ -31,18 +41,21 @@ export default function ReminderSettings({
     timezone,
     slots,
     status,
+    push,
 }: {
     enabled: boolean;
     timezone: string;
     slots: Record<SlotKey, Slot>;
     status: string | null;
+    /** Present only when this host can send push (VAPID keys set). */
+    push: { publicKey: string; delivery: Delivery; devices: PushDevice[] } | null;
 }) {
     const { errors: pageErrors } = usePage<{ errors: Record<string, string> }>().props;
-    const { data, setData, patch, processing, errors, recentlySuccessful } = useForm({ enabled, slots });
+    const { data, setData, patch, processing, errors, recentlySuccessful } = useForm({ enabled, slots, delivery: push?.delivery ?? 'email' });
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        patch(route('reminders.update'), { preserveScroll: true });
+        patch(reminders.update.url(), { preserveScroll: true });
     };
 
     const setSlot = (key: SlotKey, patchSlot: Partial<Slot>) => setData('slots', { ...data.slots, [key]: { ...data.slots[key], ...patchSlot } });
@@ -53,15 +66,15 @@ export default function ReminderSettings({
 
             <SettingsLayout>
                 <div className="space-y-6">
-                    <HeadingSmall title="Birthday reminders" description="Emails before and on the birthdays of the people you've added." />
+                    <HeadingSmall title="Birthday reminders" description="Reminders before and on the birthdays of the people you've added." />
 
                     <form onSubmit={submit} className="space-y-6">
                         <label className="flex items-start gap-3">
                             <Checkbox className="mt-0.5" checked={data.enabled} onCheckedChange={(v) => setData('enabled', v === true)} />
                             <span>
-                                <span className="font-medium">Email me birthday reminders</span>
+                                <span className="font-medium">Send me birthday reminders</span>
                                 <span className="text-muted-foreground block text-sm">
-                                    Off until you switch it on. You can turn it off from any reminder email.
+                                    Off until you switch it on. You can turn it off from any reminder email too.
                                 </span>
                             </span>
                         </label>
@@ -97,12 +110,38 @@ export default function ReminderSettings({
                             ))}
                             <p className="text-muted-foreground text-sm">
                                 Times are in your timezone ({timezone.replaceAll('_', ' ')}) —{' '}
-                                <Link href={route('profile.edit')} className="underline">
+                                <Link href={profile.edit.url()} className="underline">
                                     change it in Profile
                                 </Link>
-                                . Several birthdays at the same time come in one email.
+                                . Several birthdays at the same time come as one message.
                             </p>
                         </fieldset>
+
+                        {push && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="delivery" className={!data.enabled ? 'opacity-50' : undefined}>
+                                    Deliver by
+                                </Label>
+                                <select
+                                    id="delivery"
+                                    className={selectClass}
+                                    value={data.delivery}
+                                    disabled={!data.enabled}
+                                    onChange={(e) => setData('delivery', e.target.value as Delivery)}
+                                >
+                                    {(Object.keys(DELIVERY_LABELS) as Delivery[]).map((d) => (
+                                        <option key={d} value={d}>
+                                            {DELIVERY_LABELS[d]}
+                                        </option>
+                                    ))}
+                                </select>
+                                {data.delivery !== 'email' && push.devices.length === 0 && (
+                                    <p className="text-muted-foreground text-sm">
+                                        No devices yet — turn on notifications below, or reminders keep coming by email.
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-4">
                             <Button disabled={processing}>Save</Button>
@@ -118,9 +157,18 @@ export default function ReminderSettings({
                         </div>
                     </form>
 
+                    {push && (
+                        <div className="border-t pt-6">
+                            <PushDevices publicKey={push.publicKey} devices={push.devices} />
+                            {status === 'device-test-sent' && (
+                                <p className="text-muted-foreground mt-2 text-sm">Test sent — it should appear in a few seconds.</p>
+                            )}
+                        </div>
+                    )}
+
                     <div className="space-y-2 border-t pt-6">
                         <HeadingSmall title="Check it arrives" description="Sends a sample reminder for your next few birthdays to your email now." />
-                        <Button variant="outline" onClick={() => router.post(route('reminders.test'), {}, { preserveScroll: true })}>
+                        <Button variant="outline" onClick={() => router.post(reminders.test.url(), {}, { preserveScroll: true })}>
                             Send me a test reminder
                         </Button>
                         {status === 'reminders-test-sent' && <p className="text-muted-foreground text-sm">Sent — check your inbox (and spam).</p>}

@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 
 const ITEMS = [
+    { title: 'Users', url: '/admin/users' },
     { title: 'Feature flags', url: '/admin/features' },
     { title: 'Outbox', url: '/admin/outbox' },
 ];

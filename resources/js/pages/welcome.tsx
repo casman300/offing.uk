@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { dashboard, login } from '@/routes';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 
@@ -17,11 +18,11 @@ export default function Welcome() {
 
                     {auth.user ? (
                         <Button asChild size="sm">
-                            <Link href={route('dashboard')}>Go to dashboard</Link>
+                            <Link href={dashboard.url()}>Go to dashboard</Link>
                         </Button>
                     ) : (
                         <Button asChild size="sm" variant="outline">
-                            <Link href={route('login')}>Log in</Link>
+                            <Link href={login.url()}>Log in</Link>
                         </Button>
                     )}
                 </header>
@@ -30,18 +31,18 @@ export default function Welcome() {
                     <p className="text-muted-foreground mb-3 text-sm font-medium tracking-wide uppercase">Coming soon</p>
                     <h1 className="mb-4 max-w-2xl text-4xl font-semibold text-balance lg:text-6xl">What's in the offing.</h1>
                     <p className="text-muted-foreground mb-10 max-w-md text-base lg:text-lg">
-                        A shared calendar for the people in your life — partners who see everything, friends who see what they're tagged in, and
-                        clubs that don't need an account at all. We're building it in the open.
+                        A shared calendar for the people in your life — partners who see everything, friends who see what they're tagged in, and clubs
+                        that don't need an account at all. We're building it in the open.
                     </p>
 
                     {auth.user ? (
                         <Button asChild size="lg">
-                            <Link href={route('dashboard')}>Go to dashboard</Link>
+                            <Link href={dashboard.url()}>Go to dashboard</Link>
                         </Button>
                     ) : (
                         <div className="flex flex-col items-center gap-3">
                             <Button asChild size="lg">
-                                <Link href={route('login')}>Log in</Link>
+                                <Link href={login.url()}>Log in</Link>
                             </Button>
                             <p className="text-muted-foreground text-sm">Existing admins &amp; beta users only, for now.</p>
                         </div>

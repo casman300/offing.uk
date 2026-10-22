@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Barometer readings (#35). Spec §25.
+     * Barometer readings (#35). Spec §26.
      *
      * One column per header of the CBT anxiety-tracking form — fixed on
      * purpose, not a template engine. The free text is health data and is

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
+import barometer from '@/routes/barometer';
 import { type BarometerReading, type BarometerTextColumn } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
@@ -71,9 +72,9 @@ export default function BarometerReadingForm({ reading, today, now, submitLabel,
         e.preventDefault();
 
         if (reading) {
-            patch(route('barometer.update', reading.id));
+            patch(barometer.update.url(reading.id));
         } else {
-            post(route('barometer.store'));
+            post(barometer.store.url());
         }
     };
 

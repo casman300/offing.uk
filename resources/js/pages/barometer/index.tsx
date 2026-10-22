@@ -1,6 +1,7 @@
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
+import barometer from '@/routes/barometer';
 import { type BarometerReading, type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, Link, usePage } from '@inertiajs/react';
@@ -42,12 +43,12 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                     <Heading title="Barometer" description="Your private anxiety log. Only you can see it." />
                     <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                         <Button asChild variant="outline">
-                            <Link href={route('barometer.export')}>
+                            <Link href={barometer.export.url()}>
                                 <Download /> Export
                             </Link>
                         </Button>
                         <Button asChild>
-                            <Link href={route('barometer.create')}>
+                            <Link href={barometer.create.url()}>
                                 <Plus /> Take a reading
                             </Link>
                         </Button>
@@ -84,7 +85,7 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                                     {day.readings.map((reading) => (
                                         <li key={reading.id}>
                                             <Link
-                                                href={route('barometer.edit', reading.id)}
+                                                href={barometer.edit.url(reading.id)}
                                                 className="hover:bg-accent/60 focus-visible:bg-accent grid grid-cols-[3rem_auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 outline-none"
                                             >
                                                 {reading.time !== null ? (

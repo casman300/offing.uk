@@ -32,13 +32,19 @@ return [
     | users are actually retrieved out of your database or other storage
     | system used by the application. Typically, Eloquent is utilized.
     |
-    | Supported: "session"
+    | Supported: "session", "passport"
     |
     */
 
     'guards' => [
         'web' => [
             'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        // Connect Claude (spec §12): OAuth bearer tokens for /mcp.
+        'api' => [
+            'driver' => 'passport',
             'provider' => 'users',
         ],
     ],

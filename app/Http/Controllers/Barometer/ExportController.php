@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -117,6 +118,10 @@ class ExportController extends Controller
     {
         return response()->streamDownload(function () use ($readings, $columns, $timezone) {
             $out = fopen('php://output', 'w');
+
+            if ($out === false) {
+                throw new RuntimeException('Could not open the output stream for the CSV export.');
+            }
 
             // BOM so Excel opens UTF-8 correctly.
             fwrite($out, "\u{FEFF}");

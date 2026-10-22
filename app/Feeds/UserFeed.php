@@ -5,11 +5,8 @@ namespace App\Feeds;
 use App\Models\Person;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Spatie\IcalendarGenerator\Components\Alert;
-use Spatie\IcalendarGenerator\Components\Calendar;
-use Spatie\IcalendarGenerator\Components\Event;
-use Spatie\IcalendarGenerator\Enums\RecurrenceFrequency;
-use Spatie\IcalendarGenerator\ValueObjects\RRule;
+use Sabre\VObject\Component\VCalendar;
+use Sabre\VObject\Component\VEvent;
 
 /**
  * The ICS a user's own feed token serves (spec §8, #15). Today that's
@@ -21,7 +18,9 @@ use Spatie\IcalendarGenerator\ValueObjects\RRule;
  * one recurring event can't carry a different age every year.
  *
  * Output must be byte-stable between requests when nothing has changed,
- * since the ETag is a hash of it. Nothing here may depend on "now".
+ * since the ETag is a hash of it. Nothing here may depend on "now" — which
+ * is why every event sets its own UID and DTSTAMP: sabre's defaults for
+ * both are random/current.
  */
 final class UserFeed
 {
@@ -29,19 +28,23 @@ final class UserFeed
     private const UNKNOWN_YEAR = 2000;
 
     /** Default reminder rule (spec §9): 20:00 the day before, and 08:00 on the day. */
-    private const ALERT_EVENING_BEFORE_MINUTES = 4 * 60;
+    private const ALERT_EVENING_BEFORE = '-PT240M';
 
-    private const ALERT_MORNING_OF_MINUTES = 8 * 60;
+    private const ALERT_MORNING_OF = 'PT480M';
 
     public function __construct(private readonly User $user) {}
 
     public function render(): string
     {
-        $calendar = Calendar::create('Offing')
-            ->description('Birthdays from Offing')
-            ->productIdentifier('-//Offing//offing.uk//EN')
-            ->refreshInterval(60)
-            ->withoutTimezone();
+        $calendar = new VCalendar([
+            'PRODID' => '-//Offing//offing.uk//EN',
+            'NAME' => 'Offing',
+            'X-WR-CALNAME' => 'Offing',
+            'DESCRIPTION' => 'Birthdays from Offing',
+            'X-WR-CALDESC' => 'Birthdays from Offing',
+            'X-PUBLISHED-TTL' => 'PT1H',
+        ]);
+        $calendar->add('REFRESH-INTERVAL', 'PT1H', ['VALUE' => 'DURATION']);
 
         $people = $this->user->people()
             ->whereNotNull('birth_day')
@@ -50,41 +53,52 @@ final class UserFeed
             ->get();
 
         foreach ($people as $person) {
-            $calendar->event($this->birthday($person));
+            $this->addBirthday($calendar, $person);
         }
 
-        return $calendar->get();
+        return $calendar->serialize();
     }
 
-    private function birthday(Person $person): Event
+    private function addBirthday(VCalendar $calendar, Person $person): void
     {
         $year = $person->birth_year ?? self::UNKNOWN_YEAR;
         $start = CarbonImmutable::create($year, $person->birth_month, $person->birth_day, 0, 0, 0, 'UTC');
+        $stamp = CarbonImmutable::instance($person->updated_at ?? $person->created_at)->utc();
 
         // A plain yearly rule on 29 Feb skips non-leap years in every client.
         // "Last day of February" matches the app's own 28 Feb observance
         // (App\Support\Birthday::observedIn(); per-person choice is #28).
-        $rule = RRule::frequency(RecurrenceFrequency::Yearly);
-        if ($person->birth_month === 2 && $person->birth_day === 29) {
-            $rule->onMonth(2)->onMonthDay(-1);
-        }
+        $rule = $person->birth_month === 2 && $person->birth_day === 29
+            ? 'FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1'
+            : 'FREQ=YEARLY';
 
-        $event = Event::create("{$person->name}'s birthday 🎂")
-            ->uniqueIdentifier("person-{$person->id}-birthday@".self::uidHost())
-            ->createdAt($person->updated_at ?? $person->created_at)
-            ->startsAt($start, withTime: false)
-            ->endsAt($start->addDay(), withTime: false)
-            ->fullDay()
-            ->transparent()
-            ->rrule($rule)
-            ->alert(Alert::minutesBeforeStart(self::ALERT_EVENING_BEFORE_MINUTES, "{$person->name}'s birthday is tomorrow"))
-            ->alert(Alert::minutesAfterStart(self::ALERT_MORNING_OF_MINUTES, "It's {$person->name}'s birthday today"));
+        /** @var VEvent $event */
+        $event = $calendar->add('VEVENT', [
+            'UID' => "person-{$person->id}-birthday@".self::uidHost(),
+            'DTSTAMP' => $stamp,
+            'SUMMARY' => "{$person->name}'s birthday 🎂",
+        ]);
+        $event->add('DTSTART', $start->format('Ymd'), ['VALUE' => 'DATE']);
+        $event->add('DTEND', $start->addDay()->format('Ymd'), ['VALUE' => 'DATE']);
+        $event->add('TRANSP', 'TRANSPARENT');
+        // Outlook's own all-day hint, alongside the standard VALUE=DATE.
+        $event->add('X-MICROSOFT-CDO-ALLDAYEVENT', 'TRUE');
+        $event->add('RRULE', $rule);
 
         if ($person->birth_year !== null) {
-            $event->description("Born {$person->birth_year}.");
+            $event->add('DESCRIPTION', "Born {$person->birth_year}.");
         }
 
-        return $event;
+        $event->add('VALARM', [
+            'ACTION' => 'DISPLAY',
+            'DESCRIPTION' => "{$person->name}'s birthday is tomorrow",
+            'TRIGGER' => self::ALERT_EVENING_BEFORE,
+        ]);
+        $event->add('VALARM', [
+            'ACTION' => 'DISPLAY',
+            'DESCRIPTION' => "It's {$person->name}'s birthday today",
+            'TRIGGER' => self::ALERT_MORNING_OF,
+        ]);
     }
 
     private static function uidHost(): string

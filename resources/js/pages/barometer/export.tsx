@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import barometer from '@/routes/barometer';
 import { type BarometerColumn, type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { FileDown, FileSpreadsheet } from 'lucide-react';
@@ -32,7 +33,7 @@ export default function BarometerExport({ defaults, columns, omittable }: Props)
     const [to, setTo] = useState(defaults.to);
     const [omit, setOmit] = useState<BarometerColumn[]>([]);
 
-    const href = (format: 'pdf' | 'csv') => route('barometer.export.download', { format, from, to, ...(omit.length > 0 ? { omit } : {}) });
+    const href = (format: 'pdf' | 'csv') => barometer.export.download.url({ query: { format, from, to, ...(omit.length > 0 ? { omit } : {}) } });
     const toggle = (column: BarometerColumn, included: boolean) =>
         setOmit((current) => (included ? current.filter((c) => c !== column) : [...current, column]));
 

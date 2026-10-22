@@ -17,6 +17,7 @@ interface Message {
     attempts: number;
     next_attempt_at: string | null;
     sent_at: string | null;
+    delivered_via: string | null;
     last_error: string | null;
 }
 
@@ -29,7 +30,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
-export default function AdminOutbox({ status, counts, messages }: { status: string | null; counts: Record<string, number>; messages: Message[] }) {
+export default function AdminOutbox({
+    status,
+    counts,
+    messages,
+    pushProblem,
+}: {
+    status: string | null;
+    counts: Record<string, number>;
+    messages: Message[];
+    pushProblem: string | null;
+}) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Outbox" />
@@ -40,6 +51,12 @@ export default function AdminOutbox({ status, counts, messages }: { status: stri
                     title="Outbox"
                     description="Reminders the scanner has queued and what happened to them. Shows birthday dates, never people's names."
                 />
+
+                {pushProblem && (
+                    <p role="alert" className="border-destructive/40 text-destructive rounded-lg border px-4 py-3 text-sm">
+                        Push unavailable on this host — reminders are falling back to email. {pushProblem} Run <code>php artisan push:check</code>.
+                    </p>
+                )}
 
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
                     <FilterLink active={status === null} href="/admin/outbox" label={`All (${Object.values(counts).reduce((a, b) => a + b, 0)})`} />
@@ -72,6 +89,7 @@ export default function AdminOutbox({ status, counts, messages }: { status: stri
                                 <p className="text-muted-foreground">
                                     Due {fmt(m.send_at)}
                                     {m.sent_at && <> · sent {fmt(m.sent_at)}</>}
+                                    {m.delivered_via && <> via {m.delivered_via}</>}
                                     {m.attempts > 0 && (
                                         <>
                                             {' '}

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One Barometer reading (#35): a row of the CBT anxiety-tracking form.
- * Owner-only health data — see the migration and spec §25.
+ * Owner-only health data — see the migration and spec §26.
  *
  * @property CarbonImmutable|null $occurred_at null = time not recorded
  * @property string $local_date Y-m-d. Deliberately not a date cast: that
