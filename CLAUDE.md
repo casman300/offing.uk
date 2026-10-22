@@ -41,6 +41,28 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 - Before committing PHP/TS changes: `vendor/bin/pint`, `vendor/bin/pest`, `npx tsc --noEmit`, `npm run build`. Don't just trust the diff — boot the app (`php artisan serve`) and exercise the actual flow when touching auth, payments, or anything security-relevant; feature tests alone have already missed at least one real bug in this codebase (a mail-rendering bug invisible to `Mail::fake()`).
 - Timezones: store UTC + origin IANA TZID, expand recurrence in the origin timezone (sabre does this), render in the viewer's profile timezone.
 
+## Claude Code cloud sessions: getting PHP 8.5
+
+The cloud container ships PHP 8.3, but the lock file needs ≥ 8.4 (Symfony 8). Don't try apt PPAs, Debian mirrors or static-PHP downloads (the network policy blocks them all) — Docker Hub works. Recipe, in order:
+
+1. **Start Docker and pull PHP:** `(dockerd > /tmp/dockerd.log 2>&1 &)`, wait for `docker info`, then `docker pull php:8.5-cli`. The image has pdo_sqlite, sodium, mbstring etc. — enough for the app and tests.
+2. **Wrapper script** (e.g. `p` in your scratchpad) to run anything under 8.5 with the repo mounted:
+   ```sh
+   #!/bin/sh
+   exec docker run --rm -i --network host -v /home/user/offing.uk:/home/user/offing.uk -w /home/user/offing.uk php:8.5-cli "$@"
+   ```
+   Then `p php artisan …`, `p vendor/bin/pest --parallel`, `p vendor/bin/pint`. Pass `</dev/null` when calling it from a non-interactive script, or it waits on stdin.
+3. **`composer install` runs on the host, not in the container.** GitHub zip downloads (api.github.com / codeload) are blocked but `git clone` works, so use source installs and ignore the host's PHP version:
+   `COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_PROCESS_TIMEOUT=900 composer install --ignore-platform-req=php --prefer-source --no-scripts`.
+   - `phpstan/phpstan` has no `source` in the lock (dist only) and its repo is huge. Shallow-fetch the locked commit into a scratch repo (`git init x && cd x && git fetch --depth 1 https://github.com/phpstan/phpstan.git <ref> && git checkout -b master FETCH_HEAD`), temporarily add `"source": {"type": "git", "url": "<that path>", "reference": "<ref>"}` to its lock entry, install, then **restore the original `composer.lock`** — never commit the hack.
+   - `composer require` works the same way (same flags). CI resolves dists normally, so the committed lock is fine.
+   - Afterwards delete the checkouts' `.git` dirs (`find vendor -maxdepth 3 -name .git -type d -prune -exec rm -rf {} +`): otherwise `sebastian/version` tries to run `git` inside the container and prints `proc_open(): posix_spawn() failed` warnings into HTTP responses.
+   - Then `p php artisan package:discover`.
+4. **Frontend:** `npm ci` and `npx tsc --noEmit` run on the host. `npm run build` calls `php artisan wayfinder:generate`, so put a `php` shim first on `PATH` (`exec p php "$@"`) — `PATH=<shim dir>:$PATH npm run build`. Feature tests need the built manifest (`public/build/manifest.json`), so build before running Pest.
+5. **Boot the app** for real flows: `cp .env.example .env`, `p php artisan key:generate`, `touch database/database.sqlite`, `p php artisan migrate`, `p php artisan user:create you@example.com You`, `p php artisan offing:feature <flag> you@example.com --on`, then serve in the background with
+   `docker run -d --rm --name offing-serve --network host -v /home/user/offing.uk:/home/user/offing.uk -w /home/user/offing.uk php:8.5-cli php artisan serve --host=127.0.0.1 --port=8000`.
+   Set `APP_URL=http://localhost:8000`. Magic links are queued: run `p php artisan queue:work --stop-when-empty`, then find the link in `storage/logs/laravel.log` (`MAIL_MAILER=log`; unescape `&amp;`). Drive it with Playwright's preinstalled Chromium (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). Repeated logins hit the rate limiter — `p php artisan cache:clear`. `docker kill offing-serve` when done.
+
 ## Naming — decided, don't relitigate
 
 - The reminder outbox table is `notification_outbox`, **never** `notifications` — `User` already uses Laravel's `Notifiable` trait, and `php artisan notifications:table` creates its own incompatible `notifications` table. If Laravel's built-in notification system gets used for something else later (in-app toasts, etc.), that's the `notifications` table; don't merge it with the outbox. See `docs/SPEC.md` §6.
