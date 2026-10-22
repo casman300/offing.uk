@@ -29,7 +29,16 @@ When you connect, you choose one of these:
 
 You also choose whether it sees your **private events**. If you leave this off, it sees them only as "busy", the same as your partner would.
 
-At the moment an assistant can read a briefing: your birthdays coming up, your people, your crews and your Shipshape chores. Adding and changing things comes next.
+At the moment an assistant can:
+
+- **Read a briefing**: your birthdays coming up, your people, your crews and your Shipshape chores.
+- **Look things up**: search by name or words, see what's due or whose birthday falls between two dates, or get everything about one person, crew or chore.
+- **Add or update people** in your own address book, birthdays included ("add Sue, her birthday's 25 October"). Changing someone already there needs **Read, add and change**. Deleting people stays in Offing.
+- **Log a chore** done or skipped ("I've done the bins", "Alfie did the hoovering yesterday"). Undoing one needs **Read, add and change**. Creating and editing chores stays in Offing.
+
+Calendar events come later, as they arrive in Offing.
+
+Chores logged by an assistant show "via an AI assistant" in the chore's log, and every change is recorded in Offing's audit log.
 
 An assistant sees what you can see in Offing. Anything it reads is sent to the company that runs it (Anthropic for Claude, OpenAI for ChatGPT), under their privacy policy.
 

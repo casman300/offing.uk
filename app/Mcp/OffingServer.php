@@ -2,7 +2,10 @@
 
 namespace App\Mcp;
 
+use App\Mcp\Tools\Find;
 use App\Mcp\Tools\GetBriefing;
+use App\Mcp\Tools\LogChore;
+use App\Mcp\Tools\SavePerson;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
@@ -13,14 +16,19 @@ use Laravel\Mcp\Server\Attributes\Version;
  * comes first.
  */
 #[Name('Offing')]
-#[Version('0.1.0')]
+#[Version('0.2.0')]
 class OffingServer extends Server
 {
     protected string $instructions = <<<'MARKDOWN'
         Offing is the user's shared calendar, address book and household-chores app ("What's in the offing").
         Call `get_briefing` once at the start of a conversation: it returns who the user is, their timezone and
         today's date, their access level, their crews, people, upcoming birthdays and chores due — usually
-        everything needed in one call.
+        everything needed in one call. Use `find` for anything more: a date range, a search, one person, crew or chore.
+
+        Writing: `save_person` adds to or updates the user's own address book; `log_chore` marks a chore done or
+        skipped, or undoes an entry. Which of these you have depends on the access the user gave this connection.
+        Only write what the user asked for; if a name or chore is ambiguous, ask rather than pick. Every result
+        carries ids, so a mistake can be put right straight away.
 
         Vocabulary:
         - People: the user's own private address book (friends, family). "(person 12)" is a person's id.
@@ -35,5 +43,8 @@ class OffingServer extends Server
 
     protected array $tools = [
         GetBriefing::class,
+        Find::class,
+        SavePerson::class,
+        LogChore::class,
     ];
 }

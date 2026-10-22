@@ -5,17 +5,18 @@ namespace App\Mcp\Tools;
 use App\Features\BirthdayEngine;
 use App\Features\Crews;
 use App\Features\Shipshape;
-use App\Models\AiGrant;
+use App\Mcp\Text;
+use App\Mcp\Tools\Concerns\ActsForGrant;
 use App\Models\CrewMember;
 use App\Models\User;
 use App\Support\Briefing;
-use App\Support\ConnectClaude\AccessLevel;
 use App\Support\Shipshape\Board;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
+use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Title;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
@@ -27,12 +28,15 @@ use Laravel\Pennant\Feature;
  * ids inline, so Claude can answer — or act — without lookups. Each part
  * only appears if its feature is on for the user, as on the dashboard.
  */
+#[Name('get_briefing')]
 #[Title('Get briefing')]
 #[Description("Start here. Returns the user's name, timezone, today's date, this connection's access level, their crews, people (with ids), birthdays in the next 30 days and Shipshape chores overdue, due today or coming up.")]
 #[IsReadOnly]
 #[IsIdempotent]
 class GetBriefing extends Tool
 {
+    use ActsForGrant;
+
     public const BIRTHDAY_DAYS = 30;
 
     /** Enough for any real address book; the rest are counted, not listed. */
@@ -44,9 +48,7 @@ class GetBriefing extends Tool
         $user = $request->user();
         $today = $user->today();
         $features = Feature::for($user);
-        $grant = app()->bound(AiGrant::class) ? app(AiGrant::class) : null;
-
-        $sections = [$this->header($user, $today, $grant)];
+        $sections = [$this->header($user, $today)];
 
         if ($features->active(Crews::class)) {
             $sections[] = $this->crews($user);
@@ -72,14 +74,14 @@ class GetBriefing extends Tool
         return [];
     }
 
-    private function header(User $user, CarbonImmutable $today, ?AiGrant $grant): string
+    private function header(User $user, CarbonImmutable $today): string
     {
-        $level = $grant?->level ?? AccessLevel::Read;
+        $grant = $this->grant();
 
         return implode("\n", [
             "Offing briefing for {$user->name}.",
             'Today is '.$today->format('l j F Y').", timezone {$user->timezone}.",
-            "This connection's access: {$level->label()}. ".($grant?->include_private ? 'Private events: included.' : 'Private events: hidden.'),
+            "This connection's access: {$this->level()->label()}. ".($grant?->include_private ? 'Private events: included.' : 'Private events: hidden.'),
             'Calendar events are not in Offing yet; birthdays and chores are.',
         ]);
     }
@@ -115,7 +117,7 @@ class GetBriefing extends Tool
                 1 => 'tomorrow',
                 default => "in {$b['days']} days",
             };
-            $date = $b['date'] ? CarbonImmutable::parse($b['date'])->format('D j M') : '';
+            $date = $b['date'] ? Text::date($b['date']) : '';
             $turns = $b['turns'] !== null ? ", turns {$b['turns']}" : '';
 
             return "- {$b['name']} (person {$b['id']}): {$date}, {$when}{$turns}";
@@ -160,17 +162,7 @@ class GetBriefing extends Tool
                 continue;
             }
 
-            $parts[] = "{$heading}:\n".$rows->map(function (array $c) use ($listNames) {
-                $due = CarbonImmutable::parse($c['due_on'])->format('D j M');
-                $late = $c['days'] < 0 ? ', '.abs($c['days']).(abs($c['days']) === 1 ? ' day' : ' days').' late' : '';
-                $who = match (true) {
-                    $c['who'] === null => '',
-                    $c['who']['is_me'] => ' — your turn',
-                    default => " — {$c['who']['name']}'s turn",
-                };
-
-                return "- {$c['title']} (chore {$c['id']}, {$listNames[$c['list_id']]}): due {$due}{$late}{$who}";
-            })->implode("\n");
+            $parts[] = "{$heading}:\n".$rows->map(fn (array $c) => Text::chore($c, $listNames[$c['list_id']]))->implode("\n");
         }
 
         return "Shipshape chores:\n".implode("\n", $parts);
