@@ -51,7 +51,7 @@ class AppServiceProvider extends ServiceProvider
         // Connect Claude (spec §12): our own consent screen, and short-lived
         // access tokens — Claude refreshes them, and a revoke or a lost
         // device then stops mattering within the hour.
-        Passport::authorizationView(fn (array $parameters) => app(ConsentController::class)->show($parameters));
+        Passport::authorizationView(fn (array $parameters) => app(ConsentController::class)->show($parameters)->toResponse(request()));
         Passport::tokensExpireIn(CarbonInterval::hour());
         Passport::refreshTokensExpireIn(CarbonInterval::days(90));
     }

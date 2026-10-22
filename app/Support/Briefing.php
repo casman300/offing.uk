@@ -24,7 +24,10 @@ final class Briefing
      */
     public static function birthdays(User $user, CarbonImmutable $today, int $withinDays): Collection
     {
-        return $user->people()->whereNotNull('birth_day')->whereNotNull('birth_month')->get()
+        // PHPStan 2.2 rejects a nullable field in an array shape inside a
+        // Collection even when the inferred type is identical.
+        // @phpstan-ignore return.type
+        return $user->people()->whereNotNull('birth_day')->whereNotNull('birth_month')->get()->toBase()
             ->map(fn (Person $person) => ['person' => $person, 'days' => $person->birthday()->daysUntil($today)])
             ->filter(fn ($row) => $row['days'] !== null && $row['days'] <= $withinDays)
             ->sortBy('days')
@@ -47,10 +50,13 @@ final class Briefing
      */
     public static function chores(User $user, Collection $lists, CarbonImmutable $today, array $groups): Collection
     {
-        return Board::choresOn($lists)
+        /** @var Collection<int, array<string, mixed>> $chores */
+        $chores = Board::choresOn($lists)
             ->map(fn (Chore $chore) => Board::chore($chore, $user, $today))
             ->filter(fn ($chore) => in_array($chore['group'], $groups, true))
             ->sortBy([['days', 'asc'], ['title', 'asc']])
             ->values();
+
+        return $chores;
     }
 }

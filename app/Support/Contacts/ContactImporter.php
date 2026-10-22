@@ -172,7 +172,7 @@ final class ContactImporter
                 $removed++;
             }
 
-            foreach (collect($result['filled'] ?? [])->groupBy('person_id') as $personId => $fields) {
+            foreach (collect((array) ($result['filled'] ?? []))->groupBy('person_id') as $personId => $fields) {
                 $person = $this->user->people()->find($personId);
 
                 if ($person === null) {

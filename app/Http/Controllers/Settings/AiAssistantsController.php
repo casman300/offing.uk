@@ -30,8 +30,8 @@ class AiAssistantsController extends Controller
             'connections' => AiGrant::with('client')->where('user_id', $request->user()->id)->latest('id')->get()
                 ->map(fn (AiGrant $grant) => [
                     'id' => $grant->id,
-                    'name' => $grant->client?->name ?? 'Unknown app',
-                    'host' => ($uri = $grant->client?->redirect_uris[0] ?? null) ? parse_url($uri, PHP_URL_HOST) : null,
+                    'name' => $grant->client->name ?? 'Unknown app',
+                    'host' => ($uri = $grant->client->redirect_uris[0] ?? null) ? parse_url($uri, PHP_URL_HOST) : null,
                     'level' => $grant->level->value,
                     'include_private' => $grant->include_private,
                     'created_at' => $grant->created_at?->toIso8601String(),

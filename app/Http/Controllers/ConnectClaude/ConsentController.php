@@ -60,7 +60,7 @@ class ConsentController extends Controller
                 'label' => $level->label(),
                 'description' => $level->description(),
             ])->values(),
-            'level' => ($existing?->level ?? AccessLevel::WriteNew)->value,
+            'level' => ($existing->level ?? AccessLevel::WriteNew)->value,
             'includePrivate' => (bool) $existing?->include_private,
         ]);
     }
