@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { type ListSummary } from '@/lib/shipshape';
 import { cn } from '@/lib/utils';
+import shipshape from '@/routes/shipshape';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowUp, Trash2 } from 'lucide-react';
@@ -59,8 +60,8 @@ export default function ChoreForm({ today, list, areas, chore }: { today: string
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        if (chore) put(route('shipshape.chores.update', chore.id));
-        else post(route('shipshape.chores.store', list.id));
+        if (chore) put(shipshape.chores.update.url(chore.id));
+        else post(shipshape.chores.store.url(list.id));
     };
 
     const inRota = (id: number) => data.rota.includes(id);
@@ -318,14 +319,14 @@ export default function ChoreForm({ today, list, areas, chore }: { today: string
                 <div className="flex flex-wrap items-center gap-2">
                     <Button disabled={processing}>{chore ? 'Save' : 'Add chore'}</Button>
                     <Button asChild variant="ghost">
-                        <Link href={route('shipshape.lists.show', list.id)}>Cancel</Link>
+                        <Link href={shipshape.lists.show.url(list.id)}>Cancel</Link>
                     </Button>
                     {chore && (
                         <Button
                             type="button"
                             variant="ghost"
                             className="text-destructive ml-auto"
-                            onClick={() => router.delete(route('shipshape.chores.destroy', chore.id))}
+                            onClick={() => router.delete(shipshape.chores.destroy.url(chore.id))}
                         >
                             <Trash2 /> Delete
                         </Button>

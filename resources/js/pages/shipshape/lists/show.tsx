@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type ChoreRow as Chore, GROUPS, type ListSummary } from '@/lib/shipshape';
+import shipshape from '@/routes/shipshape';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Lightbulb, Plus, RotateCcw, Trash2 } from 'lucide-react';
@@ -24,7 +25,7 @@ export default function ListShow({ today, list, chores, deleted }: Props) {
         { title: list.name, href: `/shipshape/lists/${list.id}` },
     ];
 
-    const setEditors = (editors: string) => router.patch(route('shipshape.lists.update', list.id), { editors }, { preserveScroll: true });
+    const setEditors = (editors: string) => router.patch(shipshape.lists.update.url(list.id), { editors }, { preserveScroll: true });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -41,12 +42,12 @@ export default function ListShow({ today, list, chores, deleted }: Props) {
                     {list.editable && (
                         <div className="flex gap-2">
                             <Button asChild variant="outline" size="sm">
-                                <Link href={route('shipshape.starters.show', list.id)}>
+                                <Link href={shipshape.starters.show.url(list.id)}>
                                     <Lightbulb /> Suggestions
                                 </Link>
                             </Button>
                             <Button asChild size="sm">
-                                <Link href={route('shipshape.chores.create', list.id)}>
+                                <Link href={shipshape.chores.create.url(list.id)}>
                                     <Plus /> Chore
                                 </Link>
                             </Button>
@@ -95,7 +96,7 @@ export default function ListShow({ today, list, chores, deleted }: Props) {
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => router.post(route('shipshape.chores.restore', chore.id), {}, { preserveScroll: true })}
+                                        onClick={() => router.post(shipshape.chores.restore.url(chore.id), {}, { preserveScroll: true })}
                                     >
                                         <RotateCcw /> Restore
                                     </Button>
@@ -151,7 +152,7 @@ export default function ListShow({ today, list, chores, deleted }: Props) {
                                 <DialogClose asChild>
                                     <Button variant="secondary">Cancel</Button>
                                 </DialogClose>
-                                <Button variant="destructive" onClick={() => router.delete(route('shipshape.lists.destroy', list.id))}>
+                                <Button variant="destructive" onClick={() => router.delete(shipshape.lists.destroy.url(list.id))}>
                                     Delete
                                 </Button>
                             </DialogFooter>

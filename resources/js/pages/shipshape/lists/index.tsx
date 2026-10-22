@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import shipshape from '@/routes/shipshape';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ChevronRight, Lock, Plus, Ship } from 'lucide-react';
@@ -31,7 +32,7 @@ export default function Lists({ lists, crews }: { lists: ListRow[]; crews: { id:
 
     const create: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('shipshape.lists.store'));
+        post(shipshape.lists.store.url());
     };
 
     return (
@@ -46,7 +47,7 @@ export default function Lists({ lists, crews }: { lists: ListRow[]; crews: { id:
                         {lists.map((list) => (
                             <li key={list.id}>
                                 <Link
-                                    href={route('shipshape.lists.show', list.id)}
+                                    href={shipshape.lists.show.url(list.id)}
                                     className="bg-card hover:bg-accent/40 flex items-center gap-3 rounded-xl border p-4"
                                 >
                                     <span

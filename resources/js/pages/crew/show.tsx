@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import crewRoutes from '@/routes/crew';
 import { type BreadcrumbItem, type CrewRole, type SharedData } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { LogOut, Mail, Pencil, Trash2, UserPlus, X } from 'lucide-react';
@@ -58,10 +59,10 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
     ];
 
     const opts = { preserveScroll: true };
-    const setRole = (member: Member, role: string) => router.patch(route('crew.members.role', { crew: crew.id, member: member.id }), { role }, opts);
-    const remove = (member: Member) => router.delete(route('crew.members.remove', { crew: crew.id, member: member.id }), opts);
-    const readd = (member: Member) => router.post(route('crew.members.readd', { crew: crew.id, member: member.id }), {}, opts);
-    const revoke = (invite: Invite) => router.delete(route('crew.invites.revoke', { crew: crew.id, invite: invite.id }), opts);
+    const setRole = (member: Member, role: string) => router.patch(crewRoutes.members.role.url({ crew: crew.id, member: member.id }), { role }, opts);
+    const remove = (member: Member) => router.delete(crewRoutes.members.remove.url({ crew: crew.id, member: member.id }), opts);
+    const readd = (member: Member) => router.post(crewRoutes.members.readd.url({ crew: crew.id, member: member.id }), {}, opts);
+    const revoke = (invite: Invite) => router.delete(crewRoutes.invites.revoke.url({ crew: crew.id, invite: invite.id }), opts);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -250,7 +251,7 @@ function InviteForm({ crewId }: { crewId: number }) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('crew.invites.store', crewId), { preserveScroll: true, onSuccess: () => reset() });
+        post(crewRoutes.invites.store.url(crewId), { preserveScroll: true, onSuccess: () => reset() });
     };
 
     return (
@@ -297,7 +298,7 @@ function PassengerForm({ crewId, crewName, myPeople }: { crewId: number; crewNam
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         transform((form) => (source === 'people' ? { person_id: Number(form.person_id), share_birthday: form.share_birthday } : { name: form.name }));
-        post(route('crew.passengers.store', crewId), { preserveScroll: true, onSuccess: () => reset() });
+        post(crewRoutes.passengers.store.url(crewId), { preserveScroll: true, onSuccess: () => reset() });
     };
 
     return (
@@ -390,7 +391,7 @@ function RenameDialog({ crew }: { crew: { id: number; name: string } }) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        patch(route('crew.update', crew.id), { preserveScroll: true, onSuccess: () => setOpen(false) });
+        patch(crewRoutes.update.url(crew.id), { preserveScroll: true, onSuccess: () => setOpen(false) });
     };
 
     return (
@@ -443,7 +444,7 @@ function LeaveDialog({ crew, lastCaptain }: { crew: { id: number; name: string }
                     </DialogClose>
                     {!lastCaptain && (
                         <DialogClose asChild>
-                            <Button variant="destructive" onClick={() => router.post(route('crew.leave', crew.id))}>
+                            <Button variant="destructive" onClick={() => router.post(crewRoutes.leave.url(crew.id))}>
                                 Leave
                             </Button>
                         </DialogClose>
@@ -459,7 +460,7 @@ function DeleteDialog({ crew }: { crew: { id: number; name: string } }) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        destroy(route('crew.destroy', crew.id), { preserveScroll: true });
+        destroy(crewRoutes.destroy.url(crew.id), { preserveScroll: true });
     };
 
     return (

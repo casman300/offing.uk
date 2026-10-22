@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import admin from '@/routes/admin';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Mail, Search, UserPlus } from 'lucide-react';
@@ -59,17 +60,17 @@ export default function AdminUsers({ q, timezones, defaultTimezone, flags, users
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('admin.users.store'), { preserveScroll: true, onSuccess: () => reset() });
+        post(admin.users.store.url(), { preserveScroll: true, onSuccess: () => reset() });
     };
 
     const toggleFlag = (name: string, on: boolean) => setData('flags', on ? [...data.flags, name] : data.flags.filter((flag) => flag !== name));
 
     const search: FormEventHandler = (e) => {
         e.preventDefault();
-        router.get(route('admin.users.index'), query.trim() === '' ? {} : { q: query.trim() }, { preserveState: true, replace: true });
+        router.get(admin.users.index.url(), query.trim() === '' ? {} : { q: query.trim() }, { preserveState: true, replace: true });
     };
 
-    const sendLink = (user: UserRow) => router.post(route('admin.users.sign-in-link', { user: user.id }), {}, { preserveScroll: true });
+    const sendLink = (user: UserRow) => router.post(admin.users.signInLink.url({ user: user.id }), {}, { preserveScroll: true });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -210,7 +211,7 @@ export default function AdminUsers({ q, timezones, defaultTimezone, flags, users
                                         <p className="text-muted-foreground text-sm">
                                             {user.flags_on.length === 0 ? 'No features on' : <>On: {user.flags_on.join(', ')}</>} ·{' '}
                                             <Link
-                                                href={route('admin.features.index', { q: user.email })}
+                                                href={admin.features.index.url({ query: { q: user.email } })}
                                                 className="text-primary underline-offset-4 hover:underline"
                                             >
                                                 Manage flags

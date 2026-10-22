@@ -3,6 +3,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import shipshape from '@/routes/shipshape';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
@@ -55,7 +56,7 @@ export default function Starters({
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('shipshape.starters.store', list.id));
+        post(shipshape.starters.store.url(list.id));
     };
 
     return (
@@ -163,7 +164,7 @@ export default function Starters({
                             {data.keys.length === 0 ? 'Add nothing' : `Add ${data.keys.length} ${data.keys.length === 1 ? 'chore' : 'chores'}`}
                         </Button>
                         <Button asChild variant="ghost">
-                            <Link href={route('shipshape.lists.show', list.id)}>{fresh ? 'Start with an empty list' : 'Cancel'}</Link>
+                            <Link href={shipshape.lists.show.url(list.id)}>{fresh ? 'Start with an empty list' : 'Cancel'}</Link>
                         </Button>
                     </div>
                 </div>

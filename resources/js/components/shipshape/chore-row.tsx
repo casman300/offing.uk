@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cadence, type ChoreRow as Chore, dueLabel, type ListSummary, whoLabel } from '@/lib/shipshape';
 import { cn } from '@/lib/utils';
+import shipshape from '@/routes/shipshape';
 import { Link, router, useForm } from '@inertiajs/react';
 import { Check, ChevronsRight, Ellipsis, RefreshCw } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
@@ -23,7 +24,7 @@ export function ChoreRow({ chore, list, today, showList = true }: { chore: Chore
     const tick = () => {
         setBusy(true);
         router.post(
-            route('shipshape.chores.log', chore.id),
+            shipshape.chores.log.url(chore.id),
             { kind: 'done', version: chore.version },
             { preserveScroll: true, onFinish: () => setBusy(false) },
         );
@@ -53,7 +54,7 @@ export function ChoreRow({ chore, list, today, showList = true }: { chore: Chore
 
             <div className="min-w-0 flex-1">
                 {list.editable ? (
-                    <Link href={route('shipshape.chores.edit', chore.id)} className="block truncate font-medium hover:underline">
+                    <Link href={shipshape.chores.edit.url(chore.id)} className="block truncate font-medium hover:underline">
                         {chore.title}
                     </Link>
                 ) : (
@@ -113,7 +114,7 @@ function LogSheet({ chore, list, today }: { chore: Chore; list: ListSummary; tod
                 done_by: form.done_by === '' ? null : form.done_by,
                 reason: kind === 'skip' ? form.reason : null,
             }));
-            post(route('shipshape.chores.log', chore.id), { preserveScroll: true, onSuccess: () => setOpen(false) });
+            post(shipshape.chores.log.url(chore.id), { preserveScroll: true, onSuccess: () => setOpen(false) });
         };
 
     const pickWhen = (value: typeof when) => {
