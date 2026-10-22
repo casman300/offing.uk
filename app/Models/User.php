@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ConnectClaude\Connections;
 use App\Support\Crews\CrewHandover;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
@@ -10,22 +11,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * People are owned through a morph, so there's no foreign key to cascade
      * an account deletion to them — do it here, along with handing over any
-     * crew this was the last captain of (spec §7).
+     * crew this was the last captain of (spec §7), and forgetting any
+     * Connect Claude tokens — Passport's tables have no foreign keys (§12).
      */
     protected static function booted(): void
     {
         static::deleting(function (User $user) {
             $user->people()->withTrashed()->forceDelete();
             CrewHandover::forDeletedAccount($user);
+            Connections::forgetUser($user);
         });
     }
 

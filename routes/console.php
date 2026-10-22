@@ -2,6 +2,7 @@
 
 use App\Models\ContactImport;
 use App\Models\Crew;
+use App\Support\ConnectClaude\Connections;
 use App\Support\Users\CreateUser;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -44,6 +45,11 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
 Schedule::command('model:prune', ['--model' => [ContactImport::class, Crew::class]])
     ->hourly()
     ->withoutOverlapping();
+
+// Connect Claude (spec §12): OAuth clients that registered but were never
+// approved, and expired or revoked tokens.
+Schedule::call(fn () => Connections::pruneAbandonedClients())->hourly()->name('connect-claude-prune')->withoutOverlapping();
+Schedule::command('passport:purge')->daily()->withoutOverlapping();
 
 // Birthday reminders (spec §11, #17): the scanner queues reminders once
 // they're due; the drainer sends them. Both tolerate 5-minute cron gaps.

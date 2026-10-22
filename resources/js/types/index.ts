@@ -28,6 +28,7 @@ export interface Features {
     reminders: boolean;
     crews: boolean;
     shipshape: boolean;
+    connectClaude: boolean;
 }
 
 export interface Flash {

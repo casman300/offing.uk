@@ -23,6 +23,7 @@ final class Features
             Reminders::class,
             Crews::class,
             Shipshape::class,
+            ConnectClaude::class,
         ];
     }
 
