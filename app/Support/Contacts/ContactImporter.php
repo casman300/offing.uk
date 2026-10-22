@@ -156,7 +156,7 @@ final class ContactImporter
             $kept = [];
 
             foreach ($result['created'] ?? [] as $entry) {
-                $person = $this->user->people()->find($entry['id']);
+                $person = $this->user->people()->find((int) $entry['id']);
 
                 if ($person === null) {
                     continue; // already deleted
@@ -173,7 +173,7 @@ final class ContactImporter
             }
 
             foreach (collect((array) ($result['filled'] ?? []))->groupBy('person_id') as $personId => $fields) {
-                $person = $this->user->people()->find($personId);
+                $person = $this->user->people()->find((int) $personId);
 
                 if ($person === null) {
                     continue;

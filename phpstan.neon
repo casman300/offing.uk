@@ -5,7 +5,7 @@ parameters:
     paths:
         - app
 
-    level: 6
+    level: 7
 
     # Read the cast arrays out of `casts()` — its declared return type is a
     # bare `array`, so without this every datetime column looks like a string.

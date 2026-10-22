@@ -107,13 +107,13 @@ class ConsentController extends Controller
             'This sign-in request has expired. Start connecting again from Claude.',
         );
 
-        return Passport::client()->newQuery()->findOrFail($session->pull(self::SESSION_CLIENT));
+        return Passport::client()->newQuery()->findOrFail((string) $session->pull(self::SESSION_CLIENT));
     }
 
     private static function redirectHost(Client $client): ?string
     {
         $uri = $client->redirect_uris[0] ?? null;
 
-        return $uri ? parse_url($uri, PHP_URL_HOST) : null;
+        return $uri ? (parse_url($uri, PHP_URL_HOST) ?: null) : null;
     }
 }

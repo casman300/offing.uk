@@ -72,7 +72,7 @@ final class Features
             ->whereIn('scope', $scopes->keys())
             ->get(['name', 'scope', 'value'])
             ->each(function ($row) use (&$values, $scopes) {
-                $values[$row->name][$scopes[$row->scope]] = (bool) json_decode($row->value);
+                $values[(string) $row->name][(int) $scopes[$row->scope]] = (bool) json_decode($row->value);
             });
 
         return $values;
