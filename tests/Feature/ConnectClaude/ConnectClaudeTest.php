@@ -1,6 +1,8 @@
 <?php
 
+use App\Features\BirthdayEngine;
 use App\Features\ConnectClaude;
+use App\Features\Shipshape;
 use App\Models\AiGrant;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -173,13 +175,13 @@ describe('consent', function () {
         expect(AuditLog::where('action', 'connect_claude.approved')->sole()->meta)
             ->toMatchArray(['client' => 'Claude', 'level' => 'write-new', 'include_private' => true]);
 
-        mcp($token, 'tools/call', ['name' => 'get-briefing', 'arguments' => []])
+        mcp($token, 'tools/call', ['name' => 'get_briefing', 'arguments' => []])
             ->assertOk()
             ->assertJsonPath('result.isError', false)
             ->assertSee('Offing briefing for Charlie')
             ->assertSee('Read and add new');
 
-        expect(AuditLog::where('action', 'connect_claude.tool')->sole()->meta)->toBe(['tool' => 'get-briefing']);
+        expect(AuditLog::where('action', 'connect_claude.tool')->sole()->meta)->toBe(['tool' => 'get_briefing']);
         expect($grant->fresh()->last_used_at)->not->toBeNull();
     });
 
@@ -250,9 +252,29 @@ describe('the MCP endpoint', function () {
         $token = connect(connectingUser());
 
         mcp($token, 'tools/list')->assertOk()
-            ->assertJsonPath('result.tools.0.name', 'get-briefing')
+            ->assertJsonPath('result.tools.0.name', 'get_briefing')
             ->assertJsonPath('result.tools.0.title', 'Get briefing')
             ->assertJsonPath('result.tools.0.annotations.readOnlyHint', true);
+    });
+
+    it('offers the write tools only to connections allowed to write', function () {
+        $user = connectingUser();
+        Feature::for($user)->activate([BirthdayEngine::class, Shipshape::class]);
+        $names = fn (string $token) => collect(mcp($token, 'tools/list')->assertOk()->json('result.tools'))->pluck('name')->all();
+
+        expect($names(connect($user, 'read')))->toBe(['get_briefing', 'find']);
+
+        $tools = collect(mcp($token = connect($user, 'write-new'), 'tools/list')->json('result.tools'))->keyBy('name');
+        expect($tools->keys()->all())->toBe(['get_briefing', 'find', 'save_person', 'log_chore'])
+            ->and($tools['find']['annotations']['readOnlyHint'])->toBeTrue()
+            ->and($tools['save_person']['annotations']['destructiveHint'])->toBeTrue()
+            ->and($tools['log_chore']['annotations']['destructiveHint'])->toBeTrue()
+            ->and($tools->every(fn (array $tool) => filled($tool['title'])))->toBeTrue();
+
+        mcp($token, 'tools/call', ['name' => 'save_person', 'arguments' => ['name' => 'Sue']])
+            ->assertOk()->assertJsonPath('result.isError', false)->assertSee('Added Sue');
+        expect($user->people()->sole()->name)->toBe('Sue')
+            ->and(AuditLog::where('action', 'person.created')->sole()->meta['oauth_client_id'])->toBe(AiGrant::latest('id')->first()->oauth_client_id);
     });
 });
 
@@ -281,7 +303,7 @@ describe('settings', function () {
         expect(AuditLog::where('action', 'connect_claude.updated')->sole()->meta)
             ->toMatchArray(['level' => 'edit', 'include_private' => true, 'before' => ['level' => 'read', 'include_private' => false]]);
 
-        mcp($token, 'tools/call', ['name' => 'get-briefing', 'arguments' => []])->assertSee('Read, add and change')->assertSee('Private events: included.');
+        mcp($token, 'tools/call', ['name' => 'get_briefing', 'arguments' => []])->assertSee('Read, add and change')->assertSee('Private events: included.');
     });
 
     it("can't touch someone else's connection", function () {

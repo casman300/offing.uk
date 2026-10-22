@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\People;
 
+use App\Models\User;
 use App\Support\Birthday;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,16 +19,33 @@ use Illuminate\Validation\Validator;
  */
 class PersonRequest extends FormRequest
 {
+    public const MESSAGES = [
+        'birth_day.required_with' => 'Pick a day to go with the month.',
+        'birth_month.required_with' => 'Pick a month to go with the day.',
+        'birth_year.between' => 'The year must be between :min and :max.',
+    ];
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
+        return self::rulesFor($this->user());
+    }
+
+    /**
+     * Also used by the AI assistants' `save_person` tool, so a person saved
+     * from Claude obeys exactly the same rules as one saved in the app.
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public static function rulesFor(User $user): array
+    {
         return [
             'name' => ['required', 'string', 'max:255'],
             'birth_day' => ['nullable', 'integer', 'between:1,31', 'required_with:birth_month'],
             'birth_month' => ['nullable', 'integer', 'between:1,12', 'required_with:birth_day'],
-            'birth_year' => ['nullable', 'integer', 'between:'.Birthday::MIN_YEAR.','.$this->user()->today()->year],
+            'birth_year' => ['nullable', 'integer', 'between:'.Birthday::MIN_YEAR.','.$user->today()->year],
             'notes' => ['nullable', 'string', 'max:5000'],
         ];
     }
@@ -37,11 +55,7 @@ class PersonRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
-            'birth_day.required_with' => 'Pick a day to go with the month.',
-            'birth_month.required_with' => 'Pick a month to go with the day.',
-            'birth_year.between' => 'The year must be between :min and :max.',
-        ];
+        return self::MESSAGES;
     }
 
     /**
@@ -49,33 +63,38 @@ class PersonRequest extends FormRequest
      */
     public function after(): array
     {
-        return [
-            function (Validator $validator) {
-                if ($validator->errors()->isNotEmpty()) {
-                    return;
-                }
+        return [fn (Validator $validator) => self::checkBirthday($validator, $this->user())];
+    }
 
-                $day = $this->integer('birth_day') ?: null;
-                $month = $this->integer('birth_month') ?: null;
-                $year = $this->filled('birth_year') ? $this->integer('birth_year') : null;
+    /**
+     * The date itself: a real day (29 Feb only in leap years), not in the future.
+     */
+    public static function checkBirthday(Validator $validator, User $user): void
+    {
+        if ($validator->errors()->isNotEmpty()) {
+            return;
+        }
 
-                if ($day === null || $month === null) {
-                    return;
-                }
+        $data = $validator->getData();
+        $day = filled($data['birth_day'] ?? null) ? (int) $data['birth_day'] : null;
+        $month = filled($data['birth_month'] ?? null) ? (int) $data['birth_month'] : null;
+        $year = filled($data['birth_year'] ?? null) ? (int) $data['birth_year'] : null;
 
-                if (! Birthday::isValidDate($day, $month, $year)) {
-                    $validator->errors()->add('birth_day', $day === 29 && $month === 2
-                        ? "29 February only exists in leap years — {$year} wasn't one."
-                        : 'That date doesn\'t exist.');
+        if ($day === null || $month === null) {
+            return;
+        }
 
-                    return;
-                }
+        if (! Birthday::isValidDate($day, $month, $year)) {
+            $validator->errors()->add('birth_day', $day === 29 && $month === 2
+                ? "29 February only exists in leap years — {$year} wasn't one."
+                : 'That date doesn\'t exist.');
 
-                if ($year !== null && ! (new Birthday($day, $month, $year))->observedIn($year)->lte(Birthday::dateOnly($this->user()->today()))) {
-                    $validator->errors()->add('birth_year', 'That birthday is in the future.');
-                }
-            },
-        ];
+            return;
+        }
+
+        if ($year !== null && ! (new Birthday($day, $month, $year))->observedIn($year)->lte(Birthday::dateOnly($user->today()))) {
+            $validator->errors()->add('birth_year', 'That birthday is in the future.');
+        }
     }
 
     /**
