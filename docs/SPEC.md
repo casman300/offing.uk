@@ -369,7 +369,7 @@ Plus:
 
 ### Open questions / known risks
 
-- `laravel/mcp` issue #92: the `mcp:use` scope is registered inside `oauthRoutes()`, so `route:cache` skips it (still true in v1.1.1). Work around by calling `Registrar::ensureMcpScope()` from `AppServiceProvider::boot()`.
+- `laravel/mcp` issue #92 (the `mcp:use` scope skipped under `route:cache`) is fixed in v1.1: the service provider registers the scope after boot. Verified with cached routes and config.
 - `laravel/mcp` v1.1.1 has server-side DCR but **not CIMD**. Claude falls back to DCR, so we can launch without it; add CIMD later (exact redirect-URI match, SSRF-safe fetch, cache).
 - DCR is an open endpoint: throttle it, keep the redirect-domain allowlist (`config/mcp.php` — claude.ai, claude.com, localhost for Claude Code; env-extendable for self-hosters) and prune clients never authorised within a day.
 - Self-hosted instances under one Directory listing — ask Anthropic (above).
