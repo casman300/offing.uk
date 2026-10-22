@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Features\BirthdayEngine;
+use App\Features\ConnectClaude;
 use App\Features\Crews;
 use App\Features\Reminders;
 use App\Features\Shipshape;
@@ -58,6 +59,7 @@ class HandleInertiaRequests extends Middleware
                 'reminders' => $request->user() !== null && Feature::for($request->user())->allAreActive([BirthdayEngine::class, Reminders::class]),
                 'crews' => $request->user() !== null && Feature::for($request->user())->active(Crews::class),
                 'shipshape' => $request->user() !== null && Feature::for($request->user())->active(Shipshape::class),
+                'connectClaude' => $request->user() !== null && Feature::for($request->user())->active(ConnectClaude::class),
             ],
             'flash' => fn () => [
                 'status' => $request->session()->get('status'),

@@ -12,6 +12,8 @@
         "php": "^8.2",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
+        "laravel/mcp": "^1.1",
+        "laravel/passport": "^13.10",
         "laravel/pennant": "^1.24",
         "laravel/wayfinder": "^0.1.14",
         "minishlink/web-push": "^9.0",
