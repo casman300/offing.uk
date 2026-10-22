@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import crewRoutes from '@/routes/crew';
 import { type BreadcrumbItem, type CrewRole, type SharedData } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ChevronRight, Mail, Plus, Ship } from 'lucide-react';
@@ -36,7 +37,7 @@ export default function CrewIndex({ crews, invites }: { crews: CrewSummary[]; in
 
     const create: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('crew.store'), { onSuccess: () => reset() });
+        post(crewRoutes.store.url(), { onSuccess: () => reset() });
     };
 
     return (
@@ -66,13 +67,13 @@ export default function CrewIndex({ crews, invites }: { crews: CrewSummary[]; in
                                         <span className="font-medium">{invite.crew}</span> as {invite.role === 'captain' ? 'a captain' : 'crew'}.
                                     </p>
                                     <div className="flex gap-2">
-                                        <Button size="sm" onClick={() => router.post(route('crew.invites.accept', invite.id))}>
+                                        <Button size="sm" onClick={() => router.post(crewRoutes.invites.accept.url(invite.id))}>
                                             Accept
                                         </Button>
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => router.post(route('crew.invites.decline', invite.id), {}, { preserveScroll: true })}
+                                            onClick={() => router.post(crewRoutes.invites.decline.url(invite.id), {}, { preserveScroll: true })}
                                         >
                                             Decline
                                         </Button>
@@ -98,7 +99,7 @@ export default function CrewIndex({ crews, invites }: { crews: CrewSummary[]; in
                             {crews.map((crew) => (
                                 <li key={crew.id}>
                                     <Link
-                                        href={route('crew.show', crew.id)}
+                                        href={crewRoutes.show.url(crew.id)}
                                         className="bg-card hover:bg-accent/40 flex items-center gap-3 rounded-xl border p-4 transition-colors"
                                     >
                                         <span className="bg-accent text-accent-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">

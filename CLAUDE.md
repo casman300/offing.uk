@@ -8,7 +8,9 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 
 - **Laravel** (latest) + **Inertia.js + React** (TypeScript, Vite) — `laravel/react-starter-kit` base, Tailwind 4, shadcn/ui.
 - **MySQL** in production (20i shared hosting); SQLite is fine for local dev/CI.
-- **sabre/vobject** + **spatie/icalendar-generator** for all iCal parsing/generation — never hand-roll RRULE.
+- **sabre/vobject** for all iCal/vCard parsing *and* generation (one library both ways, so the feed and its tests can't disagree) — never hand-roll RRULE.
+- **Laravel Wayfinder** for frontend URLs: typed route helpers generated at build time (`import people from '@/routes/people'; people.show.url(id)`), never hard-coded paths. Generated files (`resources/js/{routes,actions,wayfinder}`) are gitignored — `php artisan wayfinder:generate` (or any Vite build) recreates them, so the CI build must run after `composer install`.
+- **Keep the dependency list short.** Prefer what the Laravel starter kit ships over a third-party package; don't add a library for what a few lines of our own code (or an existing dependency) already covers.
 - **Laravel Pennant** for feature flags — ship meaty features dark, flag them on progressively. Every flag extends `App\Features\StagedFeature` (stable `$name`, `$description`, `$stage`), is listed in `App\Features\Features`, and starts at `Rollout::Admins`; promote it by changing `$stage` in a PR. Pennant stores each user's first resolved value, so a stage change only reaches already-checked users after "Reset to default" on `/admin/features`. Admins are `ADMIN_EMAILS` in each host's `.env` — never a DB flag.
 - **Pest** for tests, **Pint** for style, **Larastan** for static analysis (`phpstan.neon`).
 - Hosting has **no daemons, no queue workers, no Node** — the scheduler (`schedule:run` via cron) drains the database queue; Vite/PWA assets are built in CI and shipped as static files.

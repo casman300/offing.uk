@@ -1,3 +1,5 @@
+import passkeys from '@/routes/passkeys';
+import { options as passkeyLoginOptions } from '@/routes/passkeys/login';
 import {
     browserSupportsWebAuthn,
     browserSupportsWebAuthnAutofill,
@@ -32,7 +34,7 @@ async function postJson<T>(url: string): Promise<T> {
 
 /** Create a passkey for the signed-in user. Returns the credential JSON to post back. */
 export async function createPasskey(): Promise<string> {
-    const optionsJSON = await postJson<Parameters<typeof startRegistration>[0]['optionsJSON']>(route('passkeys.options'));
+    const optionsJSON = await postJson<Parameters<typeof startRegistration>[0]['optionsJSON']>(passkeys.options.url());
 
     return JSON.stringify(await startRegistration({ optionsJSON }));
 }
@@ -43,7 +45,7 @@ export async function createPasskey(): Promise<string> {
  * mediation). Starting a new request aborts any pending one.
  */
 export async function getPasskeyAssertion(autofill = false): Promise<string> {
-    const optionsJSON = await postJson<Parameters<typeof startAuthentication>[0]['optionsJSON']>(route('passkeys.login.options'));
+    const optionsJSON = await postJson<Parameters<typeof startAuthentication>[0]['optionsJSON']>(passkeyLoginOptions.url());
 
     return JSON.stringify(await startAuthentication({ optionsJSON, useBrowserAutofill: autofill }));
 }

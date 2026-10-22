@@ -6,6 +6,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import admin from '@/routes/admin';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { RotateCcw, Search } from 'lucide-react';
@@ -47,13 +48,13 @@ export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]
 
     const search: FormEventHandler = (e) => {
         e.preventDefault();
-        router.get(route('admin.features.index'), query.trim() === '' ? {} : { q: query.trim() }, { preserveState: true, replace: true });
+        router.get(admin.features.index.url(), query.trim() === '' ? {} : { q: query.trim() }, { preserveState: true, replace: true });
     };
 
     const set = (feature: string, user: number, value: 'on' | 'off' | 'default') =>
-        router.post(route('admin.features.update', { feature, user }), { value }, { preserveScroll: true });
+        router.post(admin.features.update.url({ feature, user }), { value }, { preserveScroll: true });
 
-    const reset = (feature: string) => router.post(route('admin.features.reset', { feature }), {}, { preserveScroll: true });
+    const reset = (feature: string) => router.post(admin.features.reset.url({ feature }), {}, { preserveScroll: true });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

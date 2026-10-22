@@ -1,3 +1,4 @@
+import shipshape from '@/routes/shipshape';
 import { type SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
@@ -22,7 +23,7 @@ export function LoggedToast() {
 
     const undo = () => {
         if (!logged) return;
-        router.post(route('shipshape.entries.undo', logged.entry_id), {}, { preserveScroll: true });
+        router.post(shipshape.entries.undo.url(logged.entry_id), {}, { preserveScroll: true });
         setLogged(null);
     };
 

@@ -1,3 +1,4 @@
+import { home } from '@/routes';
 import { Link } from '@inertiajs/react';
 
 interface AuthLayoutProps {
@@ -13,7 +14,7 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
             <div className="w-full max-w-sm">
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col items-center gap-4">
-                        <Link href={route('home')} className="flex flex-col items-center gap-2 font-medium">
+                        <Link href={home.url()} className="flex flex-col items-center gap-2 font-medium">
                             <span className="text-primary mb-1 text-lg font-semibold tracking-tight">offing.uk</span>
                             <span className="sr-only">{title}</span>
                         </Link>

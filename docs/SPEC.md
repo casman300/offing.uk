@@ -86,9 +86,9 @@ Recommendation, given your existing React/Vite experience and a calendar being a
 - React for the calendar views. Start with **FullCalendar** (month/week/agenda, drag-to-create, recurring display) and plan to replace with a custom view when the design language matures. Don't hand-build a calendar grid in the MVP.
 - PWA via `vite-plugin-pwa`: manifest, icons, service worker with an offline shell + cached "next 30 days" agenda.
 
-### iCal engine: **sabre/vobject** (parse/expand) + **spatie/icalendar-generator** (emit)
+### iCal engine: **sabre/vobject** (parse, expand *and* emit)
 
-Never hand-roll RRULE. sabre/vobject is the reference PHP implementation (it powers Nextcloud) and handles recurrence expansion, EXDATE, and VTIMEZONE correctly.
+Never hand-roll RRULE. sabre/vobject is the reference PHP implementation (it powers Nextcloud) and handles recurrence expansion, EXDATE, and VTIMEZONE correctly. It generates our feeds too: one library both ways means what we emit is exactly what we (and the tests) parse back. spatie/icalendar-generator was originally used for emitting; it was dropped to keep the dependency list short.
 
 ### Database: MySQL (20i-provided). See §16 for scale.
 

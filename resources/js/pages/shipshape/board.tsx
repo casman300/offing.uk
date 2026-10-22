@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type ChoreRow as Chore, GROUPS, type ListSummary } from '@/lib/shipshape';
 import { cn } from '@/lib/utils';
+import shipshape from '@/routes/shipshape';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Anchor, ListChecks } from 'lucide-react';
@@ -38,7 +39,7 @@ export default function Board({ today, lists, chores }: { today: string; lists: 
                         }
                     />
                     <Button asChild variant="outline" size="sm" className="shrink-0">
-                        <Link href={route('shipshape.lists.index')}>
+                        <Link href={shipshape.lists.index.url()}>
                             <ListChecks /> Lists
                         </Link>
                     </Button>
@@ -114,7 +115,7 @@ function EmptyState() {
                 Start a list — just for you, or shared with your crew — and we'll suggest some chores to get going.
             </p>
             <Button asChild>
-                <Link href={route('shipshape.lists.index')}>Start a list</Link>
+                <Link href={shipshape.lists.index.url()}>Start a list</Link>
             </Button>
         </div>
     );

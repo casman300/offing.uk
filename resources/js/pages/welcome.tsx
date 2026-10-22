@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { dashboard, login } from '@/routes';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 
@@ -17,11 +18,11 @@ export default function Welcome() {
 
                     {auth.user ? (
                         <Button asChild size="sm">
-                            <Link href={route('dashboard')}>Go to dashboard</Link>
+                            <Link href={dashboard.url()}>Go to dashboard</Link>
                         </Button>
                     ) : (
                         <Button asChild size="sm" variant="outline">
-                            <Link href={route('login')}>Log in</Link>
+                            <Link href={login.url()}>Log in</Link>
                         </Button>
                     )}
                 </header>
@@ -36,12 +37,12 @@ export default function Welcome() {
 
                     {auth.user ? (
                         <Button asChild size="lg">
-                            <Link href={route('dashboard')}>Go to dashboard</Link>
+                            <Link href={dashboard.url()}>Go to dashboard</Link>
                         </Button>
                     ) : (
                         <div className="flex flex-col items-center gap-3">
                             <Button asChild size="lg">
-                                <Link href={route('login')}>Log in</Link>
+                                <Link href={login.url()}>Log in</Link>
                             </Button>
                             <p className="text-muted-foreground text-sm">Existing admins &amp; beta users only, for now.</p>
                         </div>

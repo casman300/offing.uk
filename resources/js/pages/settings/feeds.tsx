@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import feeds from '@/routes/feeds';
 
 interface FeedToken {
     id: number;
@@ -35,7 +36,7 @@ export default function Feeds({ tokens, maxActive }: { tokens: FeedToken[]; maxA
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('feeds.store'), { preserveScroll: true, onSuccess: () => reset() });
+        post(feeds.store.url(), { preserveScroll: true, onSuccess: () => reset() });
     };
 
     return (
@@ -126,7 +127,7 @@ function NewFeedUrl({ url }: { url: string }) {
 }
 
 function TokenRow({ token }: { token: FeedToken }) {
-    const revoke = () => router.delete(route('feeds.destroy', token.id), { preserveScroll: true });
+    const revoke = () => router.delete(feeds.destroy.url(token.id), { preserveScroll: true });
 
     return (
         <li className="flex items-center justify-between gap-4 px-4 py-3">

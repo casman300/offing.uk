@@ -3,6 +3,7 @@ import { LoggedToast } from '@/components/shipshape/logged-toast';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type ChoreRow as Chore, type ListSummary } from '@/lib/shipshape';
+import people from '@/routes/people';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Anchor, Cake, ChevronRight } from 'lucide-react';
@@ -89,7 +90,7 @@ export default function Dashboard({ today, chores, lists, birthdays }: Props) {
                             <ul className="bg-card divide-y rounded-xl border">
                                 {birthdays.map((b) => (
                                     <li key={b.id}>
-                                        <Link href={route('people.show', b.id)} className="hover:bg-accent/40 flex items-center gap-3 px-4 py-3">
+                                        <Link href={people.show.url(b.id)} className="hover:bg-accent/40 flex items-center gap-3 px-4 py-3">
                                             <span className="flex-1 font-medium">{b.name}</span>
                                             <span className="text-muted-foreground text-sm">
                                                 {when(b.days, b.date)}

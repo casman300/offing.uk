@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ageFrom, isLeapYear, isValidDate, MIN_YEAR, MONTHS, parseDate, yearFromAge } from '@/lib/birthday';
 import { cn } from '@/lib/utils';
+import people from '@/routes/people';
 import { type Person } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
@@ -88,9 +89,9 @@ export default function PersonForm({ person, today, submitLabel, onCancel, onSav
         e.preventDefault();
 
         if (person) {
-            patch(route('people.update', person.id), { preserveScroll: true, onSuccess: () => onSaved?.() });
+            patch(people.update.url(person.id), { preserveScroll: true, onSuccess: () => onSaved?.() });
         } else {
-            post(route('people.store'));
+            post(people.store.url());
         }
     };
 
