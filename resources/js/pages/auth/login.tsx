@@ -21,7 +21,8 @@ export default function Login({ status }: LoginProps) {
         email: '',
         remember: true as boolean,
     });
-    const passkeyError = (usePage().props.errors as Record<string, string | undefined>).passkey;
+    const pageErrors = usePage().props.errors as Record<string, string | undefined>;
+    const passkeyError = pageErrors.passkey;
     const [passkeyBusy, setPasskeyBusy] = useState(false);
     const [passkeyFailed, setPasskeyFailed] = useState<string | null>(null);
     const supportsPasskeys = typeof window !== 'undefined' && browserSupportsWebAuthn();
@@ -96,7 +97,8 @@ export default function Login({ status }: LoginProps) {
                             onChange={(e) => setData('email', e.target.value)}
                             placeholder="email@example.com"
                         />
-                        <InputError message={errors.email} />
+                        {/* Also errors flashed by a redirect here, e.g. an expired link — useForm only has its own. */}
+                        <InputError message={errors.email ?? pageErrors.email} />
                     </div>
 
                     <div className="flex items-center space-x-3">

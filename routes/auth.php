@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\EmailChangeController;
 use App\Http\Controllers\Auth\MagicLinkController;
 use App\Http\Controllers\Auth\PasskeyLoginController;
 use App\Http\Controllers\Auth\PasskeySetupController;
@@ -32,7 +33,18 @@ Route::get('login/{magicLink}/{token}', [MagicLinkController::class, 'consume'])
     ->middleware(['signed', 'throttle:6,1'])
     ->name('login.consume');
 
+// Email change links (H1): signed, no sign-in needed — they're opened from
+// whichever inbox they went to. GET shows a button; only the POST acts.
+Route::middleware(['signed', 'throttle:6,1'])->group(function () {
+    Route::get('email/confirm/{magicLink}/{token}', [EmailChangeController::class, 'showConfirm'])->name('email-change.confirm');
+    Route::post('email/confirm/{magicLink}/{token}', [EmailChangeController::class, 'confirm'])->name('email-change.confirm.store');
+    Route::get('email/revert/{magicLink}/{token}', [EmailChangeController::class, 'showRevert'])->name('email-change.revert');
+    Route::post('email/revert/{magicLink}/{token}', [EmailChangeController::class, 'revert'])->name('email-change.revert.store');
+});
+
 Route::middleware('auth')->group(function () {
+    Route::post('settings/profile/email/cancel', [EmailChangeController::class, 'cancel'])->name('email-change.cancel');
+
     Route::get('passkeys/setup', [PasskeySetupController::class, 'show'])->name('passkeys.setup');
     Route::post('passkeys/setup/dismiss', [PasskeySetupController::class, 'dismiss'])->name('passkeys.setup.dismiss');
 

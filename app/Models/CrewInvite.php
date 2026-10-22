@@ -67,6 +67,13 @@ class CrewInvite extends Model
      */
     public function scopeFor(Builder $query, User $user): void
     {
+        // An invite goes to an inbox, so only a verified address may claim it (H1).
+        if ($user->email_verified_at === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
         $query->where('email', strtolower($user->email));
     }
 }
