@@ -70,7 +70,7 @@ An offing is the stretch of sea visible from shore but not yet arrived at port �
 You asked for a recommendation. Laravel wins because almost every hard requirement here is a Laravel batteries-included feature rather than something to build:
 
 - **Sharing/permissions** → Policies & Gates map cleanly onto partner/tagged/private rules.
-- **MCP access with scopes** → `laravel/mcp` + Passport give an OAuth 2.1 MCP server out of the box; the three access levels become OAuth scopes (read / write-new / edit). See §12.
+- **MCP access** → `laravel/mcp` + Passport give an OAuth 2.1 MCP server out of the box; the three access levels (read / write-new / edit) live on our own per-connection grant. See §12.
 - **Email reminders on shared hosting** → Laravel's scheduler runs off a single cron entry (`php artisan schedule:run` every minute); queued mail uses the **database queue driver** drained by the scheduler — no daemon needed.
 - **Migrations, seeding, testing, mail, notifications, validation** → all free.
 - **Audit logging** → model observers + one package or ~50 lines of code.
@@ -173,8 +173,8 @@ chore_entries    id, chore_id, kind(done|skip), done_on(date),          ← the 
                  before(json),                                            via=pass when a passenger ticks (§7)
                  voided_at(null), voided_by_user_id(null), void_reason(null), created_at
 
-oauth_*          Passport tables (clients, access/refresh tokens);      ← Connect Claude (§12); scopes =
-                 one row per connected Claude                             read | write-new | edit
+oauth_*          Passport tables (clients, access/refresh tokens);      ← Connect Claude (§12); every token
+                 one client per connected Claude                          has the one scope `mcp:use`
 ai_grants        oauth_client_id, user_id, level, include_private,      ← consent choices per connection
                  barometer(bool), last_used_at, revoked_at
 audit_log        id, actor(morph), action, subject(morph), meta(json), ip, created_at  ← append-only
@@ -299,7 +299,7 @@ Design reminders to tolerate 5-minute cron granularity in case 20i limits freque
 
 The consent screen asks two things (three for Barometer users), nothing more:
 
-1. **Access level** (one of three, = Passport scopes):
+1. **Access level** (one of three):
 
    | | read | + write-new | + edit |
    |---|---|---|---|
@@ -312,13 +312,15 @@ The consent screen asks two things (three for Barometer users), nothing more:
 
 No per-calendar/per-crew pickers — the connection otherwise sees what the user sees, under the rules below.
 
+**Where the choices live:** in our own `ai_grants` row per user + OAuth client, **not** in OAuth scopes. `laravel/mcp` advertises a single scope (`mcp:use`) and MCP clients request what's advertised, so every token carries just `mcp:use`; the MCP server reads the grant on each request. Bonus: changing a connection's level takes effect immediately, with no re-consent and no token reissue.
+
 **Settings → Connect Claude** page: this instance's own MCP URL with a copy button; per-surface steps (web/desktop add the connector, mobile inherits it, Claude Code one-liner); a download of the Offing skill; and the **Connected apps** list — one row per OAuth client with level, private toggle, last used, edit (no reconnect needed to widen/narrow) and Revoke. Grants, edits, revokes and every tool call are audited (`AuditLog::record()`).
 
 ### Barometer: write in, stats out (health data)
 
 Barometer (the private anxiety log, `feat/barometer`) is UK GDPR special-category health data, so it sits **outside** the access levels as its own opt-in:
 
-- **Separate consent switch**: "Barometer: let Claude add readings and see stats". Off by default, shown only to users who have the Barometer flag, and it's its own Passport scope (`barometer:log`). When it's off, the Barometer tools aren't listed to that connection at all, so Claude doesn't know they exist.
+- **Separate consent switch**: "Barometer: let Claude add readings and see stats". Off by default, shown only to users who have the Barometer flag, and it's its own flag on the grant (`ai_grants.barometer`). When it's off, the Barometer tools aren't listed to that connection at all, so Claude doesn't know they exist.
 - **`log_reading`** (write): day/time (optional, as in the app), first rating (required) and the optional text fields. Content goes *in*: the user already said it to Claude, so writing it adds no exposure. The result is a bare confirmation ("Logged, 7/10 at 14:20") and **never echoes the text**. It can also add a second rating to the user's latest reading from today that doesn't have one ("I'm down to 3 now"). There's no edit, delete, list or read-back: corrections happen in the app.
 - **`get_barometer_stats`** (read, aggregates only): reading count, average first rating, average drop from first to second rating, weekly averages, and time-of-day/weekday buckets over a range. **No per-reading rows and no free text, ever.** The same "describe, don't diagnose" rule applies as in the app (§25 on the Barometer branch), and results carry that framing.
 - **Never in `get_briefing`, `find` or any other tool**, and never in any other share or connection. Reviewing details, editing, exports and anything safeguarding-related stay in the app.
@@ -347,7 +349,7 @@ Aim: most questions answered in **1–2 calls**. About eight tools, each returni
 | `delete_event` | edit | Soft delete — undo window applies. `destructiveHint`. |
 | `save_person` | write-new / edit | Own address book only (crew-owned people per role); birthdays included. |
 | `log_chore` | write-new (log) / edit (undo) | "I've done the bins." Creating/editing chore lists stays in the app. |
-| `log_reading`, `get_barometer_stats` | `barometer:log` only | Health data. Write in, aggregates out, never details. See Barometer above. |
+| `log_reading`, `get_barometer_stats` | Barometer grant only | Health data. Write in, aggregates out, never details. See Barometer above. |
 
 Plus:
 
@@ -367,8 +369,9 @@ Plus:
 
 ### Open questions / known risks
 
-- `laravel/mcp` issue #92: the `mcp:use` Passport scope isn't registered under `php artisan route:cache` (which deploys use) — check status, work around in a service provider if still open.
-- CIMD support in `laravel/mcp` — confirm, or implement the metadata-document fetch (exact redirect-URI match, SSRF-safe fetch, cache).
+- `laravel/mcp` issue #92: the `mcp:use` scope is registered inside `oauthRoutes()`, so `route:cache` skips it (still true in v1.1.1). Work around by calling `Registrar::ensureMcpScope()` from `AppServiceProvider::boot()`.
+- `laravel/mcp` v1.1.1 has server-side DCR but **not CIMD**. Claude falls back to DCR, so we can launch without it; add CIMD later (exact redirect-URI match, SSRF-safe fetch, cache).
+- DCR is an open endpoint: throttle it, keep the redirect-domain allowlist (`config/mcp.php` — claude.ai, claude.com, localhost for Claude Code; env-extendable for self-hosters) and prune clients never authorised within a day.
 - Self-hosted instances under one Directory listing — ask Anthropic (above).
 - Briefing size budget — cap lists (e.g. people by recency, events to 7 days) so one call stays small; `find` is the escape hatch.
 - Later (backlog): **MCP Apps** — interactive UI inside Claude (a week view or the Shipshape board rendered in-chat); also a Claude Code/Directory plugin bundling connector + skill.
