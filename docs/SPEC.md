@@ -654,6 +654,11 @@ Only the day and first rating are required (quick capture mid-anxiety); the time
 
 **Phases.**
 1. **Readings, list, export** (#35): add/edit/delete; list grouped by day; PDF (dompdf, A4 landscape, laid out like the paper form, header repeats per page) and CSV (UTF-8 BOM, formula-injection guard) over a date range of up to a year, with optional column exclusion. Streamed with `no-store`, never written to disk.
-2. **Second-rating nudge** (#36): ~30 minutes after a reading without `rating_after`, a content-free reminder via `notification_outbox` ("time for a quick check-in" — never the word anxiety), skipped if already filled, per-user off switch.
+2. **Check-ins** (#36): ~30 minutes after a reading is saved (from the app or an AI assistant), a content-free "Time for a quick check-in" via `notification_outbox` (`kind = barometer_check_in`, payload = the reading id only), linking to the reading's second rating.
+   - **Who gets one:** only readings with a time that happened within the last hour (backfills and "time not recorded" get none), with no second rating yet, for users with the flag and `users.barometer_check_ins` on (the default).
+   - **Re-checked at send time:** skipped if the second rating was added, the reading deleted or check-ins switched off. Given up two hours after it was due (a cron outage), because a late check-in is worse than none.
+   - **Delivery:** push if the user has a device, otherwise email, and push problems fall straight back to email (no push retry: it's time-sensitive). The words never mention anxiety or what was logged: push title "Offing", body "Time for a quick check-in."; the email subject is the same.
+   - **Off switch:** on the Barometer page, plus a signed one-click link in the email (RFC 8058, same pattern as reminders). Both audited.
+   - Drained by `reminders:drain` alongside birthdays; admin Outbox shows it as "Barometer check-in" and nothing else.
 3. **Stats & look-back** (#37): average drop from first to second rating (the headline), weekly averages, weekday × time-of-day heatmap, later cross-referenced with the user's own calendar. Optional summary page on the PDF. v2 candidate: optional tags on coping actions/sensations ("deep breaths drops you 3 points on average").
 4. **Calendar marker** (#38, waits for a calendar view): a layer, never rows in `events` — days marked by peak rating, day view pins each reading.

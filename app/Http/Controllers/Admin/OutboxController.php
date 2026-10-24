@@ -12,7 +12,8 @@ use Inertia\Response;
 /**
  * /admin/outbox (#11 slice): what the reminder pipeline has queued, sent,
  * skipped or failed, and why. Shows birthday dates but never people's names
- * or notes — those are data about third parties.
+ * or notes — those are data about third parties — and for Barometer
+ * check-ins (#36) only that one was sent, never anything about the reading.
  */
 class OutboxController extends Controller
 {
@@ -38,6 +39,7 @@ class OutboxController extends Controller
                 ->map(fn (OutboxMessage $m) => [
                     'id' => $m->id,
                     'user' => $m->user?->email,
+                    'kind' => $m->kind,
                     'channel' => $m->channel,
                     'slot' => $m->payload['slot'] ?? null,
                     'birthday' => $m->payload['date'] ?? null,

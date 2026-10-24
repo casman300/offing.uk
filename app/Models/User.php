@@ -47,21 +47,22 @@ class User extends Authenticatable implements OAuthenticatable
         'timezone',
     ];
 
-    /**
-     * The model's default values for attributes.
-     *
-     * @var array<string, mixed>
-     */
-    protected $attributes = [
-        'is_beta_tester' => false,
-    ];
-
     /** reminder_delivery values. */
     public const DELIVERY_EMAIL = 'email';
 
     public const DELIVERY_PUSH = 'push'; // push, with email as backup
 
     public const DELIVERY_BOTH = 'both';
+
+    /**
+     * Column defaults, so a just-created model reads the same as a loaded one.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'barometer_check_ins' => true,
+        'is_beta_tester' => false,
+    ];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -82,6 +83,7 @@ class User extends Authenticatable implements OAuthenticatable
         return [
             'email_verified_at' => 'datetime',
             'reminders_enabled_at' => 'datetime',
+            'barometer_check_ins' => 'boolean',
             'is_beta_tester' => 'boolean',
         ];
     }
@@ -184,11 +186,13 @@ class User extends Authenticatable implements OAuthenticatable
 
     /**
      * Admins come from ADMIN_EMAILS in the host's .env (config/offing.php),
-     * not from the database — nothing inside the app can grant it.
+     * not from the database — nothing inside the app can grant it. Only a
+     * verified address counts: proof the inbox is theirs (H1).
      */
     public function isAdmin(): bool
     {
-        return in_array(strtolower($this->email), config('offing.admin_emails'), true);
+        return $this->email_verified_at !== null
+            && in_array(strtolower($this->email), config('offing.admin_emails'), true);
     }
 
     /**

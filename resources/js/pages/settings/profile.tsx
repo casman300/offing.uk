@@ -1,6 +1,6 @@
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
 import DeleteUser from '@/components/delete-user';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import emailChange from '@/routes/email-change';
 import profile from '@/routes/profile';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,10 +21,22 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Profile({ timezones }: { timezones: string[] }) {
-    const { auth } = usePage<SharedData>().props;
+interface ProfileProps {
+    timezones: string[];
+    /** A new address waiting for its confirm link to be clicked. */
+    pendingEmail: string | null;
+    status?: string;
+}
 
-    const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
+const STATUS_MESSAGES: Record<string, string> = {
+    'email-change-sent': 'Check your new inbox — your email changes once you click the link we’ve sent.',
+    'email-change-cancelled': 'Email change cancelled.',
+};
+
+export default function Profile({ timezones, pendingEmail, status }: ProfileProps) {
+    const { auth, errors: pageErrors } = usePage<SharedData & { errors: Record<string, string | undefined> }>().props;
+
+    const { data, setData, patch, errors, processing, recentlySuccessful, reset } = useForm({
         name: auth.user.name,
         email: auth.user.email,
         timezone: auth.user.timezone,
@@ -32,8 +45,12 @@ export default function Profile({ timezones }: { timezones: string[] }) {
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
 
-        patch(profile.update.url());
+        // The email field goes back to the current address: a new one only
+        // takes effect from its confirm link.
+        patch(profile.update.url(), { onSuccess: () => reset('email') });
     };
+
+    const cancelEmailChange = () => router.post(emailChange.cancel.url(), {}, { preserveScroll: true });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -42,6 +59,12 @@ export default function Profile({ timezones }: { timezones: string[] }) {
             <SettingsLayout>
                 <div className="space-y-6">
                     <HeadingSmall title="Profile information" description="Update your name and email address" />
+
+                    {status && (
+                        <p className="text-sm font-medium text-green-600" role="status">
+                            {STATUS_MESSAGES[status] ?? status}
+                        </p>
+                    )}
 
                     <form onSubmit={submit} className="space-y-6">
                         <div className="grid gap-2">
@@ -74,7 +97,17 @@ export default function Profile({ timezones }: { timezones: string[] }) {
                                 placeholder="Email address"
                             />
 
-                            <InputError className="mt-2" message={errors.email} />
+                            {pendingEmail && (
+                                <p className="text-muted-foreground text-sm">
+                                    Waiting for you to confirm <span className="text-foreground font-medium">{pendingEmail}</span> — check that inbox.{' '}
+                                    <button type="button" onClick={cancelEmailChange} className="text-foreground underline underline-offset-4">
+                                        Cancel
+                                    </button>
+                                </p>
+                            )}
+
+                            {/* Also an email-change link's error, flashed by a redirect here. */}
+                            <InputError className="mt-2" message={errors.email ?? pageErrors.email} />
                         </div>
 
                         <div className="grid gap-2">
