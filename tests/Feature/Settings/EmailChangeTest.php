@@ -242,8 +242,9 @@ describe('confirming', function () {
         $link = MagicLink::where('purpose', MagicLink::EMAIL_CONFIRM)->sole();
         $token = Str::afterLast(parse_url(confirmUrlFor('new@example.com'), PHP_URL_PATH), '/');
 
-        $this->get(URL::signedRoute('login.consume', ['magicLink' => $link->id, 'token' => $token]))
-            ->assertRedirect('/login');
+        $url = URL::signedRoute('login.consume', ['magicLink' => $link->id, 'token' => $token]);
+        $this->get($url)->assertRedirect('/login');
+        $this->post($url)->assertRedirect('/login');
 
         $this->assertGuest();
         expect($link->refresh()->used_at)->toBeNull();
