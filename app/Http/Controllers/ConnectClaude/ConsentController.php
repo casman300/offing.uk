@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\ConnectClaude;
 
+use App\Features\Barometer;
 use App\Features\ConnectClaude;
 use App\Http\Controllers\Controller;
 use App\Models\AiGrant;
@@ -22,7 +23,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The consent screen for Claude, ChatGPT or any MCP client (spec §12):
- * access level (defaulting to read + add new) + "include my private events". Passport validates the OAuth request and keeps it in the
+ * access level (defaulting to read + add new) + "include my private events",
+ * plus Barometer's own opt-in for users who have it. Passport validates the OAuth request and keeps it in the
  * session; we record the user's choices as an AiGrant, then hand back to
  * Passport to issue the code.
  */
@@ -62,6 +64,9 @@ class ConsentController extends Controller
             ])->values(),
             'level' => ($existing->level ?? AccessLevel::WriteNew)->value,
             'includePrivate' => (bool) $existing?->include_private,
+            // Health data: its own switch, off unless the user turns it on (§12).
+            'barometerAvailable' => Feature::for($user)->active(Barometer::class),
+            'barometer' => (bool) $existing?->barometer,
         ]);
     }
 
@@ -71,6 +76,7 @@ class ConsentController extends Controller
             'auth_token' => ['required', 'string'],
             'level' => ['required', Rule::enum(AccessLevel::class)],
             'include_private' => ['boolean'],
+            'barometer' => ['boolean'],
         ]);
 
         $client = $this->pendingClient($request);
@@ -78,7 +84,14 @@ class ConsentController extends Controller
 
         abort_unless(Feature::for($user)->active(ConnectClaude::class), 404);
 
-        Connections::approve($user, $client, AccessLevel::from($validated['level']), $request->boolean('include_private'), $request->ip());
+        Connections::approve(
+            $user,
+            $client,
+            AccessLevel::from($validated['level']),
+            $request->boolean('include_private'),
+            $request->ip(),
+            barometer: $request->boolean('barometer') && Feature::for($user)->active(Barometer::class),
+        );
 
         return app(ApproveAuthorizationController::class)->approve($request, $psrResponse);
     }

@@ -318,16 +318,16 @@ No per-calendar/per-crew pickers — the connection otherwise sees what the user
 
 ### Barometer: write in, stats out (health data)
 
-Barometer (the private anxiety log, `feat/barometer`) is UK GDPR special-category health data, so it sits **outside** the access levels as its own opt-in:
+Barometer (the private anxiety log, §26) is UK GDPR special-category health data, so it sits **outside** the access levels as its own opt-in:
 
 - **Separate consent switch**: "Barometer: let Claude add readings and see stats". Off by default, shown only to users who have the Barometer flag, and it's its own flag on the grant (`ai_grants.barometer`). When it's off, the Barometer tools aren't listed to that connection at all, so Claude doesn't know they exist.
 - **`log_reading`** (write): day/time (optional, as in the app), first rating (required) and the optional text fields. Content goes *in*: the user already said it to Claude, so writing it adds no exposure. The result is a bare confirmation ("Logged, 7/10 at 14:20") and **never echoes the text**. It can also add a second rating to the user's latest reading from today that doesn't have one ("I'm down to 3 now"). There's no edit, delete, list or read-back: corrections happen in the app.
-- **`get_barometer_stats`** (read, aggregates only): reading count, average first rating, average drop from first to second rating, weekly averages, and time-of-day/weekday buckets over a range. **No per-reading rows and no free text, ever.** The same "describe, don't diagnose" rule applies as in the app (§25 on the Barometer branch), and results carry that framing.
+- **`get_barometer_stats`** (read, aggregates only): reading count, average first rating, average drop from first to second rating, weekly averages, and time-of-day/weekday buckets over a range. **No per-reading rows and no free text, ever.** The same "describe, don't diagnose" rule applies as in the app (§26), and results carry that framing.
 - **Never in `get_briefing`, `find` or any other tool**, and never in any other share or connection. Reviewing details, editing, exports and anything safeguarding-related stay in the app.
 - **Server instructions** (only when the scope is granted): don't interpret severity or diagnose. If the user mentions risk to themselves, signpost Samaritans (116 123) and their GP or therapist, and point to the app for the full log.
 - **Audit**: grant/revoke, each logged reading and each stats call, with no content (matches Barometer's own audit rule).
 - **Directory**: the submission's data-handling step asks whether the connector handles personal health data. Answer **yes** and describe this write-only/aggregate design.
-- **Rollout**: `log_reading` once Barometer is merged; `get_barometer_stats` once Barometer's stats phase (#37) exists. Both require `connect-claude` *and* `barometer` flags. When the branches meet, update Barometer's "never in MCP" line to point here.
+- **Rollout**: both ship with Barometer's first slice (#35). Both need the `connect-claude` *and* `barometer` flags plus the grant's switch. `log_reading` also needs "Read and add new". `get_barometer_stats` works at any level (it's read-only) and returns counts and averages computed from the dates and ratings only; the query never selects the text columns. #37 builds the in-app stats on the same numbers. If no time is given, a new reading is logged as now. A date with no time is logged with the time not recorded. A repeat of the same reading within two minutes is treated as a retry and not logged again.
 
 ### Other people's data
 
@@ -527,6 +527,8 @@ iOS web push · nicer onboarding coach for Add-to-Home-Screen · feed health das
 **Phase 2 — Differentiators**
 Card & post engine with bank holidays · vCard import *(moved to Phase 1a; Phase 2 adds re-import/merge improvements)* · crew web views for passengers (tokenised, no account) · virtual→real account upgrade flow · reminder rule editor UI · **availability polls** ("when can the club meet?" — flagship group feature, future premium candidate) · **RSVPs on tagged events** (yes/no/maybe **+ custom questions per event** — dietary, plus-ones; answerable via tokenised links, no account needed) · **anniversaries & significant dates** (generalise birthdays into a person `dates` table with per-date **show** and **remind** toggles — e.g. a passed relative's birthday visible but never alerted; respectful rendering for remembrance dates, exempt from playful copy) · **conflict warnings across shared calendars** · **bin collection reminders** (council schedule import) · **email-to-event, stage 1** (private inbound address per user via inbound-parse webhook; attached .ics auto-imported using existing parser) · **places & travel buffers** (named places incl. Home; events with locations get a manual/default travel margin rendered as hatched "error bars") · **background layers, stage 1: work hours** (fixed weekly pattern or subscribed timesheet ICS; renders as greyed ambient shading, not events — week view shows shape, day view shows meetings).
 
+**Barometer** (opt-in, flag-gated, see §26) — private CBT-style anxiety log: readings + list + PDF/CSV export first, then the second-rating nudge and stats; calendar marker once a calendar view exists.
+
 **Phase 3 — Delight & revenue**
 Diary layers (Spotify, fitness, past events — likely via nightly importers) · **"On this day"** (surfaces past diary-layer entries) · **email-to-event, stage 2** (no .ics attached → AI-parse ticket/confirmation emails for date, time, venue via the Claude API) · **travel buffers, stage 2** (real travel-time estimates via open routing — OSRM/OpenRouteService, fitting the OSM ethos) · **background layers, stage 2: sleep** (usual sleep window as ambient shading; past days can overlay actual sleep from health-data diary layers) · Betty daily digest, then Betty chat · silly seasonal event packs · **public roadmap page with voting** (backlog items promoted from the repo; votes inform, not dictate) · **tide times layer** (UK Admiralty/EA data — nautical brand demands it) · **school term dates layer** (county council data; big for UK families) · public "request time with me" page (**security stance decided:** this is the *only* public availability surface — it shows offered bookable slots within defined hours and never raw free/busy, because a public "busy all week" feed advertises an empty house during holidays; tokenised free/busy feeds remain available for trusted people only) · **monetisation: personal subscription** (free = full family calendar; paid = layers, Betty, advanced reminder engine, polls, more feeds). Schema needs nothing new for billing beyond a `subscriptions` table when the time comes.
 
@@ -624,3 +626,34 @@ Yearly & renewals *(all fixed, date needed unless noted)*: car tax · car MOT ·
 ### Deliberately not in v1
 
 No notifications (a daily "On deck" digest waits for calendar context — §23 backlog). Chores stay **out of ICS feeds**. No stats or leaderboards. No per-chore reminder times. No one-off chores, ever (§1).
+
+## 26. Barometer (private anxiety log)
+
+An opt-in, owner-only anxiety/worry log modelled on the common CBT anxiety-tracking form. Each entry is a **reading**. Tracking epic: #34.
+
+**Naming.** "Barometer" in the UI and code (`Barometer` flag, `barometer_readings`): nautical, scaled like the ratings, and not a "diary" or "journal" — those words are kept free for a more general section later. Exports are titled plainly ("Anxiety log") so they read as the user's log, not our branding; the PDF footer carries a small plain-text "Made with Offing · offing.uk" credit — no link, no tracking parameters.
+
+**Data model.** One fixed column per header of the paper form: no template engine until a second CBT worksheet gives us real cases to generalise from.
+
+| Form header | Column | Notes |
+|---|---|---|
+| Day/Time | `occurred_at` (UTC, nullable) + `tzid` + `local_date` | `local_date` always set (from the time, or given directly); day grouping/exports/stats never do TZ maths. Null `occurred_at` = time not recorded (a worry remembered from an earlier day) — never an invented midnight, so time-of-day stats can skip it |
+| Situation | `situation` | encrypted text |
+| Thoughts | `thoughts` | encrypted text |
+| Physical sensations | `sensations` | encrypted text |
+| Anxiety rating | `rating_before` | 0–10, required, plain integer |
+| What did I do? | `coping_action` | encrypted text — a past-tense record, not a task (§1 non-goal) |
+| What did I say to myself? | `self_talk` | encrypted text |
+| Second rating | `rating_after` | 0–10, nullable, usually added later |
+
+Only the day and first rating are required (quick capture mid-anxiety); the time defaults to now but can be changed or left out. Free text uses Laravel's `encrypted` cast (`APP_KEY`), so it can't be searched in SQL — ratings stay plain for stats. Hard deletes only; account deletion cascades.
+
+**Privacy.** Health data (UK GDPR special category). Never visible to partners — "see everything" does not include it — or to crews (§7), and never in ICS feeds, free/busy or notification text. AI assistants get it only through Barometer's own consent switch on the connection (§12, "Barometer: write in, stats out"): readings can be logged, stats come back as aggregates, and no reading or free text is ever read back. Audit rows record deletes and exports, never content.
+
+**Describe, don't diagnose.** Stats only describe ("average 6, down 2.5 after coping"); nothing interprets severity — that keeps us clear of software-as-a-medical-device territory. The UI names the CBT origin, says it works best alongside a therapist, and signposts Samaritans (116 123).
+
+**Phases.**
+1. **Readings, list, export** (#35): add/edit/delete; list grouped by day; PDF (dompdf, A4 landscape, laid out like the paper form, header repeats per page) and CSV (UTF-8 BOM, formula-injection guard) over a date range of up to a year, with optional column exclusion. Streamed with `no-store`, never written to disk.
+2. **Second-rating nudge** (#36): ~30 minutes after a reading without `rating_after`, a content-free reminder via `notification_outbox` ("time for a quick check-in" — never the word anxiety), skipped if already filled, per-user off switch.
+3. **Stats & look-back** (#37): average drop from first to second rating (the headline), weekly averages, weekday × time-of-day heatmap, later cross-referenced with the user's own calendar. Optional summary page on the PDF. v2 candidate: optional tags on coping actions/sensations ("deep breaths drops you 3 points on average").
+4. **Calendar marker** (#38, waits for a calendar view): a layer, never rows in `events` — days marked by peak rating, day view pins each reading.
