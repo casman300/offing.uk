@@ -41,6 +41,7 @@ class ReadingController extends Controller
                 ->values(),
             'nextPageUrl' => $page->nextPageUrl(),
             'previousPageUrl' => $page->previousPageUrl(),
+            'checkIns' => $user->barometer_check_ins,
         ]);
     }
 

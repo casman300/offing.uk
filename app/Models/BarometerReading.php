@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Barometer\CheckIns;
 use Carbon\CarbonImmutable;
 use Database\Factories\BarometerReadingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -85,6 +86,9 @@ class BarometerReading extends Model
                 $reading->local_date = $reading->occurred_at->setTimezone($reading->tzid)->toDateString();
             }
         });
+
+        // From the app or an AI assistant alike (#36); CheckIns decides whether it's wanted.
+        static::created(fn (BarometerReading $reading) => CheckIns::queueFor($reading));
     }
 
     /**
