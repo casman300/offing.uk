@@ -24,8 +24,10 @@ describe('access', function () {
         $this->actingAs($user)->get('/admin/users')->assertNotFound();
         $this->actingAs($user)->post('/admin/users', ['email' => 'new@example.com'])->assertNotFound();
         $this->actingAs($user)->post("/admin/users/{$user->id}/sign-in-link")->assertNotFound();
+        $this->actingAs($user)->post("/admin/users/{$user->id}/beta", ['beta' => true])->assertNotFound();
 
-        expect(User::where('email', 'new@example.com')->exists())->toBeFalse();
+        expect(User::where('email', 'new@example.com')->exists())->toBeFalse()
+            ->and($user->fresh()->is_beta_tester)->toBeFalse();
         Mail::assertNothingQueued();
     });
 
@@ -120,6 +122,34 @@ describe('adding a user', function () {
         'bad timezone' => [['email' => 'new@example.com', 'timezone' => 'Mars/Olympus'], 'timezone'],
         'unknown flag' => [['email' => 'new@example.com', 'flags' => ['time-travel']], 'flags.0'],
     ]);
+});
+
+describe('beta testers', function () {
+    it('ticks and unticks a beta tester, audited once per change', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($this->boss)->post("/admin/users/{$user->id}/beta", ['beta' => true])
+            ->assertRedirect()->assertSessionHas('status', "{$user->email} is now a beta tester.");
+        $this->actingAs($this->boss)->post("/admin/users/{$user->id}/beta", ['beta' => true]);
+        expect($user->fresh()->is_beta_tester)->toBeTrue();
+
+        $this->actingAs($this->boss)->post("/admin/users/{$user->id}/beta", ['beta' => false]);
+        expect($user->fresh()->is_beta_tester)->toBeFalse()
+            ->and(AuditLog::where('subject_id', $user->id)->orderBy('id')->pluck('action')->all())->toBe(['user.beta_added', 'user.beta_removed']);
+    });
+
+    it('shows beta testers in the list', function () {
+        User::factory()->create(['email' => 'beta@example.com', 'is_beta_tester' => true]);
+
+        $this->actingAs($this->boss)->get('/admin/users?q=beta')
+            ->assertInertia(fn (Assert $page) => $page->where('users.0.is_beta_tester', true));
+    });
+
+    it('validates the value', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($this->boss)->post("/admin/users/{$user->id}/beta", [])->assertSessionHasErrors('beta');
+    });
 });
 
 describe('sign-in links', function () {
