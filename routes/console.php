@@ -52,7 +52,8 @@ Schedule::call(fn () => Connections::pruneAbandonedClients())->hourly()->name('c
 Schedule::command('passport:purge')->daily()->withoutOverlapping();
 
 // Birthday reminders (spec §11, #17): the scanner queues reminders once
-// they're due; the drainer sends them. Both tolerate 5-minute cron gaps.
+// they're due; the drainer sends them, and Barometer check-ins (#36) too.
+// Both tolerate 5-minute cron gaps.
 Schedule::command('reminders:scan')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('reminders:drain')->everyMinute()->withoutOverlapping();
 
