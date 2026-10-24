@@ -26,6 +26,7 @@ class AiGrant extends Model
         return [
             'level' => AccessLevel::class,
             'include_private' => 'boolean',
+            'barometer' => 'boolean',
             'last_used_at' => 'datetime',
         ];
     }

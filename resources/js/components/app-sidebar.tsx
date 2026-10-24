@@ -4,7 +4,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { Anchor, BookOpen, Cake, Folder, LayoutGrid, ShieldCheck, Ship } from 'lucide-react';
+import { Anchor, BookOpen, Cake, Folder, Gauge, LayoutGrid, ShieldCheck, Ship } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -35,6 +35,7 @@ export function AppSidebar() {
         ...(features.birthdayEngine ? [{ title: 'People', url: '/people', icon: Cake }] : []),
         ...(features.shipshape ? [{ title: 'Shipshape', url: '/shipshape', icon: Anchor }] : []),
         ...(features.crews ? [{ title: 'Crew', url: '/crew', icon: Ship }] : []),
+        ...(features.barometer ? [{ title: 'Barometer', url: '/barometer', icon: Gauge }] : []),
         ...(auth.isAdmin ? [{ title: 'Admin', url: '/admin/features', icon: ShieldCheck }] : []),
     ];
 

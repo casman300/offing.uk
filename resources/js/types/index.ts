@@ -29,6 +29,7 @@ export interface Features {
     crews: boolean;
     shipshape: boolean;
     connectClaude: boolean;
+    barometer: boolean;
 }
 
 export interface Flash {
@@ -78,3 +79,21 @@ export interface Person {
 }
 
 export type CrewRole = 'captain' | 'crew' | 'passenger';
+
+export type BarometerTextColumn = 'situation' | 'thoughts' | 'sensations' | 'coping_action' | 'self_talk';
+export type BarometerColumn = BarometerTextColumn | 'rating_before' | 'rating_after';
+
+export interface BarometerReading {
+    id: number;
+    /** YYYY-MM-DD in the viewer's timezone. */
+    date: string;
+    /** HH:MM in the viewer's timezone; null when the time wasn't recorded. */
+    time: string | null;
+    situation: string | null;
+    thoughts: string | null;
+    sensations: string | null;
+    rating_before: number;
+    coping_action: string | null;
+    self_talk: string | null;
+    rating_after: number | null;
+}

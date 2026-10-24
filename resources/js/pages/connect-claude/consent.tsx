@@ -20,6 +20,9 @@ interface ConsentProps {
     levels: Level[];
     level: string;
     includePrivate: boolean;
+    /** Only users with Barometer get its switch (health data: a separate opt-in, spec §12). */
+    barometerAvailable: boolean;
+    barometer: boolean;
 }
 
 /**
@@ -27,9 +30,19 @@ interface ConsentProps {
  * Inertia visits: approving ends in a redirect back to Claude, which an XHR
  * can't follow.
  */
-export default function Consent({ client, authToken, csrfToken, levels, level: initialLevel, includePrivate: initialPrivate }: ConsentProps) {
+export default function Consent({
+    client,
+    authToken,
+    csrfToken,
+    levels,
+    level: initialLevel,
+    includePrivate: initialPrivate,
+    barometerAvailable,
+    barometer: initialBarometer,
+}: ConsentProps) {
     const [level, setLevel] = useState(initialLevel);
     const [includePrivate, setIncludePrivate] = useState(initialPrivate);
+    const [barometer, setBarometer] = useState(initialBarometer);
 
     return (
         <AuthLayout
@@ -42,6 +55,7 @@ export default function Consent({ client, authToken, csrfToken, levels, level: i
                 <input type="hidden" name="_token" value={csrfToken} />
                 <input type="hidden" name="auth_token" value={authToken} />
                 <input type="hidden" name="include_private" value={includePrivate ? '1' : '0'} />
+                <input type="hidden" name="barometer" value={barometerAvailable && barometer ? '1' : '0'} />
 
                 {client.host && (
                     <p className="text-muted-foreground text-center text-sm">
@@ -79,6 +93,18 @@ export default function Consent({ client, authToken, csrfToken, levels, level: i
                         <p className="text-muted-foreground text-sm">Off: it sees them only as “busy”, like your partner would.</p>
                     </div>
                 </div>
+
+                {barometerAvailable && (
+                    <div className="flex items-start space-x-3">
+                        <Checkbox id="barometer" checked={barometer} onCheckedChange={(checked) => setBarometer(checked === true)} />
+                        <div className="grid gap-1">
+                            <Label htmlFor="barometer">Barometer: let it add readings and see summary numbers</Label>
+                            <p className="text-muted-foreground text-sm">
+                                It can log a reading you tell it about, and see counts and averages. It never sees your readings or what you wrote.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 <p className="text-muted-foreground text-sm">
                     It sees what you can see in Offing. Anything it reads is sent to the company that runs it, under their privacy policy.

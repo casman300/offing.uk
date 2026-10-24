@@ -29,12 +29,18 @@ When you connect, you choose one of these:
 
 You also choose whether it sees your **private events**. If you leave this off, it sees them only as "busy", the same as your partner would.
 
+If you use [Barometer](Barometer.md), there's a separate switch for it, off unless you turn it on. You can change it later in **Settings → AI assistants**.
+
 At the moment an assistant can:
 
 - **Read a briefing**: your birthdays coming up, your people, your crews and your Shipshape chores.
 - **Look things up**: search by name or words, see what's due or whose birthday falls between two dates, or get everything about one person, crew or chore.
 - **Add or update people** in your own address book, birthdays included ("add Sue, her birthday's 25 October"). Changing someone already there needs **Read, add and change**. Deleting people stays in Offing.
 - **Log a chore** done or skipped ("I've done the bins", "Alfie did the hoovering yesterday"). Undoing one needs **Read, add and change**. Creating and editing chores stays in Offing.
+- **Barometer**, only if you switched it on for that assistant:
+  - **Log a reading** you tell it about ("log a 7, crowded train"), or a second rating for today's latest reading ("I'm down to a 3 now"). This needs **Read and add new**.
+  - **Give you summary numbers**: how many readings, average ratings, how much they drop by the second rating, week by week, and by time of day and weekday.
+  - It can't read your readings or anything you wrote in them, and it can't change or delete them. Use Offing for that.
 
 Calendar events come later, as they arrive in Offing.
 

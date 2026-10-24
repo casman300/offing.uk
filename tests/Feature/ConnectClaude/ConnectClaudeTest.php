@@ -1,5 +1,6 @@
 <?php
 
+use App\Features\Barometer;
 use App\Features\BirthdayEngine;
 use App\Features\ConnectClaude;
 use App\Features\Shipshape;
@@ -72,7 +73,7 @@ function authTokenFrom(TestResponse $response): string
 }
 
 /** Run the whole browser + token-endpoint dance; returns the access token. */
-function connect(User $user, string $level = 'read', bool $private = false): string
+function connect(User $user, string $level = 'read', bool $private = false, bool $barometer = false): string
 {
     $client = registerClaude();
     [$verifier, $challenge] = pkce();
@@ -84,6 +85,7 @@ function connect(User $user, string $level = 'read', bool $private = false): str
         'auth_token' => $authToken,
         'level' => $level,
         'include_private' => $private ? '1' : '0',
+        'barometer' => $barometer ? '1' : '0',
     ])->assertRedirect()->headers->get('Location');
 
     expect($redirect)->toStartWith(CLAUDE_CALLBACK);
@@ -278,6 +280,83 @@ describe('the MCP endpoint', function () {
     });
 });
 
+describe('Barometer', function () {
+    it('offers its switch on the consent screen only to users who have Barometer', function () {
+        $user = connectingUser();
+        [, $challenge] = pkce();
+        $this->actingAs($user);
+
+        startAuthorize(registerClaude(), $challenge)->assertInertia(fn (Assert $page) => $page
+            ->where('barometerAvailable', false)
+            ->where('barometer', false));
+
+        Feature::for($user)->activate(Barometer::class);
+        Feature::flushCache();
+
+        startAuthorize(registerClaude(), $challenge)->assertInertia(fn (Assert $page) => $page
+            ->where('barometerAvailable', true)
+            ->where('barometer', false));
+    });
+
+    it('ignores the switch for users without Barometer', function () {
+        connect(connectingUser(), 'write-new', barometer: true);
+
+        expect(AiGrant::sole()->barometer)->toBeFalse();
+    });
+
+    it('lists its tools, and tells the assistant about it, only when switched on', function () {
+        $user = connectingUser();
+        Feature::for($user)->activate(Barometer::class);
+        $names = fn (string $token) => collect(mcp($token, 'tools/list')->assertOk()->json('result.tools'))->pluck('name')->all();
+        $instructions = fn (string $token) => (string) mcp($token, 'initialize', [
+            'protocolVersion' => '2025-06-18',
+            'capabilities' => (object) [],
+            'clientInfo' => ['name' => 'test', 'version' => '1'],
+        ])->assertOk()->json('result.instructions');
+
+        $off = connect($user, 'write-new');
+        expect($names($off))->toBe(['get_briefing', 'find'])
+            ->and($instructions($off))->not->toContain('Barometer');
+
+        $readOnly = connect($user, 'read', barometer: true);
+        expect($names($readOnly))->toBe(['get_briefing', 'find', 'get_barometer_stats']);
+
+        $on = connect($user, 'write-new', barometer: true);
+        $tools = collect(mcp($on, 'tools/list')->json('result.tools'))->keyBy('name');
+        expect($tools->keys()->all())->toBe(['get_briefing', 'find', 'get_barometer_stats', 'log_reading'])
+            ->and($tools['get_barometer_stats']['annotations']['readOnlyHint'])->toBeTrue()
+            ->and($tools['log_reading']['annotations']['destructiveHint'])->toBeFalse()
+            ->and($tools['log_reading']['title'])->toBe('Log Barometer reading')
+            ->and($instructions($on))->toContain('Barometer (this connection has access)')->toContain('Samaritans (116 123');
+
+        mcp($on, 'tools/call', ['name' => 'log_reading', 'arguments' => ['rating' => 6, 'thoughts' => 'private words']])
+            ->assertOk()->assertJsonPath('result.isError', false)->assertSee('Logged in Barometer: 6')->assertDontSee('private words');
+
+        expect($user->barometerReadings()->sole()->thoughts)->toBe('private words')
+            ->and(AuditLog::where('action', 'connect_claude.tool')->latest('id')->first()?->meta)->toBe(['tool' => 'log_reading']);
+
+        mcp($on, 'tools/call', ['name' => 'get_barometer_stats', 'arguments' => []])
+            ->assertOk()->assertSee('Readings: 1.')->assertDontSee('private words');
+    });
+
+    it('can be switched on and off in Settings, audited', function () {
+        $user = connectingUser();
+        Feature::for($user)->activate(Barometer::class);
+        $token = connect($user, 'write-new');
+        $grant = AiGrant::sole();
+
+        $this->actingAs($user)->get('/settings/ai-assistants')->assertInertia(fn (Assert $page) => $page
+            ->where('barometerAvailable', true)
+            ->where('connections.0.barometer', false));
+
+        $this->patch("/settings/ai-assistants/{$grant->id}", ['level' => 'write-new', 'include_private' => false, 'barometer' => true])->assertRedirect();
+
+        expect($grant->fresh()->barometer)->toBeTrue()
+            ->and(AuditLog::where('action', 'connect_claude.updated')->sole()->meta)->toMatchArray(['barometer' => true, 'before' => ['level' => 'write-new', 'include_private' => false, 'barometer' => false]]);
+        expect(collect(mcp($token, 'tools/list')->json('result.tools'))->pluck('name'))->toContain('log_reading');
+    });
+});
+
 describe('settings', function () {
     it('lists only your own connections', function () {
         $user = connectingUser();
@@ -301,7 +380,7 @@ describe('settings', function () {
 
         expect($grant->fresh()->level)->toBe(AccessLevel::Edit);
         expect(AuditLog::where('action', 'connect_claude.updated')->sole()->meta)
-            ->toMatchArray(['level' => 'edit', 'include_private' => true, 'before' => ['level' => 'read', 'include_private' => false]]);
+            ->toMatchArray(['level' => 'edit', 'include_private' => true, 'before' => ['level' => 'read', 'include_private' => false, 'barometer' => false]]);
 
         mcp($token, 'tools/call', ['name' => 'get_briefing', 'arguments' => []])->assertSee('Read, add and change')->assertSee('Private events: included.');
     });

@@ -24,6 +24,7 @@ final class Features
             Crews::class,
             Shipshape::class,
             ConnectClaude::class,
+            Barometer::class,
         ];
     }
 

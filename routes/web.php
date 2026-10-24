@@ -13,6 +13,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/admin.php';
+require __DIR__.'/barometer.php';
 require __DIR__.'/crew.php';
 require __DIR__.'/people.php';
 require __DIR__.'/reminders.php';
