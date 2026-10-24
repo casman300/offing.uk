@@ -29,9 +29,12 @@ Route::middleware('guest')->group(function () {
 // (e.g. a shared device) must still be able to consume a link minted for a
 // different account — see MagicLinkController::consume(), which swaps the
 // session rather than silently redirecting the wrong user to /dashboard.
-Route::get('login/{magicLink}/{token}', [MagicLinkController::class, 'consume'])
-    ->middleware(['signed', 'throttle:6,1'])
-    ->name('login.consume');
+// Opening the link only shows "Sign in as …"; the button's POST signs in
+// (audit M1), so a forwarded link or a mail scanner can't log anyone in.
+Route::middleware(['signed', 'throttle:6,1'])->group(function () {
+    Route::get('login/{magicLink}/{token}', [MagicLinkController::class, 'show'])->name('login.consume');
+    Route::post('login/{magicLink}/{token}', [MagicLinkController::class, 'consume'])->name('login.consume.store');
+});
 
 // Email change links (H1): signed, no sign-in needed — they're opened from
 // whichever inbox they went to. GET shows a button; only the POST acts.

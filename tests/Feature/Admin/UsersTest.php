@@ -144,7 +144,8 @@ describe('sign-in links', function () {
             return true;
         });
 
-        $this->get($url)->assertRedirect();
+        $this->get($url)->assertOk(); // "Sign in as …", then the button
+        $this->post($url)->assertRedirect();
 
         $sam = User::where('email', 'sam@example.com')->sole();
         $this->assertAuthenticatedAs($sam);
