@@ -174,11 +174,13 @@ class User extends Authenticatable implements OAuthenticatable
 
     /**
      * Admins come from ADMIN_EMAILS in the host's .env (config/offing.php),
-     * not from the database — nothing inside the app can grant it.
+     * not from the database — nothing inside the app can grant it. Only a
+     * verified address counts: proof the inbox is theirs (H1).
      */
     public function isAdmin(): bool
     {
-        return in_array(strtolower($this->email), config('offing.admin_emails'), true);
+        return $this->email_verified_at !== null
+            && in_array(strtolower($this->email), config('offing.admin_emails'), true);
     }
 
     /**

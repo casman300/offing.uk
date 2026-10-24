@@ -54,7 +54,8 @@ class MagicLinkController extends Controller
     {
         $user = $magicLink->user;
 
-        if (! hash_equals($magicLink->token_hash, hash('sha256', $token)) || ! $magicLink->claim()) {
+        // Email-change links are magic links too, but never sign anyone in.
+        if (! $magicLink->matches(MagicLink::LOGIN, $token) || ! $magicLink->claim()) {
             AuditLog::record($user, 'auth.magic_link.rejected', ip: $request->ip());
 
             return redirect()->route('login')->withErrors([

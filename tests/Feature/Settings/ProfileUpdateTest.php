@@ -3,6 +3,7 @@
 namespace Tests\Feature\Settings;
 
 use App\Models\User;
+use App\Support\Users\EmailChange;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,9 +39,11 @@ class ProfileUpdateTest extends TestCase
 
         $user->refresh();
 
+        // A new email only takes effect from its confirm link — see EmailChangeTest.
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        $this->assertNotSame('test@example.com', $user->email);
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertSame('test@example.com', EmailChange::pending($user));
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged()
