@@ -47,6 +47,15 @@ class User extends Authenticatable implements OAuthenticatable
         'timezone',
     ];
 
+    /**
+     * The model's default values for attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_beta_tester' => false,
+    ];
+
     /** reminder_delivery values. */
     public const DELIVERY_EMAIL = 'email';
 
@@ -73,6 +82,7 @@ class User extends Authenticatable implements OAuthenticatable
         return [
             'email_verified_at' => 'datetime',
             'reminders_enabled_at' => 'datetime',
+            'is_beta_tester' => 'boolean',
         ];
     }
 

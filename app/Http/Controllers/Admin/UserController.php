@@ -59,7 +59,7 @@ class UserController extends Controller
             'flags' => collect($features)->map(fn (StagedFeature $feature) => [
                 'name' => $feature->name,
                 'description' => $feature->description,
-                'stage_label' => $feature->stage->label(),
+                'stage_label' => $feature->currentStage()->label(),
             ])->values(),
             'users' => $users->map(fn (User $user) => [
                 'id' => $user->id,
@@ -67,6 +67,7 @@ class UserController extends Controller
                 'email' => $user->email,
                 'timezone' => $user->timezone,
                 'is_admin' => $user->isAdmin(),
+                'is_beta_tester' => $user->is_beta_tester,
                 'created_at' => $user->created_at?->toIso8601String(),
                 'last_login_at' => $user->getAttribute('last_login_at') ? Carbon::parse($user->getAttribute('last_login_at'))->toIso8601String() : null,
                 'passkeys' => (int) $user->getAttribute('passkeys_count'),
@@ -111,6 +112,23 @@ class UserController extends Controller
         }
 
         return back()->with('status', "Added {$user->email}. They can sign in by requesting a link on the login page.");
+    }
+
+    /**
+     * Beta testers get Rollout::Beta flags. Grants features only — admin
+     * rights still come from ADMIN_EMAILS alone.
+     */
+    public function beta(Request $request, User $user): RedirectResponse
+    {
+        $beta = (bool) $request->validate(['beta' => ['required', 'boolean']])['beta'];
+
+        if ($user->is_beta_tester !== $beta) {
+            $user->forceFill(['is_beta_tester' => $beta])->save();
+
+            AuditLog::record($request->user(), $beta ? 'user.beta_added' : 'user.beta_removed', $user, ['via' => 'admin'], $request->ip());
+        }
+
+        return back()->with('status', $beta ? "{$user->email} is now a beta tester." : "{$user->email} is no longer a beta tester.");
     }
 
     public function sendLink(Request $request, User $user): RedirectResponse

@@ -11,6 +11,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::redirect('/', '/admin/features')->name('home');
 
     Route::get('features', [FeatureFlagController::class, 'index'])->name('features.index');
+    Route::post('features/{feature}/stage', [FeatureFlagController::class, 'stage'])->name('features.stage');
     Route::post('features/{feature}/users/{user}', [FeatureFlagController::class, 'update'])->name('features.update');
     Route::post('features/{feature}/reset', [FeatureFlagController::class, 'reset'])->name('features.reset');
 
@@ -18,5 +19,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::get('users', [UserController::class, 'index'])->name('users.index');
     Route::post('users', [UserController::class, 'store'])->name('users.store');
+    Route::post('users/{user}/beta', [UserController::class, 'beta'])->name('users.beta');
     Route::post('users/{user}/sign-in-link', [UserController::class, 'sendLink'])->name('users.sign-in-link');
 });
