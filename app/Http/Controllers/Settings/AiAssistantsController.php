@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Http\Controllers\Settings;
+
+use App\Features\Barometer;
+use App\Http\Controllers\Controller;
+use App\Models\AiGrant;
+use App\Support\ConnectClaude\AccessLevel;
+use App\Support\ConnectClaude\Connections;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
+use Laravel\Pennant\Feature;
+
+/**
+ * Settings → AI assistants (spec §12): how to connect Claude, ChatGPT or any
+ * other MCP client, and the connected apps, whose access can be changed or
+ * revoked here. Tested with Claude; nothing here is Claude-specific.
+ */
+class AiAssistantsController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        return Inertia::render('settings/ai-assistants', [
+            'mcpUrl' => url('/mcp'),
+            'levels' => collect(AccessLevel::cases())->map(fn (AccessLevel $level) => [
+                'value' => $level->value,
+                'label' => $level->label(),
+            ])->values(),
+            'barometerAvailable' => Feature::for($request->user())->active(Barometer::class),
+            'connections' => AiGrant::with('client')->where('user_id', $request->user()->id)->latest('id')->get()
+                ->map(fn (AiGrant $grant) => [
+                    'id' => $grant->id,
+                    'name' => $grant->client->name ?? 'Unknown app',
+                    'host' => ($uri = $grant->client->redirect_uris[0] ?? null) ? parse_url($uri, PHP_URL_HOST) : null,
+                    'level' => $grant->level->value,
+                    'include_private' => $grant->include_private,
+                    'barometer' => $grant->barometer,
+                    'created_at' => $grant->created_at?->toIso8601String(),
+                    'last_used_at' => $grant->last_used_at?->toIso8601String(),
+                ])
+                ->values(),
+        ]);
+    }
+
+    public function update(Request $request, int $grant): RedirectResponse
+    {
+        $validated = $request->validate([
+            'level' => ['required', Rule::enum(AccessLevel::class)],
+            'include_private' => ['required', 'boolean'],
+            'barometer' => ['boolean'],
+        ]);
+
+        $model = AiGrant::where('user_id', $request->user()->id)->findOrFail($grant);
+
+        Connections::update(
+            $model,
+            AccessLevel::from($validated['level']),
+            $request->boolean('include_private'),
+            $request->ip(),
+            barometer: $request->boolean('barometer') && Feature::for($request->user())->active(Barometer::class),
+        );
+
+        return to_route('ai-assistants.index')->with('status', 'connection-updated');
+    }
+
+    public function destroy(Request $request, int $grant): RedirectResponse
+    {
+        $model = AiGrant::where('user_id', $request->user()->id)->findOrFail($grant);
+
+        Connections::revoke($model, $request->ip());
+
+        return to_route('ai-assistants.index')->with('status', 'connection-revoked');
+    }
+}

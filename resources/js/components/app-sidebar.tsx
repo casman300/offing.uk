@@ -1,0 +1,66 @@
+import { NavFooter } from '@/components/nav-footer';
+import { NavMain } from '@/components/nav-main';
+import { NavUser } from '@/components/nav-user';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
+import { Anchor, BookOpen, Cake, Folder, Gauge, LayoutGrid, ShieldCheck, Ship } from 'lucide-react';
+import AppLogo from './app-logo';
+
+const mainNavItems: NavItem[] = [
+    {
+        title: 'Dashboard',
+        url: '/dashboard',
+        icon: LayoutGrid,
+    },
+];
+
+const footerNavItems: NavItem[] = [
+    {
+        title: 'Repository',
+        url: 'https://github.com/casman300/offing.uk',
+        icon: Folder,
+    },
+    {
+        title: 'Documentation',
+        url: 'https://github.com/casman300/offing.uk/wiki',
+        icon: BookOpen,
+    },
+];
+
+export function AppSidebar() {
+    const { features, auth } = usePage<SharedData>().props;
+    const navItems: NavItem[] = [
+        ...mainNavItems,
+        ...(features.birthdayEngine ? [{ title: 'People', url: '/people', icon: Cake }] : []),
+        ...(features.shipshape ? [{ title: 'Shipshape', url: '/shipshape', icon: Anchor }] : []),
+        ...(features.crews ? [{ title: 'Crew', url: '/crew', icon: Ship }] : []),
+        ...(features.barometer ? [{ title: 'Barometer', url: '/barometer', icon: Gauge }] : []),
+        ...(auth.isAdmin ? [{ title: 'Admin', url: '/admin/features', icon: ShieldCheck }] : []),
+    ];
+
+    return (
+        <Sidebar collapsible="icon" variant="inset">
+            <SidebarHeader>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton size="lg" asChild>
+                            <Link href="/dashboard" prefetch>
+                                <AppLogo />
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarHeader>
+
+            <SidebarContent>
+                <NavMain items={navItems} />
+            </SidebarContent>
+
+            <SidebarFooter>
+                <NavFooter items={footerNavItems} className="mt-auto" />
+                <NavUser />
+            </SidebarFooter>
+        </Sidebar>
+    );
+}

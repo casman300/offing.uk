@@ -1,0 +1,176 @@
+name: deploy-production
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      # No explicit `ref` — defaults to the tag/commit the release points at,
+      # which is the point of gating production on `release: published` (a
+      # release published against an older commit must deploy that commit,
+      # not whatever `main` has moved on to since).
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: 8.5
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install PHP dependencies (production)
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Enable maintenance mode
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            # Fail before touching anything if the host's .env isn't where the
+            # app will look for it (it's set up by hand, once per environment).
+            test -f "${{ secrets.PRODUCTION_DEPLOY_PATH }}/../laravel/.env" || {
+              echo "No .env at <deploy path>/../laravel/.env — create it (with PUBLIC_PATH set) before deploying."
+              exit 1
+            }
+            cd "${{ secrets.PRODUCTION_DEPLOY_PATH }}/../laravel"
+            # Runs before this deploy's rsync, so it uses the previous deploy's
+            # copy of find-php.sh — absent on the very first deploy, when
+            # there's no live site to take down anyway.
+            if [ -f deploy/find-php.sh ] && PHP="$(bash deploy/find-php.sh)"; then
+              "$PHP" artisan down --retry=30 || true
+            fi
+
+      # 20i shared hosting has no Node — vendor/ and public/build/ are built here in CI
+      # and shipped as static files. Excludes (dev-only files + storage/.env runtime
+      # state) live in .github/deploy/rsync-exclude.txt, shared with staging.
+      #
+      # PRODUCTION_DEPLOY_PATH is the document root (public_html). The app goes
+      # in a sibling "laravel" directory next to it
+      # (PRODUCTION_DEPLOY_PATH/../laravel) so .env, vendor/ and storage/ are
+      # never inside the web-servable tree — no second path secret needed. Only
+      # public/'s contents land at the document root itself. See
+      # bootstrap/app.php's PUBLIC_PATH handling.
+      - name: Deploy app over rsync/ssh
+        uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
+        with:
+          switches: -avzr --delete --exclude-from=.github/deploy/rsync-exclude.txt
+          path: ./
+          remote_path: ${{ secrets.PRODUCTION_DEPLOY_PATH }}/../laravel
+          remote_host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          remote_port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          remote_user: ${{ secrets.PRODUCTION_SSH_USER }}
+          remote_key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      - name: Deploy public assets over rsync/ssh
+        uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
+        with:
+          # index.php is generated on the host (below); /storage is the
+          # storage:link symlink. Both are excluded so --delete leaves them be.
+          switches: -avzr --delete --exclude=/index.php --exclude=/storage
+          path: public/
+          remote_path: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          remote_host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          remote_port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          remote_user: ${{ secrets.PRODUCTION_SSH_USER }}
+          remote_key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      # Snapshot before migrating — see spec §22. Reads DB creds from the
+      # host's own .env so no credentials are duplicated into Actions secrets.
+      - name: Snapshot database, migrate, refresh caches, go live
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            PUBLIC_PATH="${{ secrets.PRODUCTION_DEPLOY_PATH }}"
+            APP_PATH="$PUBLIC_PATH/../laravel"
+            cd "$APP_PATH"
+
+            # On 20i the control-panel PHP version only applies to web
+            # requests; over SSH plain `php` is an old default (8.0). Find a
+            # CLI that can run the app — see deploy/find-php.sh.
+            PHP="$(bash deploy/find-php.sh)"
+            set -a; source .env; set +a
+
+            # Snapshots go next to the app, outside public_html (never
+            # web-servable) and outside every rsync --delete target.
+            BACKUP_PATH="$PUBLIC_PATH/../backups"
+            mkdir -p "$BACKUP_PATH"
+            chmod 700 "$BACKUP_PATH"
+            MYSQL_PWD="$DB_PASSWORD" mysqldump -h"$DB_HOST" -u"$DB_USERNAME" "$DB_DATABASE" \
+              > "$BACKUP_PATH/pre-deploy-$(date +%Y%m%d%H%M%S).sql"
+
+            # The app directory is outside the webroot, so this should never
+            # matter — it's a backstop in case the docroot is ever pointed at
+            # it by mistake. Excluded from the app rsync (rsync-exclude.txt),
+            # so --delete never removes it once written.
+            echo 'Require all denied' > "$APP_PATH/.htaccess"
+
+            # index.php can't use its normal `../vendor`-relative requires once
+            # public/ and the app are split — same file as public/index.php,
+            # paths pointed at the sibling app directory. Fully static (the
+            # "laravel" directory name is a fixed convention, not
+            # environment-specific), so no substitution needed.
+            cat > "$PUBLIC_PATH/index.php" <<'PHP'
+            <?php
+
+            use Illuminate\Http\Request;
+
+            define('LARAVEL_START', microtime(true));
+
+            if (file_exists($maintenance = __DIR__.'/../laravel/storage/framework/maintenance.php')) {
+                require $maintenance;
+            }
+
+            require __DIR__.'/../laravel/vendor/autoload.php';
+
+            (require_once __DIR__.'/../laravel/bootstrap/app.php')
+                ->handleRequest(Request::capture());
+            PHP
+
+            # storage/framework/*, storage/logs and storage/app are deliberately
+            # excluded from the rsync deploy so it never wipes runtime state — but
+            # that means nothing ever creates them on a fresh target either.
+            # mkdir -p is a no-op once they exist, so this is safe every deploy.
+            mkdir -p storage/framework/{cache/data,sessions,testing,views} storage/logs storage/app/public storage/app/private
+            chmod -R 775 storage bootstrap/cache
+            [ -L "$PUBLIC_PATH/storage" ] || "$PHP" artisan storage:link
+            "$PHP" artisan migrate --force
+            "$PHP" artisan config:cache
+            "$PHP" artisan route:cache
+            "$PHP" artisan view:cache
+            "$PHP" artisan event:cache
+            "$PHP" artisan up
+
+            # 20i's cron (Advanced > Scheduled Tasks) needs this exact command —
+            # plain `php` there is the same old default as over SSH.
+            echo "Scheduler cron command (every minute): $PHP $(pwd)/artisan schedule:run"

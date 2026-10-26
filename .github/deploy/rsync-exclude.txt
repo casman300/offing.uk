@@ -1,0 +1,35 @@
+# Dev-only / repo-only paths that must never land on the live filesystem.
+# Used with --exclude-from by deploy-staging.yml and deploy-production.yml.
+.git*
+.claude/
+.env
+/CLAUDE.md
+/node_modules/
+/tests/
+/.github/
+/docs/
+/phpstan.neon
+/phpunit.xml
+/.editorconfig
+/.prettierrc
+/.prettierignore
+/eslint.config.js
+
+# public/ ships separately, straight into public_html (see the "Deploy public
+# assets" step) — 20i-style shared hosting where the document root can't be
+# pointed at a subfolder, so the app itself lives outside the webroot.
+/public/
+
+# Deny-all .htaccess written into the app directory by the deploy's SSH step
+# (defense in depth in case the docroot is ever misconfigured to point at it).
+# Excluded so --delete never removes it between deploys.
+/.htaccess
+
+# Runtime state that only exists on the host — combined with rsync --delete,
+# excluding these means deploys never wipe logs, sessions, cache, or uploads.
+/storage/app/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/testing/
+/storage/framework/views/
+/storage/logs/
