@@ -1,7 +1,11 @@
 <x-mail::message>
 # Ahoy,
 
+@if ($passengerName)
+{{ $invitedBy }} has invited you to your own account in **{{ $crewName }}** on Offing, as {{ $asRole }}. You're already aboard as {{ $passengerName }}, with crewmates ticking things off for you — with an account, you can see what's due and do it yourself. Everything so far comes with you.
+@else
 {{ $invitedBy }} has invited you to join **{{ $crewName }}** on Offing as {{ $asRole }}. Crews share things like household chores, so everyone aboard sees what's due and who did it.
+@endif
 
 <x-mail::button :url="$url">
 See the invite

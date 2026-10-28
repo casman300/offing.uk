@@ -32,6 +32,11 @@ Route::middleware(['auth', EnsureFeaturesAreActive::using(Crews::class)])->group
 // the auth and flag middleware — newcomers have neither yet. GET shows who
 // it's for and a button; only the POST answers.
 Route::middleware(['signed', 'throttle:10,1'])->group(function () {
-    Route::get('crew/join/{invite}/{token}', [CrewJoinController::class, 'show'])->whereNumber('invite')->name('crew.join');
-    Route::post('crew/join/{invite}/{token}', [CrewJoinController::class, 'store'])->whereNumber('invite')->name('crew.join.store');
+    Route::get('crew/join/{invite}/{token}', [CrewJoinController::class, 'show'])->whereNumber('invite')->where('token', '[A-Za-z0-9]{64}')->name('crew.join');
+    Route::post('crew/join/{invite}/{token}', [CrewJoinController::class, 'store'])->whereNumber('invite')->where('token', '[A-Za-z0-9]{64}')->name('crew.join.store');
+
+    // A copied link's "finish joining" email, sent to the address its
+    // opener gave — so that inbox, not the link, decides who joins.
+    Route::get('crew/join/{invite}/confirm', [CrewJoinController::class, 'showConfirm'])->whereNumber('invite')->name('crew.join.confirm');
+    Route::post('crew/join/{invite}/confirm', [CrewJoinController::class, 'confirm'])->whereNumber('invite')->name('crew.join.confirm.store');
 });

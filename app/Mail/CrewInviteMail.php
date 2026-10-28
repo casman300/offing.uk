@@ -21,6 +21,8 @@ class CrewInviteMail extends Mailable
         public string $invitedBy,
         public string $role,
         public string $url,
+        /** Set when this gives a passenger their own account. */
+        public ?string $passengerName = null,
     ) {}
 
     public function build(): self

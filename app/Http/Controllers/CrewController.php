@@ -61,6 +61,7 @@ class CrewController extends Controller
                     'crew' => $invite->crew->name,
                     'role' => $invite->role,
                     'invited_by' => $invite->invitedBy?->name,
+                    'passenger' => $invite->crew_member_id !== null ? $invite->name : null,
                     'expires_at' => $invite->expires_at->toIso8601String(),
                 ])->values(),
         ]);
@@ -121,6 +122,8 @@ class CrewController extends Controller
                 ? $crew->invites()->pending()->latest()->get()->map(fn (CrewInvite $i) => [
                     'id' => $i->id,
                     'email' => $i->email,
+                    'name' => $i->name,
+                    'member_id' => $i->crew_member_id,
                     'role' => $i->role,
                     'expires_at' => $i->expires_at->toIso8601String(),
                 ])->values()
@@ -174,29 +177,49 @@ class CrewController extends Controller
         return to_route('crew.index')->with('status', "{$crew->name} is gone.{$note}");
     }
 
+    /**
+     * Captains invite by email, or make a link to copy into WhatsApp and the
+     * like. Either can be for a passenger ("Give Gimli an account"), and
+     * accepting then turns that passenger's row into the account's.
+     */
     public function invite(Request $request, int $crew): RedirectResponse
     {
         $user = $request->user();
         [$crew] = $this->aboardAsCaptain($user, $crew);
 
         $data = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
+            'delivery' => ['sometimes', Rule::in(['email', 'link'])],
+            'member_id' => ['nullable', 'integer'],
+            'email' => ['exclude_if:delivery,link', 'required', 'email', 'max:255'],
+            // A copied link says who it's for; a passenger's already has a name.
+            'name' => ['exclude_unless:delivery,link', Rule::requiredIf(fn () => empty($request->input('member_id'))), 'nullable', 'string', 'max:100'],
             'role' => ['required', Rule::in(CrewMember::ACCOUNT_ROLES)],
         ]);
-        $email = Str::lower(trim($data['email']));
+        $email = isset($data['email']) ? Str::lower(trim($data['email'])) : null;
 
-        $alreadyAboard = $crew->activeMembers()->whereHas('user', fn ($q) => $q->whereRaw('lower(email) = ?', [$email]))->exists();
+        $passenger = empty($data['member_id']) ? null
+            : $crew->activeMembers()->where('role', CrewMember::PASSENGER)->findOrFail((int) $data['member_id']);
+
+        $alreadyAboard = $email !== null
+            && $crew->activeMembers()->whereHas('user', fn ($q) => $q->whereRaw('lower(email) = ?', [$email]))->exists();
 
         if ($alreadyAboard) {
             throw ValidationException::withMessages(['email' => "They're already aboard."]);
         }
 
-        [$invite, $url] = DB::transaction(function () use ($crew, $email, $data, $user) {
-            // A fresh invite replaces any still-open one to the same address.
-            $crew->invites()->pending()->where('email', $email)->update(['revoked_at' => now()]);
+        [$invite, $url] = DB::transaction(function () use ($crew, $email, $data, $user, $passenger) {
+            // A fresh invite replaces any still-open one to the same address,
+            // or for the same passenger.
+            $crew->invites()->pending()
+                ->where(fn ($q) => $q->when($email !== null, fn ($q) => $q->orWhere('email', $email))
+                    ->when($passenger !== null, fn ($q) => $q->orWhere('crew_member_id', $passenger?->id))
+                    ->when($email === null && $passenger === null, fn ($q) => $q->whereRaw('1 = 0')))
+                ->update(['revoked_at' => now()]);
 
             $invite = $crew->invites()->create([
                 'email' => $email,
+                'name' => $passenger?->displayName() ?? (filled($data['name'] ?? null) ? trim($data['name']) : null),
+                'crew_member_id' => $passenger?->id,
                 'role' => $data['role'],
                 'invited_by_user_id' => $user->id,
                 'expires_at' => now()->addDays(CrewInvite::EXPIRES_AFTER_DAYS),
@@ -205,11 +228,22 @@ class CrewController extends Controller
             return [$invite, $invite->issueLink()];
         });
 
+        AuditLog::record($user, 'crew_invite.sent', $crew, [
+            'invite_id' => $invite->id,
+            'email' => $email,
+            'role' => $invite->role,
+            'delivery' => $email === null ? 'link' : 'email',
+            'member_id' => $passenger?->id,
+        ], $request->ip());
+
+        if ($email === null) {
+            // Shown once: only the hash is kept.
+            return back()->with('inviteUrl', $url)->with('status', "Here's {$invite->name}'s link — copy it and send it to them. It works once, for ".CrewInvite::EXPIRES_AFTER_DAYS.' days.');
+        }
+
         // Emailed whether or not that address has an account: the link signs
         // a newcomer up, and an existing account signs in to answer it.
-        Mail::to($email)->queue(new CrewInviteMail($crew->name, $user->name, $invite->role, $url));
-
-        AuditLog::record($user, 'crew_invite.sent', $crew, ['invite_id' => $invite->id, 'email' => $email, 'role' => $invite->role], $request->ip());
+        Mail::to($email)->queue(new CrewInviteMail($crew->name, $user->name, $invite->role, $url, $passenger?->displayName()));
 
         // Same message whether or not that email has an account.
         return back()->with('status', "Invited {$email} — we've emailed them a link to join.");
@@ -232,7 +266,12 @@ class CrewController extends Controller
         $model = CrewInvite::query()->for($user)->pending()->whereHas('crew')->findOrFail($invite);
         $crew = $model->crew;
 
-        abort_unless($model->acceptFor($user), 404);
+        $result = $model->acceptFor($user);
+        abort_if($result === CrewInvite::GONE, 404);
+
+        if ($result === CrewInvite::ALREADY_ABOARD) {
+            return back()->withErrors(['invite' => CrewJoinController::alreadyAboard($model)]);
+        }
 
         AuditLog::record($user, 'crew_invite.accepted', $crew, ['invite_id' => $model->id, 'role' => $model->role], $request->ip());
 
@@ -374,6 +413,7 @@ class CrewController extends Controller
         }
 
         $model->leave();
+        $crew->invites()->pending()->where('crew_member_id', $model->id)->update(['revoked_at' => now()]);
         AuditLog::record($user, $model->isPassenger() ? 'crew.passenger_removed' : 'crew.member_removed', $crew, ['member_id' => $model->id], $request->ip());
 
         return back()->with('status', "{$model->displayName()} is no longer aboard.");
