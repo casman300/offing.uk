@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class MagicLinkTest extends TestCase
@@ -58,7 +59,7 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
 
-        $response = $this->get($url);
+        $response = $this->post($url);
 
         $response->assertRedirect(route('passkeys.setup'));
         $this->assertAuthenticatedAs($user);
@@ -77,7 +78,7 @@ class MagicLinkTest extends TestCase
             'expires_at' => now()->addMinutes(15),
         ]);
 
-        $this->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
+        $this->post(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
 
         $this->assertNotNull($user->fresh()->remember_token);
     }
@@ -94,7 +95,7 @@ class MagicLinkTest extends TestCase
         ]);
 
         $response = $this->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')
-            ->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
+            ->post(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
 
         $response->assertRedirect(route('dashboard', absolute: false));
         $this->assertAuthenticatedAs($user);
@@ -124,7 +125,7 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
 
-        $response = $this->get($url);
+        $response = $this->post($url);
 
         $response->assertRedirect(route('login'));
         $this->assertGuest();
@@ -142,7 +143,7 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
 
-        $response = $this->get($url);
+        $response = $this->post($url);
 
         $response->assertRedirect(route('login'));
         $this->assertGuest();
@@ -159,7 +160,7 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => 'a-guessed-token']);
 
-        $response = $this->get($url);
+        $response = $this->post($url);
 
         $response->assertRedirect(route('login'));
         $this->assertGuest();
@@ -176,7 +177,7 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => 'a-guessed-token']);
 
-        $this->get($url);
+        $this->post($url);
 
         $this->assertDatabaseHas('audit_log', [
             'action' => 'auth.magic_link.rejected',
@@ -197,10 +198,102 @@ class MagicLinkTest extends TestCase
 
         $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
 
-        $response = $this->actingAs($deviceUser)->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')->get($url);
+        $response = $this->actingAs($deviceUser)->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')->post($url);
 
         $response->assertRedirect(route('dashboard', absolute: false));
         $this->assertAuthenticatedAs($linkOwner);
+    }
+
+    public function test_opening_a_magic_link_shows_whose_it_is_without_signing_in(): void
+    {
+        $user = User::factory()->create(['email' => 'alice@example.com']);
+        $token = 'plain-text-token';
+
+        $magicLink = $user->magicLinks()->create([
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $url = URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('auth/magic-link')
+                ->where('email', 'alice@example.com')
+                ->where('signedInAs', null)
+                ->where('action', $url));
+
+        // Opened twice (say, by a mail scanner first): still nothing claimed.
+        $this->get($url)->assertOk();
+
+        $this->assertGuest();
+        $this->assertNull($magicLink->fresh()->used_at);
+        $this->assertDatabaseMissing('audit_log', ['action' => 'auth.login']);
+    }
+
+    public function test_opening_a_magic_link_while_signed_in_as_someone_else_warns_and_keeps_their_session(): void
+    {
+        $deviceUser = User::factory()->create(['email' => 'device@example.com']);
+        $linkOwner = User::factory()->create();
+        $token = 'plain-text-token';
+
+        $magicLink = $linkOwner->magicLinks()->create([
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $this->actingAs($deviceUser)
+            ->get(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]))
+            ->assertInertia(fn (Assert $page) => $page->where('signedInAs', 'device@example.com'));
+
+        $this->assertAuthenticatedAs($deviceUser);
+        $this->assertNull($magicLink->fresh()->used_at);
+    }
+
+    public function test_opening_a_used_expired_or_tampered_link_says_so(): void
+    {
+        $user = User::factory()->create();
+
+        $used = $user->magicLinks()->create(['token_hash' => hash('sha256', 'used'), 'expires_at' => now()->addMinutes(15), 'used_at' => now()]);
+        $expired = $user->magicLinks()->create(['token_hash' => hash('sha256', 'expired'), 'expires_at' => now()->subMinute()]);
+        $live = $user->magicLinks()->create(['token_hash' => hash('sha256', 'live'), 'expires_at' => now()->addMinutes(15)]);
+
+        foreach ([[$used, 'used'], [$expired, 'expired'], [$live, 'a-guessed-token']] as [$link, $token]) {
+            $this->get(URL::signedRoute('login.consume', ['magicLink' => $link->id, 'token' => $token]))
+                ->assertRedirect(route('login'))
+                ->assertSessionHasErrors('email');
+        }
+
+        $this->assertGuest();
+    }
+
+    public function test_the_emailed_link_signs_in_once_its_button_is_pressed(): void
+    {
+        Mail::fake();
+        $user = User::factory()->create();
+
+        $this->post('/login', ['email' => $user->email]);
+
+        $url = null;
+        Mail::assertQueued(MagicLinkMail::class, function (MagicLinkMail $mail) use (&$url) {
+            $url = $mail->url;
+
+            return true;
+        });
+
+        $this->get($url)->assertOk();
+        $this->assertGuest();
+
+        $this->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')
+            ->post($url)
+            ->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+
+        // One use: the page now says the link is spent.
+        auth()->logout();
+        $this->get($url)->assertRedirect(route('login'))->assertSessionHasErrors('email');
     }
 
     public function test_users_can_logout(): void

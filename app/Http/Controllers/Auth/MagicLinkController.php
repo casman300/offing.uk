@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class MagicLinkController extends Controller
 {
@@ -48,7 +49,34 @@ class MagicLinkController extends Controller
     }
 
     /**
-     * Consume a magic link and log the owning user in.
+     * Where the emailed link lands: who it signs in as, and a button. Opening
+     * it changes nothing — mail scanners fetch links, and someone sent
+     * another account's link (login CSRF) sees whose it is before agreeing.
+     */
+    public function show(Request $request, MagicLink $magicLink, string $token): SymfonyResponse
+    {
+        if (! $magicLink->matches(MagicLink::LOGIN, $token) || ! $magicLink->isUsable()) {
+            return $this->rejected($request, $magicLink);
+        }
+
+        $current = $request->user();
+
+        $response = Inertia::render('auth/magic-link', [
+            'email' => $magicLink->user->email,
+            // Signed in as someone else here: continuing signs them out.
+            'signedInAs' => $current !== null && $current->id !== $magicLink->user_id ? $current->email : null,
+            // The signed link itself: the POST is checked the same way.
+            'action' => $request->fullUrl(),
+        ])->toResponse($request);
+
+        // The URL carries the token: never send it on to fonts or anywhere else.
+        $response->headers->set('Referrer-Policy', 'no-referrer');
+
+        return $response;
+    }
+
+    /**
+     * The button on that page: claim the link and log its owner in.
      */
     public function consume(Request $request, MagicLink $magicLink, string $token): RedirectResponse
     {
@@ -56,11 +84,7 @@ class MagicLinkController extends Controller
 
         // Email-change links are magic links too, but never sign anyone in.
         if (! $magicLink->matches(MagicLink::LOGIN, $token) || ! $magicLink->claim()) {
-            AuditLog::record($user, 'auth.magic_link.rejected', ip: $request->ip());
-
-            return redirect()->route('login')->withErrors([
-                'email' => 'That link has expired or already been used — request a new one.',
-            ]);
+            return $this->rejected($request, $magicLink);
         }
 
         if (Auth::check() && Auth::id() !== $user->id) {
@@ -85,5 +109,14 @@ class MagicLinkController extends Controller
         }
 
         return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    private function rejected(Request $request, MagicLink $magicLink): RedirectResponse
+    {
+        AuditLog::record($magicLink->user, 'auth.magic_link.rejected', ip: $request->ip());
+
+        return redirect()->route('login')->withErrors([
+            'email' => 'That link has expired or already been used — request a new one.',
+        ]);
     }
 }
