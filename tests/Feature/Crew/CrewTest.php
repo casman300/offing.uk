@@ -192,7 +192,8 @@ describe('invite links (the invite is the signup)', function () {
             && $mail->invitedBy === 'Charlie' && $mail->crewName === 'Home' && $mail->role === 'captain');
 
         $rendered = (new CrewInviteMail('Home', 'Charlie', 'crew', 'https://example.com/x'))->render();
-        expect($rendered)->toContain('Charlie has invited you to join <strong>Home</strong>')
+        expect(strip_tags($rendered))->toContain('Charlie has invited you to join Home on Offing as crew.')
+            ->and($rendered)->toContain('https://example.com/x')
             ->and(CrewInvite::whereNull('token_hash')->exists())->toBeFalse();
     });
 
@@ -234,10 +235,14 @@ describe('invite links (the invite is the signup)', function () {
         $home = crewOf($captain);
         $url = inviteLink($captain, $home, 'new@example.com');
 
-        $this->withUnencryptedCookie(PasskeySetupController::DISMISS_COOKIE, '1')
+        $this->withCookie(PasskeySetupController::DISMISS_COOKIE, '1')
             ->post($url, ['answer' => 'accept', 'name' => 'Sam', 'timezone' => 'Mars/Olympus'])
             ->assertRedirect('/dashboard')
-            ->assertSessionHas('status', "You've joined Home. Crews are still in preview, so you'll see it here once they're switched on for you.");
+            ->assertSessionHas('status', 'Welcome aboard Home.');
+
+        // Crews is admin-only, so the dashboard says why Home isn't showing.
+        $this->get('/dashboard')->assertInertia(fn (Assert $page) => $page->where('crewsInPreview', ['Home']));
+        $this->actingAs($captain)->get('/dashboard')->assertInertia(fn (Assert $page) => $page->where('crewsInPreview', []));
 
         expect(User::where('email', 'new@example.com')->sole()->timezone)->toBe(User::DEFAULT_TIMEZONE);
     });

@@ -195,15 +195,8 @@ class CrewJoinController extends Controller
 
     private function welcome(User $user, CrewInvite $invite): RedirectResponse
     {
-        $crew = $invite->crew->name;
-
-        // Spec §15: while Crews is in preview, say why the crew isn't visible
-        // yet rather than failing silently. Their captain sees it too.
-        $message = Feature::for($user)->active(Crews::class)
-            ? "Welcome aboard {$crew}."
-            : "You've joined {$crew}. Crews are still in preview, so you'll see it here once they're switched on for you.";
-
-        return redirect($this->destination($user, $invite))->with('status', $message);
+        // Without Crews yet, the dashboard says why the crew isn't showing.
+        return redirect($this->destination($user, $invite))->with('status', "Welcome aboard {$invite->crew->name}.");
     }
 
     private function destination(User $user, CrewInvite $invite): string

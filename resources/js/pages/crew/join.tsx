@@ -74,7 +74,7 @@ export default function Join({ crew, invitedBy, role, email, state, signedInAs, 
                             value={data.name}
                             onChange={(e) => setData('name', e.target.value)}
                         />
-                        <InputError message={errors.name ?? errors.email} />
+                        <InputError message={errors.name ?? (errors as Record<string, string | undefined>).email} />
                     </div>
 
                     <Button className="w-full" disabled={processing}>
