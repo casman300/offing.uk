@@ -61,6 +61,7 @@ class User extends Authenticatable implements OAuthenticatable
      */
     protected $attributes = [
         'barometer_check_ins' => true,
+        'is_beta_tester' => false,
     ];
 
     /**
@@ -83,6 +84,7 @@ class User extends Authenticatable implements OAuthenticatable
             'email_verified_at' => 'datetime',
             'reminders_enabled_at' => 'datetime',
             'barometer_check_ins' => 'boolean',
+            'is_beta_tester' => 'boolean',
         ];
     }
 

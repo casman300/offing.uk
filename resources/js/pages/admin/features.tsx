@@ -12,19 +12,31 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { RotateCcw, Search } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
+type Stage = 'off' | 'admins' | 'beta' | 'percentage' | 'everyone';
+
+interface StageOption {
+    value: Stage;
+    label: string;
+}
+
 interface FeatureRow {
     name: string;
     description: string;
-    stage: 'off' | 'admins' | 'percentage' | 'everyone';
+    stage: Stage;
     stage_label: string;
     percentage: number;
-    on: number;
-    off: number;
-    unchecked: number;
+    /** true = an admin chose the stage; false = it's the one declared in code. */
+    stage_overridden: boolean;
+    declared_stage_label: string;
+    declared_percentage: number;
+    overrides_on: number;
+    overrides_off: number;
+    /** Users it's on for right now, overrides included. */
+    enabled: number;
 }
 
 interface UserFlag {
-    /** null = not checked yet; the stage will decide. */
+    /** null = no override; the stage decides. */
     stored: boolean | null;
     stage_default: boolean;
 }
@@ -34,15 +46,27 @@ interface UserRow {
     name: string;
     email: string;
     is_admin: boolean;
+    is_beta_tester: boolean;
     flags: Record<string, UserFlag>;
 }
+
+const selectClass =
+    'border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 rounded-md border px-3 py-1 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden md:text-sm';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Admin', href: '/admin' },
     { title: 'Feature flags', href: '/admin/features' },
 ];
 
-export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]; users: UserRow[]; q: string }) {
+interface Props {
+    flags: FeatureRow[];
+    users: UserRow[];
+    q: string;
+    stages: StageOption[];
+    userCount: number;
+}
+
+export default function AdminFeatures({ flags, users, q, stages, userCount }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [query, setQuery] = useState(q);
 
@@ -64,7 +88,7 @@ export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]
                 <AdminNav />
                 <Heading
                     title="Feature flags"
-                    description="Each flag's default comes from its rollout stage in code. Per-user overrides here win over the stage; every change is audited."
+                    description="Each flag's stage decides who gets it: admins, beta testers (ticked on Users), a percentage or everyone. Per-user overrides win over the stage. Every change is audited and takes effect on the user's next page load."
                 />
 
                 {flash.status && (
@@ -88,33 +112,45 @@ export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]
                                     </div>
                                     <p className="text-muted-foreground text-sm">{feature.description}</p>
                                     <p className="text-muted-foreground text-xs">
-                                        On for {feature.on} · off for {feature.off} · not checked yet {feature.unchecked}
+                                        On for {feature.enabled} of {userCount} {userCount === 1 ? 'user' : 'users'}
+                                        {(feature.overrides_on > 0 || feature.overrides_off > 0) &&
+                                            ` · overrides: ${feature.overrides_on} on, ${feature.overrides_off} off`}
+                                        {feature.stage_overridden &&
+                                            ` · code default: ${feature.declared_stage_label}${feature.declared_percentage > 0 ? ` (${feature.declared_percentage}%)` : ''}`}
                                     </p>
                                 </div>
-                                <Dialog>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" size="sm" className="shrink-0">
-                                            <RotateCcw /> Reset to default
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogTitle>Reset {feature.name}?</DialogTitle>
-                                        <DialogDescription>
-                                            Clears every stored value for this flag, including per-user overrides. Each user then gets the current
-                                            stage ({feature.stage_label}) the next time they load a page.
-                                        </DialogDescription>
-                                        <DialogFooter>
-                                            <DialogClose asChild>
-                                                <Button variant="secondary">Cancel</Button>
-                                            </DialogClose>
-                                            <DialogClose asChild>
-                                                <Button variant="destructive" onClick={() => reset(feature.name)}>
-                                                    Reset
-                                                </Button>
-                                            </DialogClose>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
+                                <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                                    <StageControl key={`${feature.stage}-${feature.percentage}`} feature={feature} stages={stages} />
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                disabled={feature.overrides_on + feature.overrides_off === 0}
+                                                className="self-start sm:self-end"
+                                            >
+                                                <RotateCcw /> Clear overrides
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogTitle>Clear overrides for {feature.name}?</DialogTitle>
+                                            <DialogDescription>
+                                                Removes every per-user override for this flag ({feature.overrides_on} on, {feature.overrides_off}{' '}
+                                                off). Everyone then follows its stage ({feature.stage_label}).
+                                            </DialogDescription>
+                                            <DialogFooter>
+                                                <DialogClose asChild>
+                                                    <Button variant="secondary">Cancel</Button>
+                                                </DialogClose>
+                                                <DialogClose asChild>
+                                                    <Button variant="destructive" onClick={() => reset(feature.name)}>
+                                                        Clear overrides
+                                                    </Button>
+                                                </DialogClose>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
                             </li>
                         ))}
                     </ul>
@@ -146,6 +182,7 @@ export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]
                                         <span className="font-medium">{user.email}</span>
                                         {user.name && <span className="text-muted-foreground text-sm">{user.name}</span>}
                                         {user.is_admin && <Badge variant="outline">Admin</Badge>}
+                                        {user.is_beta_tester && <Badge variant="outline">Beta tester</Badge>}
                                     </div>
                                     {flags.map((feature) => (
                                         <FlagControl
@@ -166,16 +203,71 @@ export default function AdminFeatures({ flags, users, q }: { flags: FeatureRow[]
     );
 }
 
+function StageControl({ feature, stages }: { feature: FeatureRow; stages: StageOption[] }) {
+    const [stage, setStage] = useState<Stage>(feature.stage);
+    const [percentage, setPercentage] = useState(String(feature.percentage));
+    const [saving, setSaving] = useState(false);
+
+    const dirty = stage !== feature.stage || (stage === 'percentage' && Number(percentage) !== feature.percentage);
+    const valid = stage !== 'percentage' || (percentage !== '' && Number(percentage) >= 0 && Number(percentage) <= 100);
+
+    const save = (value: Stage | 'default') =>
+        router.post(
+            admin.features.stage.url({ feature: feature.name }),
+            { stage: value, percentage: value === 'percentage' ? Number(percentage) : null },
+            { preserveScroll: true, onStart: () => setSaving(true), onFinish: () => setSaving(false) },
+        );
+
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            <select
+                aria-label={`Rollout stage for ${feature.name}`}
+                className={selectClass}
+                value={stage}
+                onChange={(e) => setStage(e.target.value as Stage)}
+            >
+                {stages.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+            {stage === 'percentage' && (
+                <div className="flex items-center gap-1">
+                    <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        aria-label={`Percentage of users for ${feature.name}`}
+                        className="h-9 w-20"
+                        value={percentage}
+                        onChange={(e) => setPercentage(e.target.value)}
+                    />
+                    <span className="text-muted-foreground text-sm">%</span>
+                </div>
+            )}
+            <Button size="sm" disabled={!dirty || !valid || saving} onClick={() => save(stage)}>
+                Save
+            </Button>
+            {feature.stage_overridden && !dirty && (
+                <Button size="sm" variant="ghost" disabled={saving} onClick={() => save('default')}>
+                    Use code default
+                </Button>
+            )}
+        </div>
+    );
+}
+
 function FlagControl({ feature, flag, onSet }: { feature: string; flag: UserFlag; onSet: (value: 'on' | 'off' | 'default') => void }) {
     const effective = flag.stored ?? flag.stage_default;
     const overridden = flag.stored !== null && flag.stored !== flag.stage_default;
 
     const state =
         flag.stored === null
-            ? `${effective ? 'On' : 'Off'} by default (not checked yet)`
+            ? `${effective ? 'On' : 'Off'} (stage)`
             : overridden
               ? `${effective ? 'On' : 'Off'} — override`
-              : `${effective ? 'On' : 'Off'} (default)`;
+              : `${effective ? 'On' : 'Off'} — override, same as stage`;
 
     return (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
