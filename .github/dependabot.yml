@@ -1,0 +1,44 @@
+# Dependabot version updates. PRs target `rc` (staging), never `main` —
+# `main` only moves on a release.
+#
+# `target-branch` only applies to *version* updates. Security updates always
+# go to the repo's default branch, so for those to land on `rc` too, `rc`
+# must be the default branch (Settings → General → Default branch).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: rc
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: composer
+    directory: /
+    target-branch: rc
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      composer-minor-patch:
+        update-types: [minor, patch]
+
+  # Actions are pinned to SHAs; Dependabot bumps the SHA and its `# vX.Y.Z` comment.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: rc
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns: ['*']
