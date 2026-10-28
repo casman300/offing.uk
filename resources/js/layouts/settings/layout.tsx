@@ -7,23 +7,18 @@ import { Link, usePage } from '@inertiajs/react';
 
 const sidebarNavItems: NavItem[] = [
     {
-        title: 'Profile',
+        title: 'Account',
         url: '/settings/profile',
         icon: null,
     },
     {
-        title: 'Appearance',
-        url: '/settings/appearance',
+        title: 'Sign-in & devices',
+        url: '/settings/devices',
         icon: null,
     },
     {
-        title: 'Passkeys',
-        url: '/settings/passkeys',
-        icon: null,
-    },
-    {
-        title: 'Calendar feeds',
-        url: '/settings/feeds',
+        title: 'Connected apps',
+        url: '/settings/connected-apps',
         icon: null,
     },
 ];
@@ -31,11 +26,7 @@ const sidebarNavItems: NavItem[] = [
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
     const currentPath = window.location.pathname;
     const { features } = usePage<SharedData>().props;
-    const navItems: NavItem[] = [
-        ...sidebarNavItems,
-        ...(features.reminders ? [{ title: 'Reminders', url: '/settings/reminders', icon: null }] : []),
-        ...(features.connectClaude ? [{ title: 'AI assistants', url: '/settings/ai-assistants', icon: null }] : []),
-    ];
+    const navItems: NavItem[] = [...sidebarNavItems, ...(features.reminders ? [{ title: 'Reminders', url: '/settings/reminders', icon: null }] : [])];
 
     return (
         <div className="px-4 py-6">

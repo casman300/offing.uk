@@ -3,6 +3,7 @@ import { Transition } from '@headlessui/react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
+import AppearanceTabs from '@/components/appearance-tabs';
 import DeleteUser from '@/components/delete-user';
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
@@ -16,7 +17,7 @@ import profile from '@/routes/profile';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Profile settings',
+        title: 'Account',
         href: '/settings/profile',
     },
 ];
@@ -54,7 +55,7 @@ export default function Profile({ timezones, pendingEmail, status }: ProfileProp
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Profile settings" />
+            <Head title="Account" />
 
             <SettingsLayout>
                 <div className="space-y-6">
@@ -148,6 +149,11 @@ export default function Profile({ timezones, pendingEmail, status }: ProfileProp
                             </Transition>
                         </div>
                     </form>
+                </div>
+
+                <div className="space-y-6">
+                    <HeadingSmall title="Appearance" description="Light, dark, or follow this device. Saved in this browser." />
+                    <AppearanceTabs />
                 </div>
 
                 <DeleteUser />

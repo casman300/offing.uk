@@ -24,11 +24,19 @@ Didn't get the email? Check your spam folder, then ask for a new link.
 
 Email links always work, even after you've set up a passkey. If you lose your phone, you can still get back in with your email.
 
+## Where you're signed in
+
+**Settings → Sign-in & devices** lists every browser and device signed in to your account, such as "Chrome on Windows" or "Safari on iPhone", with when each one signed in and when it was last used. Each browser is listed separately, even two on the same computer.
+
+If you see one you don't recognise, or you've signed in on someone else's computer, choose **Sign out everywhere else**. Every other browser is signed out straight away and needs an email link or passkey to get back in. You stay signed in where you are.
+
+Signing out of one browser (from the menu) removes it from the list.
+
 ## Changing your email
 
 Your email address is how you sign in, so changing it takes two steps:
 
-1. In **Settings → Profile**, enter your new address and save.
+1. In **Settings → Account**, enter your new address and save.
 2. We email a confirmation link to the new address. Your email only changes when you click it (within 24 hours). Until then, keep signing in with your current address. You can cancel the change from the same page.
 
 Once it's changed, we email your old address to let you know. If you didn't make the change, the **This wasn't me** button in that email puts your old address back for up to 7 days. It also signs out every device and removes anything added since the change: passkeys, calendar feed links, notification devices and AI connections. Then sign in again with an email link.

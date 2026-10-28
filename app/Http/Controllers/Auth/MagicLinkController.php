@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Mail\MagicLinkMail;
 use App\Models\AuditLog;
+use App\Models\SignIn;
 use App\Models\MagicLink;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -101,6 +102,7 @@ class MagicLinkController extends Controller
         $request->session()->regenerate();
 
         AuditLog::record($user, 'auth.login', ip: $request->ip());
+        SignIn::record($request, $user, 'magic_link', $magicLink->remember);
 
         // Spec §15: offer a passkey so next time is Face ID, not email. The
         // intended URL stays in the session for the setup page to continue to.

@@ -25,6 +25,7 @@ final class Features
             Shipshape::class,
             ConnectClaude::class,
             Barometer::class,
+            SignInDevices::class,
         ];
     }
 

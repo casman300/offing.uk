@@ -7,6 +7,7 @@ use App\Mail\EmailChangedMail;
 use App\Models\AiGrant;
 use App\Models\AuditLog;
 use App\Models\MagicLink;
+use App\Models\SignIn;
 use App\Models\User;
 use App\Support\ConnectClaude\Connections;
 use Illuminate\Support\Facades\DB;
@@ -115,15 +116,10 @@ final class EmailChange
         $from = $user->email;
 
         $removed = DB::transaction(function () use ($user, $to, $since) {
-            $user->forceFill(['email' => $to, 'email_verified_at' => now()]);
-            $user->setRememberToken(Str::random(60));
-            $user->save();
+            $user->forceFill(['email' => $to, 'email_verified_at' => now()])->save();
+            SignIn::signOutEverywhere($user);
 
             $user->magicLinks()->open()->update(['used_at' => now()]);
-
-            if (config('session.driver') === 'database') {
-                DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
-            }
 
             return [
                 'passkeys' => $user->passkeys()->where('created_at', '>=', $since)->delete(),

@@ -5,12 +5,15 @@ namespace App\Providers;
 use App\Features\OverridesOnlyDriver;
 use App\Features\StageOverrides;
 use App\Http\Controllers\ConnectClaude\ConsentController;
+use App\Models\SignIn;
 use App\Models\User;
 use App\Support\Push\PushSender;
 use App\Support\Push\WebPushSender;
 use Carbon\CarbonInterval;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -50,6 +53,13 @@ class AppServiceProvider extends ServiceProvider
         // middleware only limits per-IP.
         RateLimiter::for('magic-link-email', function (Request $request) {
             return Limit::perMinute(3)->by(Str::lower((string) $request->input('email')));
+        });
+
+        // However a browser signs out, it leaves Settings → Sign-in & devices.
+        Event::listen(function (Logout $event) {
+            if ($event->user instanceof User) {
+                SignIn::markSignedOut(request(), $event->user);
+            }
         });
 
         // The `features` table holds per-user overrides only (see the driver).

@@ -205,7 +205,7 @@ describe('save_person', function () {
         $sue = $user->people()->create(['name' => 'Sue']);
 
         OffingServer::actingAs($user)->tool(SavePerson::class, ['person_id' => $sue->id, 'name' => 'Susan'])
-            ->assertHasErrors(['“Read and add new”', '“Read, add and change”', 'Settings → AI assistants']);
+            ->assertHasErrors(['“Read and add new”', '“Read, add and change”', 'Settings → Connected apps']);
 
         expect($sue->fresh()->name)->toBe('Sue');
     });

@@ -32,6 +32,6 @@ Untick any column you'd rather not share that week. The time and first rating ar
 
 ## With an AI assistant
 
-If you've [connected an AI assistant](AI-assistants.md), you can let it log readings for you and tell you your summary numbers. Turn on the **Barometer** switch when you connect it, or later in **Settings → AI assistants**. It's off unless you turn it on.
+If you've [connected an AI assistant](AI-assistants.md), you can let it log readings for you and tell you your summary numbers. Turn on the **Barometer** switch when you connect it, or later in **Settings → Connected apps**. It's off unless you turn it on.
 
 The assistant can add a reading you tell it about and see counts and averages. It never sees your readings or what you wrote, and it can't change or delete anything.

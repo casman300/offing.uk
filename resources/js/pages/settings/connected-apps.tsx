@@ -5,6 +5,7 @@ import { FormEventHandler, useState } from 'react';
 
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
+import AiAssistants, { type AiAssistantsProps } from '@/components/settings/ai-assistants';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -23,12 +24,20 @@ interface FeedToken {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Calendar feeds',
-        href: '/settings/feeds',
+        title: 'Connected apps',
+        href: '/settings/connected-apps',
     },
 ];
 
-export default function Feeds({ tokens, maxActive }: { tokens: FeedToken[]; maxActive: number }) {
+export default function ConnectedApps({
+    tokens,
+    maxActive,
+    assistants,
+}: {
+    tokens: FeedToken[];
+    maxActive: number;
+    assistants: AiAssistantsProps | null;
+}) {
     const { flash } = usePage<SharedData>().props;
     const atLimit = tokens.length >= maxActive;
 
@@ -41,7 +50,7 @@ export default function Feeds({ tokens, maxActive }: { tokens: FeedToken[]; maxA
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Calendar feeds" />
+            <Head title="Connected apps" />
 
             <SettingsLayout>
                 <div className="space-y-6">
@@ -89,6 +98,8 @@ export default function Feeds({ tokens, maxActive }: { tokens: FeedToken[]; maxA
                         and make a new one.
                     </p>
                 </div>
+
+                {assistants && <AiAssistants {...assistants} />}
             </SettingsLayout>
         </AppLayout>
     );

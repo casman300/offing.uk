@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\SignIn;
 use App\Support\Passkeys\WebAuthn;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -41,6 +42,7 @@ class PasskeyLoginController extends Controller
         $request->session()->regenerate();
 
         AuditLog::record($user, 'auth.login', $passkey, ['method' => 'passkey'], $request->ip());
+        SignIn::record($request, $user, 'passkey', remembered: true);
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
