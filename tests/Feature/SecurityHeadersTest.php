@@ -41,7 +41,7 @@ it('allows the Vite dev server only in local', function () {
 
 it('sends HSTS when the app is served over https, never in local or over http', function () {
     config(['app.url' => 'https://offing.test']);
-    $this->get('/login')->assertHeader('Strict-Transport-Security', SecurityHeaders::HSTS);
+    $this->get('/login')->assertHeader('Strict-Transport-Security', 'max-age=31536000');
 
     config(['app.url' => 'http://offing.test']);
     $this->get('/login')->assertHeaderMissing('Strict-Transport-Security');
@@ -64,4 +64,13 @@ it('covers the session-less routes too, without overriding their own referrer po
     $this->getJson('/.well-known/oauth-authorization-server')
         ->assertOk()
         ->assertHeader('X-Content-Type-Options', 'nosniff');
+});
+
+it('covers subdomains only when the host opts in', function () {
+    config(['app.url' => 'https://offing.test']);
+
+    $this->get('/login')->assertHeader('Strict-Transport-Security', 'max-age=31536000');
+
+    config(['offing.hsts_include_subdomains' => true]);
+    $this->get('/login')->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 });

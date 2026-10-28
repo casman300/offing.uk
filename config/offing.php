@@ -19,6 +19,13 @@ return [
     'healthcheck_url' => env('HEALTHCHECK_URL'),
 
     /*
+    | Strict-Transport-Security normally covers only the host in APP_URL. Set
+    | this to also cover every subdomain under it, for a year, in any browser
+    | that visits; only do so if every one of them serves https.
+    */
+    'hsts_include_subdomains' => (bool) env('HSTS_INCLUDE_SUBDOMAINS', false),
+
+    /*
     | Web Push (VAPID) keys — generate once per environment with
     | `artisan push:keys` and paste into .env. Push stays hidden until both
     | keys are set. Changing them invalidates every device's subscription.

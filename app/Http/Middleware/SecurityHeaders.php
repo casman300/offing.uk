@@ -12,7 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
  * - No framing at all: the OAuth consent screen, account deletion and
  *   passkey pages must never be clickjackable.
  * - HSTS once the app is served over https (from APP_URL, so it holds
- *   behind a TLS-terminating proxy too); never in local.
+ *   behind a TLS-terminating proxy too); never in local. It covers this
+ *   host only unless HSTS_INCLUDE_SUBDOMAINS is set: a self-hoster on a
+ *   bare domain shouldn't find their NAS or router forced onto https.
  * - The Content Security Policy ships report-only first: browsers log what
  *   it would block, nothing breaks. Enforce it in a later change once
  *   staging's console is clean. frame-ancestors is ignored in report-only
@@ -23,7 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SecurityHeaders
 {
-    public const HSTS = 'max-age=31536000; includeSubDomains';
+    /** A year: browsers remember it, and only a later https visit can change it. */
+    public const HSTS_MAX_AGE = 31536000;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -37,7 +40,7 @@ class SecurityHeaders
         ];
 
         if (! app()->isLocal() && str_starts_with((string) config('app.url'), 'https://')) {
-            $headers['Strict-Transport-Security'] = self::HSTS;
+            $headers['Strict-Transport-Security'] = self::hsts();
         }
 
         foreach ($headers as $name => $value) {
@@ -47,6 +50,11 @@ class SecurityHeaders
         }
 
         return $response;
+    }
+
+    public static function hsts(): string
+    {
+        return 'max-age='.self::HSTS_MAX_AGE.(config('offing.hsts_include_subdomains') ? '; includeSubDomains' : '');
     }
 
     public static function contentSecurityPolicy(): string
