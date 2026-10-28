@@ -139,15 +139,18 @@ export default function BarometerReadingForm({ reading, today, now, submitLabel,
                 </div>
             ))}
 
-            <RatingPicker
-                id="rating_after"
-                label="Second rating"
-                hint="How anxious do you feel now? Often easiest to add a little later."
-                value={data.rating_after}
-                onChange={(value) => setData('rating_after', value)}
-                error={errors.rating_after}
-                optional
-            />
+            {/* #second-rating: where a check-in (#36) lands. */}
+            <div id="second-rating" className="scroll-mt-20">
+                <RatingPicker
+                    id="rating_after"
+                    label="Second rating"
+                    hint="How anxious do you feel now? Often easiest to add a little later."
+                    value={data.rating_after}
+                    onChange={(value) => setData('rating_after', value)}
+                    error={errors.rating_after}
+                    optional
+                />
+            </div>
 
             <div className="flex items-center gap-3">
                 <Button disabled={processing || data.rating_before === ''}>{submitLabel}</Button>

@@ -18,6 +18,12 @@ The rest is optional:
 
 Deleting a reading removes it for good. There's no undo.
 
+## Check-ins
+
+About 30 minutes after you take a reading, Offing sends you "Time for a quick check-in" if you haven't added a second rating yet. You get it as a notification if you've turned notifications on for your phone, and by email otherwise. It links straight to the second rating. It never says what you logged, so it's safe on a lock screen.
+
+You won't get one for a reading you're logging from earlier, or one without a time. To stop them, untick **Check in after a reading** on the Barometer page, or use the link at the bottom of a check-in email.
+
 ## Exporting for your therapist
 
 Choose **Export** at the top of the Barometer page, pick a date range (up to a year) and choose **Download PDF** or **Download CSV**. The PDF prints on A4 and is laid out like the paper form, titled "Anxiety log". The CSV opens in Excel or Numbers.
