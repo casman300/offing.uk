@@ -46,6 +46,7 @@ functionality, **patch** = fixes.
 - Feature flag stages are set on `/admin/features` (Off, Admins only, Beta testers, Percentage, Everyone), audited, instead of only in code; the class's stage is the starting point and "Use code default" goes back to it. A new **Beta testers** stage covers admins plus users ticked "Beta tester" on `/admin/users` (audited). Pennant now stores only explicit per-user overrides, never a user's first resolved value, so a stage change reaches everyone on their next page load; "Reset to default" became "Clear overrides". A migration drops stored values that only repeated the stage default.
 
 - Frontend URLs come from Laravel Wayfinder's generated, typed route helpers instead of Ziggy. A mistyped route name is now a `tsc` error, and pages no longer carry the app's full route list (admin routes included) in their HTML. CI now type-checks (`tsc --noEmit`).
+- `.env.example` now documents what each staging/production host needs, and the command that generates each key. It gains `PUBLIC_PATH`, `SESSION_SECURE_COOKIE` and `LOG_DAILY_DAYS` notes, and drops settings nothing on 20i uses (Redis, Memcached, AWS, `BCRYPT_ROUNDS` and others).
 - The calendar feed is generated with sabre/vobject (already used for parsing) instead of spatie/icalendar-generator. Names containing double quotes are now escaped correctly per RFC 5545 (previously `\"`).
 
 ### Removed
