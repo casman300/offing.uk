@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Features\Crews;
+use App\Features\Shipshape;
+use App\Mail\CrewInviteMail;
 use App\Models\AuditLog;
 use App\Models\Crew;
 use App\Models\CrewInvite;
@@ -10,11 +13,13 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Laravel\Pennant\Feature;
 
 /**
  * Crews (spec §7): /crew lists yours and any invites waiting for you;
@@ -92,6 +97,9 @@ class CrewController extends Controller
             'role' => $m->role,
             'is_me' => $m->user_id === $user->id,
             'is_account' => $m->user_id !== null,
+            // Spec §15: while these are in preview, say so rather than let a
+            // newcomer's crew look empty to them for no visible reason.
+            'missing_features' => $me->isCaptain() && $m->user !== null && $m->left_at === null ? $this->missingFeatures($m->user) : [],
         ];
 
         return Inertia::render('crew/show', [
@@ -183,22 +191,28 @@ class CrewController extends Controller
             throw ValidationException::withMessages(['email' => "They're already aboard."]);
         }
 
-        $invite = DB::transaction(function () use ($crew, $email, $data, $user) {
+        [$invite, $url] = DB::transaction(function () use ($crew, $email, $data, $user) {
             // A fresh invite replaces any still-open one to the same address.
             $crew->invites()->pending()->where('email', $email)->update(['revoked_at' => now()]);
 
-            return $crew->invites()->create([
+            $invite = $crew->invites()->create([
                 'email' => $email,
                 'role' => $data['role'],
                 'invited_by_user_id' => $user->id,
                 'expires_at' => now()->addDays(CrewInvite::EXPIRES_AFTER_DAYS),
             ]);
+
+            return [$invite, $invite->issueLink()];
         });
+
+        // Emailed whether or not that address has an account: the link signs
+        // a newcomer up, and an existing account signs in to answer it.
+        Mail::to($email)->queue(new CrewInviteMail($crew->name, $user->name, $invite->role, $url));
 
         AuditLog::record($user, 'crew_invite.sent', $crew, ['invite_id' => $invite->id, 'email' => $email, 'role' => $invite->role], $request->ip());
 
         // Same message whether or not that email has an account.
-        return back()->with('status', "Invited {$email}. It shows up on their Crew page when they sign in.");
+        return back()->with('status', "Invited {$email} — we've emailed them a link to join.");
     }
 
     public function revokeInvite(Request $request, int $crew, int $invite): RedirectResponse
@@ -218,17 +232,7 @@ class CrewController extends Controller
         $model = CrewInvite::query()->for($user)->pending()->whereHas('crew')->findOrFail($invite);
         $crew = $model->crew;
 
-        DB::transaction(function () use ($model, $crew, $user) {
-            $membership = $crew->members()->firstOrNew(['user_id' => $user->id]);
-
-            if ($membership->exists && $membership->left_at === null) {
-                // Already aboard — accepting changes nothing but the invite.
-            } else {
-                $membership->fill(['role' => $model->role, 'joined_at' => now(), 'left_at' => null])->save();
-            }
-
-            $model->forceFill(['accepted_at' => now()])->save();
-        });
+        abort_unless($model->acceptFor($user), 404);
 
         AuditLog::record($user, 'crew_invite.accepted', $crew, ['invite_id' => $model->id, 'role' => $model->role], $request->ip());
 
@@ -240,7 +244,7 @@ class CrewController extends Controller
         $user = $request->user();
         $model = CrewInvite::query()->for($user)->pending()->findOrFail($invite);
 
-        $model->forceFill(['declined_at' => now()])->save();
+        abort_unless($model->claim('declined_at'), 404);
         AuditLog::record($user, 'crew_invite.declined', $model->crew()->withTrashed()->first(), ['invite_id' => $model->id], $request->ip());
 
         return back()->with('status', 'Invite declined.');
@@ -394,6 +398,19 @@ class CrewController extends Controller
         AuditLog::record($user, 'crew.member_left', $crew, ['member_id' => $me->id], $request->ip());
 
         return to_route('crew.index')->with('status', "You've left {$crew->name}.");
+    }
+
+    /**
+     * The features a crewmate needs to see what's shared with them, by name,
+     * that aren't switched on for $user yet.
+     *
+     * @return list<string>
+     */
+    private function missingFeatures(User $user): array
+    {
+        $needed = ['Crews' => Crews::class, 'Shipshape' => Shipshape::class];
+
+        return array_keys(array_filter($needed, fn (string $feature) => Feature::for($user)->inactive($feature)));
     }
 
     /**

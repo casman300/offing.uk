@@ -20,6 +20,8 @@ interface Member {
     role: CrewRole;
     is_me: boolean;
     is_account: boolean;
+    /** Shown to captains: features this crewmate needs that aren't on for them yet. */
+    missing_features: string[];
 }
 
 interface Invite {
@@ -105,6 +107,12 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
                                     </p>
                                     {member.email && <p className="text-muted-foreground truncate text-sm">{member.email}</p>}
                                     {!member.is_account && <p className="text-muted-foreground text-sm">No account — crewmates act for them</p>}
+                                    {member.missing_features.length > 0 && (
+                                        <p className="text-sm text-amber-700 dark:text-amber-400">
+                                            {member.missing_features.join(' and ')} {member.missing_features.length > 1 ? "aren't" : "isn't"} switched on
+                                            for them yet, so they can't see this crew's things. Ask whoever runs your Offing.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {isCaptain && member.is_account && !member.is_me ? (
@@ -279,7 +287,7 @@ function InviteForm({ crewId }: { crewId: number }) {
             <Button disabled={processing} className="w-full">
                 Send invite
             </Button>
-            <p className="text-muted-foreground text-xs">They accept it from their own Crew page. Nothing is shared until they do.</p>
+            <p className="text-muted-foreground text-xs">We email them a link — new to Offing, they join with just their name. Nothing is shared until they accept.</p>
         </form>
     );
 }

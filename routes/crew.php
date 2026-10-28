@@ -2,6 +2,7 @@
 
 use App\Features\Crews;
 use App\Http\Controllers\CrewController;
+use App\Http\Controllers\CrewJoinController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Pennant\Middleware\EnsureFeaturesAreActive;
 
@@ -18,11 +19,19 @@ Route::middleware(['auth', EnsureFeaturesAreActive::using(Crews::class)])->group
     Route::delete('crew/{crew}', [CrewController::class, 'destroy'])->whereNumber('crew')->name('crew.destroy');
     Route::post('crew/{crew}/leave', [CrewController::class, 'leave'])->whereNumber('crew')->name('crew.leave');
 
-    Route::post('crew/{crew}/invites', [CrewController::class, 'invite'])->whereNumber('crew')->name('crew.invites.store');
+    Route::post('crew/{crew}/invites', [CrewController::class, 'invite'])->whereNumber('crew')->middleware('throttle:30,60')->name('crew.invites.store');
     Route::delete('crew/{crew}/invites/{invite}', [CrewController::class, 'revokeInvite'])->whereNumber(['crew', 'invite'])->name('crew.invites.revoke');
 
     Route::post('crew/{crew}/passengers', [CrewController::class, 'addPassenger'])->whereNumber('crew')->name('crew.passengers.store');
     Route::post('crew/{crew}/members/{member}/readd', [CrewController::class, 'readd'])->whereNumber(['crew', 'member'])->name('crew.members.readd');
     Route::patch('crew/{crew}/members/{member}', [CrewController::class, 'changeRole'])->whereNumber(['crew', 'member'])->name('crew.members.role');
     Route::delete('crew/{crew}/members/{member}', [CrewController::class, 'removeMember'])->whereNumber(['crew', 'member'])->name('crew.members.remove');
+});
+
+// A crew invite's emailed link (spec §15: the invite is the signup). Outside
+// the auth and flag middleware — newcomers have neither yet. GET shows who
+// it's for and a button; only the POST answers.
+Route::middleware(['signed', 'throttle:10,1'])->group(function () {
+    Route::get('crew/join/{invite}/{token}', [CrewJoinController::class, 'show'])->whereNumber('invite')->name('crew.join');
+    Route::post('crew/join/{invite}/{token}', [CrewJoinController::class, 'store'])->whereNumber('invite')->name('crew.join.store');
 });

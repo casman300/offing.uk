@@ -36,7 +36,7 @@ const when = (days: number, date: string | null) => {
 
 /** "In the offing" — today's and overdue chores, birthdays coming up (spec §25). */
 export default function Dashboard({ today, chores, lists, birthdays }: Props) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, flash, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
     const byId = useMemo(() => Object.fromEntries(lists.map((list) => [list.id, list])), [lists]);
     const longDate = new Date(`${today}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
     const nothingOn = chores === null && birthdays === null;
@@ -52,6 +52,17 @@ export default function Dashboard({ today, chores, lists, birthdays }: Props) {
                         {longDate} · hello {auth.user.name.split(' ')[0]}
                     </p>
                 </div>
+
+                {flash.status && (
+                    <p role="status" className="bg-accent text-accent-foreground rounded-lg px-4 py-3 text-sm">
+                        {flash.status}
+                    </p>
+                )}
+                {errors.email && (
+                    <p role="alert" className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
+                        {errors.email}
+                    </p>
+                )}
 
                 <LoggedToast />
 
