@@ -9,6 +9,7 @@ use App\Models\CrewInvite;
 use App\Models\FeedToken;
 use App\Models\MagicLink;
 use App\Models\Passkey;
+use App\Models\SignIn;
 use App\Models\User;
 use App\Support\ConnectClaude\AccessLevel;
 use App\Support\Users\EmailChange;
@@ -38,6 +39,16 @@ function requestEmailChange(User $user, string $to): void
 }
 
 /** The confirm URL from the queued mail to $to. */
+/**
+ * Days later the old session has long expired (and TrackSignIns says so):
+ * come back in a new one, as a remember cookie would.
+ */
+function laterSession(User $user): void
+{
+    app('session.store')->forget(SignIn::SESSION_KEY);
+    test()->actingAs($user);
+}
+
 function confirmUrlFor(string $to): string
 {
     $url = null;
@@ -209,6 +220,7 @@ describe('confirming', function () {
         $url = confirmUrlFor('new@example.com');
 
         $this->travel(EmailChange::CONFIRM_MINUTES + 1)->minutes();
+        laterSession($user);
 
         $this->post($url)->assertForbidden();
         expect($user->refresh()->email)->toBe('old@example.com');
@@ -390,6 +402,7 @@ describe('undoing ("this wasn\'t me")', function () {
         $url = revertUrlFor('old@example.com');
 
         $this->travel(EmailChange::REVERT_MINUTES - 5)->minutes();
+        laterSession($user);
         $this->post($url)->assertSessionHasNoErrors();
         $this->post($url)->assertSessionHasErrors('email');
 

@@ -24,9 +24,10 @@ Route::middleware('auth')->group(function () {
     Route::redirect('settings/feeds', '/settings/connected-apps');
 
     Route::get('settings/devices', [DevicesController::class, 'index'])->name('devices.index');
-    Route::post('settings/devices/sign-out-others', [DevicesController::class, 'signOutOthers'])
-        ->middleware(EnsureFeaturesAreActive::using(SignInDevices::class))
-        ->name('devices.sign-out-others');
+    Route::middleware(EnsureFeaturesAreActive::using(SignInDevices::class))->group(function () {
+        Route::delete('settings/devices/{signIn}', [DevicesController::class, 'destroy'])->whereNumber('signIn')->name('devices.destroy');
+        Route::post('settings/devices/sign-out-others', [DevicesController::class, 'signOutOthers'])->name('devices.sign-out-others');
+    });
 
     Route::post('settings/passkeys/options', [PasskeyController::class, 'options'])->middleware('throttle:20,1')->name('passkeys.options');
     Route::post('settings/passkeys', [PasskeyController::class, 'store'])->middleware('throttle:20,1')->name('passkeys.store');

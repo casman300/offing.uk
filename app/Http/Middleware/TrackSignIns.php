@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Keeps each browser's SignIn row current, and ends the session of a
- * browser that was signed out from another one ("Sign out everywhere
- * else"), whatever the session driver or remember cookie still say.
+ * Every signed-in request belongs to a SignIn (see the model). One that
+ * was signed out from another browser, or has run out, ends here, however
+ * long its session or remember cookie would otherwise have lasted.
  */
 class TrackSignIns
 {
@@ -19,19 +19,21 @@ class TrackSignIns
     {
         $user = $request->user();
 
-        if ($user !== null) {
-            $signIn = SignIn::current($request, $user);
-
-            if ($signIn->signed_out_at !== null) {
-                Auth::guard('web')->logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
-                return redirect()->route('login');
-            }
-
-            $signIn->touchActivity($request);
+        if ($user === null) {
+            return $next($request);
         }
+
+        $signIn = SignIn::forRequest($request, $user);
+
+        if (! $signIn->isActive()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->guest(route('login'));
+        }
+
+        $signIn->touchActivity($request);
 
         return $next($request);
     }

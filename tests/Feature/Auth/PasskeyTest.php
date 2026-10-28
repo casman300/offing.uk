@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\PasskeySetupController;
 use App\Mail\PasskeyAddedMail;
 use App\Models\AuditLog;
 use App\Models\Passkey;
+use App\Models\SignIn;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
@@ -119,7 +120,7 @@ describe('sign-in', function () {
         passkeyLogin($authenticator)->assertRedirect('/dashboard');
 
         $this->assertAuthenticatedAs($user);
-        expect($user->fresh()->remember_token)->not->toBeNull()
+        expect(SignIn::where('method', 'passkey')->sole()->remember_hash)->not->toBeNull()
             ->and(Passkey::sole()->last_used_at)->not->toBeNull()
             ->and(json_decode(Passkey::sole()->credential, true)['counter'])->toBe(1)
             ->and(AuditLog::where('action', 'auth.login')->latest('id')->first()->meta)->toBe(['method' => 'passkey']);

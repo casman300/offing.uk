@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Auth\SignInUserProvider;
 use App\Features\OverridesOnlyDriver;
 use App\Features\StageOverrides;
 use App\Http\Controllers\ConnectClaude\ConsentController;
@@ -13,6 +14,7 @@ use Carbon\CarbonInterval;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -55,10 +57,15 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(3)->by(Str::lower((string) $request->input('email')));
         });
 
-        // However a browser signs out, it leaves Settings → Sign-in & devices.
+        // Remember-me tokens per sign-in, not one shared per user.
+        Auth::provider('sign-ins', fn ($app, array $config) => new SignInUserProvider($app['hash'], $config['model']));
+
+        // However a browser signs out, its sign-in ends with it.
         Event::listen(function (Logout $event) {
-            if ($event->user instanceof User) {
-                SignIn::markSignedOut(request(), $event->user);
+            $id = request()->hasSession() ? request()->session()->get(SignIn::SESSION_KEY) : null;
+
+            if (is_numeric($id) && $event->user instanceof User) {
+                SignIn::where('user_id', $event->user->id)->whereKey((int) $id)->first()?->signOut();
             }
         });
 

@@ -16,7 +16,8 @@ use Laravel\Pennant\Feature;
 
 /**
  * Settings → Sign-in & devices (spec §15): your passkeys, and every browser
- * you're signed in on, with one "Sign out everywhere else".
+ * you're signed in on, each of which can be signed out, or all the others
+ * at once. Every sign-out is audited.
  */
 class DevicesController extends Controller
 {
@@ -38,8 +39,9 @@ class DevicesController extends Controller
                     ->map(fn (SignIn $signIn) => [
                         'id' => $signIn->id,
                         'name' => SignIn::describe($signIn->user_agent),
+                        'ip_address' => $signIn->ip_address,
                         'method' => $signIn->method,
-                        'current' => SignIn::isCurrentDevice($request, $signIn),
+                        'current' => SignIn::isCurrent($request, $signIn),
                         'signed_in_at' => $signIn->signed_in_at?->toIso8601String(),
                         'last_active_at' => $signIn->last_active_at->toIso8601String(),
                     ])
@@ -50,15 +52,38 @@ class DevicesController extends Controller
     }
 
     /**
-     * One button, every other browser. This one stays signed in, with a
-     * fresh remember cookie if it had one (the old token no longer works).
+     * Sign one browser out. It's turned away on its next request, and its
+     * remember cookie stops working. This browser's own row signs out here
+     * and now, like the menu's Log out.
+     */
+    public function destroy(Request $request, int $signIn): RedirectResponse
+    {
+        $user = $request->user();
+        $model = SignIn::where('user_id', $user->id)->active()->findOrFail($signIn);
+
+        AuditLog::record($user, 'auth.signed_out_device', $model, ['name' => SignIn::describe($model->user_agent)], $request->ip());
+
+        if (SignIn::isCurrent($request, $model)) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect('/');
+        }
+
+        $model->signOut();
+
+        return to_route('devices.index')->with('status', 'signed-out-device');
+    }
+
+    /**
+     * Every other browser at once. This one stays signed in.
      */
     public function signOutOthers(Request $request): RedirectResponse
     {
         $user = $request->user();
 
-        $count = SignIn::signOutEverywhere($user, except: SignIn::current($request, $user), exceptSessionId: $request->session()->getId());
-        Auth::guard('web')->login($user, remember: SignIn::hasRememberCookie($request));
+        $count = SignIn::signOutEverywhere($user, except: SignIn::forRequest($request, $user), exceptSessionId: $request->session()->getId());
 
         AuditLog::record($user, 'auth.signed_out_others', meta: ['devices' => $count], ip: $request->ip());
 

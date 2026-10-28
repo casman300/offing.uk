@@ -97,12 +97,9 @@ class MagicLinkController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        Auth::login($user, remember: $magicLink->remember);
-
-        $request->session()->regenerate();
+        SignIn::start($request, $user, 'magic_link', $magicLink->remember);
 
         AuditLog::record($user, 'auth.login', ip: $request->ip());
-        SignIn::record($request, $user, 'magic_link', $magicLink->remember);
 
         // Spec §15: offer a passkey so next time is Face ID, not email. The
         // intended URL stays in the session for the setup page to continue to.

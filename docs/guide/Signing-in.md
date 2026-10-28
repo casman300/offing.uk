@@ -26,11 +26,13 @@ Email links always work, even after you've set up a passkey. If you lose your ph
 
 ## Where you're signed in
 
-**Settings → Sign-in & devices** lists every browser and device signed in to your account, such as "Chrome on Windows" or "Safari on iPhone", with when each one signed in and when it was last used. Each browser is listed separately, even two on the same computer.
+**Settings → Sign-in & devices** lists every browser and device signed in to your account, such as "Chrome on Windows" or "Safari on iPhone". Each shows when it signed in, when it was last used and the internet address it was last used from. Each browser is listed separately, even two on the same computer.
 
-If you see one you don't recognise, or you've signed in on someone else's computer, choose **Sign out everywhere else**. Every other browser is signed out straight away and needs an email link or passkey to get back in. You stay signed in where you are.
+If you see one you don't recognise, or you've signed in on someone else's computer, choose **Sign out** next to it. It's signed out straight away and needs an email link or passkey to get back in. **Sign out everywhere else** does the same for every browser but the one you're using.
 
-Signing out of one browser (from the menu) removes it from the list.
+If a browser you know changes name or address in the list without you signing in again, someone may have copied its sign-in. Sign it out, then sign in again on that device.
+
+You stay signed in on each device for 90 days after you last used it.
 
 ## Changing your email
 

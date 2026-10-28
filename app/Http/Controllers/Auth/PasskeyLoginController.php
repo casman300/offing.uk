@@ -9,7 +9,6 @@ use App\Support\Passkeys\WebAuthn;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * Passkey sign-in (#9). A verified passkey signs its owner in on its own,
@@ -38,11 +37,9 @@ class PasskeyLoginController extends Controller
 
         $user = $passkey->user;
 
-        Auth::login($user, remember: true);
-        $request->session()->regenerate();
+        SignIn::start($request, $user, 'passkey', remember: true);
 
         AuditLog::record($user, 'auth.login', $passkey, ['method' => 'passkey'], $request->ip());
-        SignIn::record($request, $user, 'passkey', remembered: true);
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

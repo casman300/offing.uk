@@ -25,6 +25,7 @@ interface Passkey {
 interface SignIn {
     id: number;
     name: string;
+    ip_address: string | null;
     method: 'magic_link' | 'passkey' | null;
     current: boolean;
     signed_in_at: string | null;
@@ -65,7 +66,7 @@ export default function Devices({ passkeys, signIns }: { passkeys: Passkey[]; si
             <Head title="Sign-in & devices" />
 
             <SettingsLayout>
-                {signIns && <SignedIn signIns={signIns} signedOutOthers={flash.status === 'signed-out-others'} />}
+                {signIns && <SignedIn signIns={signIns} status={flash.status} />}
 
                 <div className="space-y-6">
                     <HeadingSmall
@@ -108,7 +109,7 @@ export default function Devices({ passkeys, signIns }: { passkeys: Passkey[]; si
     );
 }
 
-function SignedIn({ signIns, signedOutOthers }: { signIns: SignIn[]; signedOutOthers: boolean }) {
+function SignedIn({ signIns, status }: { signIns: SignIn[]; status?: string | null }) {
     const others = signIns.filter((signIn) => !signIn.current).length;
     const [processing, setProcessing] = useState(false);
 
@@ -121,33 +122,29 @@ function SignedIn({ signIns, signedOutOthers }: { signIns: SignIn[]; signedOutOt
 
     return (
         <div className="space-y-6">
-            <HeadingSmall title="Where you’re signed in" description="Every browser and device signed in to your account." />
+            <HeadingSmall
+                title="Where you’re signed in"
+                description="Every browser and device signed in to your account. Don’t recognise one? Sign it out."
+            />
 
             <ul className="bg-card divide-border divide-y rounded-xl border">
                 {signIns.map((signIn) => (
-                    <li key={signIn.id} className="px-4 py-3">
-                        <p className="font-medium">
-                            {signIn.name}
-                            {signIn.current && <span className="text-muted-foreground ml-2 text-sm font-normal">This device</span>}
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                            {signIn.signed_in_at
-                                ? `Signed in ${formatDate(signIn.signed_in_at)}${signIn.method ? ` with ${METHODS[signIn.method]}` : ''}`
-                                : 'Signed in before Offing kept track'}
-                            {' · '}
-                            {signIn.current ? 'active now' : `active ${relativeTime(signIn.last_active_at)}`}
-                        </p>
-                    </li>
+                    <SignInRow key={signIn.id} signIn={signIn} />
                 ))}
             </ul>
 
-            {signedOutOthers && (
+            {status === 'signed-out-others' && (
                 <p role="status" className="text-sm text-green-600">
                     Signed out everywhere else.
                 </p>
             )}
+            {status === 'signed-out-device' && (
+                <p role="status" className="text-sm text-green-600">
+                    Signed out. It’ll need an email link or passkey to get back in.
+                </p>
+            )}
 
-            {others > 0 && (
+            {others > 1 && (
                 <Dialog>
                     <DialogTrigger asChild>
                         <Button variant="outline">
@@ -158,8 +155,7 @@ function SignedIn({ signIns, signedOutOthers }: { signIns: SignIn[]; signedOutOt
                     <DialogContent>
                         <DialogTitle>Sign out everywhere else?</DialogTitle>
                         <DialogDescription>
-                            {others === 1 ? 'The other device' : `The other ${others} devices`} will need an email link or passkey to get back in.
-                            You’ll stay signed in here.
+                            The other {others} devices will need an email link or passkey to get back in. You’ll stay signed in here.
                         </DialogDescription>
                         <DialogFooter>
                             <DialogClose asChild>
@@ -175,6 +171,54 @@ function SignedIn({ signIns, signedOutOthers }: { signIns: SignIn[]; signedOutOt
                 </Dialog>
             )}
         </div>
+    );
+}
+
+function SignInRow({ signIn }: { signIn: SignIn }) {
+    const signOut = () => router.delete(devices.destroy.url(signIn.id), { preserveScroll: true });
+
+    return (
+        <li className="flex items-center justify-between gap-4 px-4 py-3">
+            <div className="min-w-0">
+                <p className="font-medium">
+                    {signIn.name}
+                    {signIn.current && <span className="text-muted-foreground ml-2 text-sm font-normal">This device</span>}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                    {signIn.signed_in_at
+                        ? `Signed in ${formatDate(signIn.signed_in_at)}${signIn.method ? ` with ${METHODS[signIn.method]}` : ''}`
+                        : 'Signed in before Offing kept track'}
+                    {' · '}
+                    {signIn.current ? 'active now' : `active ${relativeTime(signIn.last_active_at)}`}
+                    {signIn.ip_address && ` · ${signIn.ip_address}`}
+                </p>
+            </div>
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="shrink-0" aria-label={`Sign out ${signIn.name}`}>
+                        Sign out
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogTitle>{signIn.current ? 'Sign out of this device?' : `Sign out ${signIn.name}?`}</DialogTitle>
+                    <DialogDescription>
+                        {signIn.current
+                            ? 'You’ll need an email link or passkey to sign in here again.'
+                            : 'It’s signed out straight away and will need an email link or passkey to get back in.'}
+                    </DialogDescription>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="secondary">Cancel</Button>
+                        </DialogClose>
+                        <DialogClose asChild>
+                            <Button variant="destructive" onClick={signOut}>
+                                Sign out
+                            </Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </li>
     );
 }
 
