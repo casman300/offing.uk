@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Features\OverridesOnlyDriver;
+use App\Features\StageOverrides;
 use App\Http\Controllers\ConnectClaude\ConsentController;
 use App\Models\User;
 use App\Support\Push\PushSender;
@@ -14,6 +16,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
+use Laravel\Pennant\Feature;
 use Laravel\Pennant\Middleware\EnsureFeaturesAreActive;
 
 class AppServiceProvider extends ServiceProvider
@@ -26,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
         // Connect Claude only uses the authorization-code grant (spec §12);
         // set before Passport boots and registers the device-flow routes.
         Passport::$deviceCodeGrantEnabled = false;
+
+        // Stages set on /admin/features, read once per request.
+        $this->app->scoped(StageOverrides::class);
 
         $this->app->singleton(PushSender::class, fn () => new WebPushSender(
             config('offing.vapid.public_key'),
@@ -45,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('magic-link-email', function (Request $request) {
             return Limit::perMinute(3)->by(Str::lower((string) $request->input('email')));
         });
+
+        // The `features` table holds per-user overrides only (see the driver).
+        Feature::extend('overrides-only', fn ($app) => new OverridesOnlyDriver($app['db'], $app['events'], $app['config'], 'database', []));
 
         // A dark-launched feature should look like it doesn't exist, not
         // like a broken request (Pennant's default is a 400).

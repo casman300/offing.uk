@@ -55,6 +55,16 @@ class User extends Authenticatable implements OAuthenticatable
     public const DELIVERY_BOTH = 'both';
 
     /**
+     * Column defaults, so a just-created model reads the same as a loaded one.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'barometer_check_ins' => true,
+        'is_beta_tester' => false,
+    ];
+
+    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>
@@ -73,6 +83,8 @@ class User extends Authenticatable implements OAuthenticatable
         return [
             'email_verified_at' => 'datetime',
             'reminders_enabled_at' => 'datetime',
+            'barometer_check_ins' => 'boolean',
+            'is_beta_tester' => 'boolean',
         ];
     }
 

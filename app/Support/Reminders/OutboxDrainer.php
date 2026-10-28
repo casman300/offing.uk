@@ -41,6 +41,7 @@ final class OutboxDrainer
         $totals = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'retrying' => 0];
 
         OutboxMessage::query()
+            ->where('kind', OutboxMessage::KIND_BIRTHDAY)
             ->where('status', OutboxMessage::PENDING)
             ->where('channel', 'email')
             ->where('send_at', '<=', $now)
@@ -74,11 +75,11 @@ final class OutboxDrainer
         $people = $user->people()->whereIn('id', $batch->pluck('payload.person_id'))->get()->keyBy('id');
         /** @var list<array{person: Person, date: CarbonImmutable, turns: ?int}> $entries the filter drops anyone deleted */
         $entries = $batch
-            ->filter(fn (OutboxMessage $m) => $people->has($m->payload['person_id']))
+            ->filter(fn (OutboxMessage $m) => $people->has($m->birthday()['person_id']))
             ->map(fn (OutboxMessage $m) => [
-                'person' => $people[$m->payload['person_id']],
-                'date' => CarbonImmutable::parse($m->payload['date']),
-                'turns' => $m->payload['turns'],
+                'person' => $people[$m->birthday()['person_id']],
+                'date' => CarbonImmutable::parse($m->birthday()['date']),
+                'turns' => $m->birthday()['turns'],
             ])
             ->sortBy(fn (array $e) => mb_strtolower($e['person']->name))
             ->values()
@@ -88,7 +89,7 @@ final class OutboxDrainer
             return $this->mark($batch, OutboxMessage::SKIPPED, 'Everyone in this reminder was deleted before sending.');
         }
 
-        $daysBefore = (int) $first->payload['days_before'];
+        $daysBefore = $first->birthday()['days_before'];
         $delivery = $user->reminder_delivery ?? User::DELIVERY_EMAIL;
         $via = [];
         $note = null;

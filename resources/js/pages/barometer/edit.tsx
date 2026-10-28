@@ -7,12 +7,35 @@ import barometer from '@/routes/barometer';
 import { type BarometerReading, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
+import { useEffect } from 'react';
 
 export default function EditReading({ reading, today, now }: { reading: BarometerReading; today: string; now: string }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Barometer', href: '/barometer' },
         { title: 'Edit reading', href: `/barometer/${reading.id}/edit` },
     ];
+
+    // Arriving from a check-in (#36): go straight to the second rating. On a
+    // fresh page load Inertia restores the saved scroll position after the
+    // page renders, then fires `navigate` — so scroll on that, with the next
+    // frame as a fallback in case it has already fired.
+    useEffect(() => {
+        if (window.location.hash !== '#second-rating') {
+            return;
+        }
+
+        const scroll = () => document.getElementById('second-rating')?.scrollIntoView({ block: 'start' });
+        const frame = requestAnimationFrame(scroll);
+        const stop = router.on('navigate', () => {
+            scroll();
+            stop();
+        });
+
+        return () => {
+            cancelAnimationFrame(frame);
+            stop();
+        };
+    }, []);
 
     const destroy = () => router.delete(barometer.destroy.url(reading.id));
 

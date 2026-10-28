@@ -49,10 +49,9 @@ final class Features
     }
 
     /**
-     * What Pennant has stored for these users, read straight from its table
-     * rather than through Feature::active() — Pennant stores whatever it
-     * resolves, so merely looking at a user in the admin would pin them.
-     * Missing = not checked yet (the stage decides).
+     * The per-user overrides stored for these users, read straight from
+     * Pennant's table (which holds nothing else — OverridesOnlyDriver).
+     * Missing = no override; the stage decides.
      *
      * @param  list<string>  $names
      * @param  array<int, User>  $users

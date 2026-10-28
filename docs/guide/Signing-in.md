@@ -14,7 +14,9 @@ To set one up, see [Passkeys](Passkeys.md).
 
 1. Go to the [sign-in page](/login) and enter your email address.
 2. We email you a one-time sign-in link.
-3. Click the link and you're in.
+3. Click the link. It opens a page showing which account it signs in to. Press **Continue** and you're in.
+
+If the email shown isn't yours, close the page. Nothing happens unless you press Continue.
 
 Each link works once and expires soon after it's sent. If yours has expired, request a new one from the sign-in page.
 

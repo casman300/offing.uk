@@ -1,10 +1,12 @@
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import barometer from '@/routes/barometer';
 import { type BarometerReading, type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ChevronRight, Download, Gauge, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -15,9 +17,11 @@ interface Props {
     readings: BarometerReading[];
     nextPageUrl: string | null;
     previousPageUrl: string | null;
+    /** Whether a check-in is sent ~30 minutes after a reading without a second rating (#36). */
+    checkIns: boolean;
 }
 
-export default function BarometerIndex({ today, readings, nextPageUrl, previousPageUrl }: Props) {
+export default function BarometerIndex({ today, readings, nextPageUrl, previousPageUrl, checkIns }: Props) {
     const { flash } = usePage<SharedData>().props;
 
     const days = useMemo(() => {
@@ -124,6 +128,23 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                         )}
                     </div>
                 )}
+
+                <div className="flex items-start gap-3">
+                    <Checkbox
+                        id="check-ins"
+                        checked={checkIns}
+                        onCheckedChange={(checked) =>
+                            router.patch(barometer.checkIns.update.url(), { on: checked === true }, { preserveScroll: true })
+                        }
+                    />
+                    <div className="grid gap-1">
+                        <Label htmlFor="check-ins">Check in after a reading</Label>
+                        <p className="text-muted-foreground text-sm">
+                            About 30 minutes after a reading without a second rating, you’ll get “Time for a quick check-in” — as a notification if
+                            you’ve turned them on, otherwise by email. It never says what you logged.
+                        </p>
+                    </div>
+                </div>
 
                 <p className="text-muted-foreground border-t pt-4 text-xs leading-relaxed">
                     Barometer follows a common CBT (cognitive behavioural therapy) anxiety-tracking format. It works best alongside a therapist, and

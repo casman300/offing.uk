@@ -25,6 +25,7 @@ interface UserRow {
     email: string;
     timezone: string | null;
     is_admin: boolean;
+    is_beta_tester: boolean;
     created_at: string | null;
     last_login_at: string | null;
     passkeys: number;
@@ -69,6 +70,8 @@ export default function AdminUsers({ q, timezones, defaultTimezone, flags, users
         e.preventDefault();
         router.get(admin.users.index.url(), query.trim() === '' ? {} : { q: query.trim() }, { preserveState: true, replace: true });
     };
+
+    const setBeta = (user: UserRow, beta: boolean) => router.post(admin.users.beta.url({ user: user.id }), { beta }, { preserveScroll: true });
 
     const sendLink = (user: UserRow) => router.post(admin.users.signInLink.url({ user: user.id }), {}, { preserveScroll: true });
 
@@ -202,6 +205,7 @@ export default function AdminUsers({ q, timezones, defaultTimezone, flags, users
                                             <span className="font-medium break-all">{user.email}</span>
                                             {user.name && <span className="text-muted-foreground text-sm">{user.name}</span>}
                                             {user.is_admin && <Badge variant="outline">Admin</Badge>}
+                                            {user.is_beta_tester && <Badge variant="outline">Beta tester</Badge>}
                                         </div>
                                         <p className="text-muted-foreground text-sm">
                                             {user.last_login_at ? `Last signed in ${fmtDate(user.last_login_at)}` : 'Never signed in'} · added{' '}
@@ -218,9 +222,21 @@ export default function AdminUsers({ q, timezones, defaultTimezone, flags, users
                                             </Link>
                                         </p>
                                     </div>
-                                    <Button variant="outline" size="sm" className="shrink-0" onClick={() => sendLink(user)}>
-                                        <Mail /> Send sign-in link
-                                    </Button>
+                                    <div className="flex shrink-0 flex-col gap-3 sm:items-end">
+                                        <Button variant="outline" size="sm" onClick={() => sendLink(user)}>
+                                            <Mail /> Send sign-in link
+                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox
+                                                id={`beta-${user.id}`}
+                                                checked={user.is_beta_tester}
+                                                onCheckedChange={(checked) => setBeta(user, checked === true)}
+                                            />
+                                            <Label htmlFor={`beta-${user.id}`} className="font-normal">
+                                                Beta tester
+                                            </Label>
+                                        </div>
+                                    </div>
                                 </li>
                             ))}
                         </ul>

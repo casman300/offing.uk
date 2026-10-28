@@ -9,6 +9,7 @@ import { Head, Link } from '@inertiajs/react';
 interface Message {
     id: number;
     user: string | null;
+    kind: 'birthday' | 'barometer_check_in';
     channel: string;
     slot: string | null;
     birthday: string | null;
@@ -82,8 +83,14 @@ export default function AdminOutbox({
                                     </Badge>
                                     <span className="font-medium">{m.user ?? 'deleted user'}</span>
                                     <span className="text-muted-foreground">
-                                        {m.slot === 'day_before' ? 'day before' : m.slot === 'on_the_day' ? 'on the day' : m.slot} · birthday{' '}
-                                        {m.birthday} · {m.channel}
+                                        {m.kind === 'barometer_check_in' ? (
+                                            'Barometer check-in'
+                                        ) : (
+                                            <>
+                                                {m.slot === 'day_before' ? 'day before' : m.slot === 'on_the_day' ? 'on the day' : m.slot} · birthday{' '}
+                                                {m.birthday} · {m.channel}
+                                            </>
+                                        )}
                                     </span>
                                 </div>
                                 <p className="text-muted-foreground">
