@@ -19,9 +19,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Settings pages that were folded into others keep their old addresses.
-    Route::redirect('settings/appearance', 'settings/profile');
-    Route::redirect('settings/passkeys', 'settings/devices');
-    Route::redirect('settings/feeds', 'settings/connected-apps');
+    Route::redirect('settings/appearance', '/settings/profile');
+    Route::redirect('settings/passkeys', '/settings/devices');
+    Route::redirect('settings/feeds', '/settings/connected-apps');
 
     Route::get('settings/devices', [DevicesController::class, 'index'])->name('devices.index');
     Route::post('settings/devices/sign-out-others', [DevicesController::class, 'signOutOthers'])
@@ -40,7 +40,7 @@ Route::middleware('auth')->group(function () {
 
 // AI assistants — Connect Claude (spec §12), for any MCP client.
 Route::middleware(['auth', EnsureFeaturesAreActive::using(ConnectClaude::class)])->group(function () {
-    Route::redirect('settings/ai-assistants', 'settings/connected-apps');
+    Route::redirect('settings/ai-assistants', '/settings/connected-apps');
     Route::patch('settings/ai-assistants/{grant}', [AiAssistantsController::class, 'update'])->whereNumber('grant')->name('ai-assistants.update');
     Route::delete('settings/ai-assistants/{grant}', [AiAssistantsController::class, 'destroy'])->whereNumber('grant')->name('ai-assistants.destroy');
 });

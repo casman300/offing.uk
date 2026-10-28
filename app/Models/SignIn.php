@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Auth\SessionGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Auth\SessionGuard;
 
 /**
  * A browser the user is signed in on, for Settings → Sign-in & devices
@@ -156,11 +156,12 @@ class SignIn extends Model
      */
     public function scopeActive(Builder $query): void
     {
-        /** @var SessionGuard $guard */
-        $guard = Auth::guard('web');
+        // The web guard's remember-cookie lifetime: its `remember` config, or
+        // Laravel's default of 400 days.
+        $rememberMinutes = (int) config('auth.guards.web.remember', 60 * 24 * 400);
 
         $query->whereNull('signed_out_at')->where(fn (Builder $q) => $q
-            ->where(fn (Builder $q) => $q->where('remembered', true)->where('last_active_at', '>', now()->subMinutes($guard->getRememberDuration())))
+            ->where(fn (Builder $q) => $q->where('remembered', true)->where('last_active_at', '>', now()->subMinutes($rememberMinutes)))
             ->orWhere(fn (Builder $q) => $q->where('remembered', false)->where('last_active_at', '>', now()->subMinutes((int) config('session.lifetime'))))
         );
     }

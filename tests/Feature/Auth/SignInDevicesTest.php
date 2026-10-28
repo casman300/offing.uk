@@ -82,13 +82,13 @@ it('lists every browser separately, this one first', function () {
         ->get('/settings/devices');
 
     $response->assertInertia(fn (Assert $page) => $page
-            ->component('settings/devices')
-            ->has('signIns', 3)
-            ->where('signIns.0.current', true)
-            ->where('signIns.0.name', 'Safari on Mac')
-            ->where('signIns.1.current', false)
-            ->where('signIns.2.current', false)
-            ->missing('signIns.0.device_hash'));
+        ->component('settings/devices')
+        ->has('signIns', 3)
+        ->where('signIns.0.current', true)
+        ->where('signIns.0.name', 'Safari on Mac')
+        ->where('signIns.1.current', false)
+        ->where('signIns.2.current', false)
+        ->missing('signIns.0.device_hash'));
 
     expect(collect($response->viewData('page')['props']['signIns'])->pluck('name')->all())
         ->toContain('Safari on iPhone', 'Chrome on Windows');
@@ -159,9 +159,10 @@ it('names browsers', function (string $userAgent, string $name) {
 ]);
 
 it('sends the old settings addresses to the pages they were folded into', function () {
-    $user = User::factory()->create();
+    $this->actingAs(User::factory()->create());
 
-    $this->actingAs($user)->get('/settings/appearance')->assertRedirect('/settings/profile');
-    $this->actingAs($user)->get('/settings/passkeys')->assertRedirect('/settings/devices');
-    $this->actingAs($user)->get('/settings/feeds')->assertRedirect('/settings/connected-apps');
+    // The raw Location header: a relative one lands on /settings/settings/….
+    $this->get('/settings/appearance')->assertHeader('Location', '/settings/profile');
+    $this->get('/settings/passkeys')->assertHeader('Location', '/settings/devices');
+    $this->get('/settings/feeds')->assertHeader('Location', '/settings/connected-apps');
 });

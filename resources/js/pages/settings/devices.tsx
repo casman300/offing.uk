@@ -158,7 +158,7 @@ function SignedIn({ signIns, signedOutOthers }: { signIns: SignIn[]; signedOutOt
                     <DialogContent>
                         <DialogTitle>Sign out everywhere else?</DialogTitle>
                         <DialogDescription>
-                            {others === 1 ? 'The other device' : `The other ${others} devices`} will need a magic link or passkey to get back in.
+                            {others === 1 ? 'The other device' : `The other ${others} devices`} will need an email link or passkey to get back in.
                             You’ll stay signed in here.
                         </DialogDescription>
                         <DialogFooter>
