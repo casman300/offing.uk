@@ -85,6 +85,12 @@ class CrewJoinController extends Controller
         }
 
         if ($answer === 'decline') {
+            // A copied link may be in a group chat: someone passing by mustn't
+            // be able to use it up. Only a signed-in account says no to one.
+            if ($state === 'link') {
+                return back()->withErrors(['email' => 'Sign in to decline this invite — or just ignore it.']);
+            }
+
             return $this->decline($request, $invite);
         }
 
@@ -248,8 +254,9 @@ class CrewJoinController extends Controller
     }
 
     /**
-     * Anyone holding the link may say no, since it went to them — unless
-     * they're signed in as someone else, which store() turns away.
+     * Saying no to an emailed invite needs only the link, since it went to
+     * that inbox; a copied link needs someone signed in (see store()), and
+     * nobody signed in as someone else can answer either.
      */
     private function decline(Request $request, CrewInvite $invite): RedirectResponse
     {

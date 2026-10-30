@@ -135,7 +135,6 @@ export default function Join({ crew, invitedBy, role, email, name, passenger, st
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         Email me a link to join
                     </Button>
-                    {decline}
 
                     <p className="text-muted-foreground text-center text-sm">
                         No password, now or ever. Already on Offing?{' '}

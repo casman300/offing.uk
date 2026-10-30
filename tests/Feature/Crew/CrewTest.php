@@ -511,6 +511,20 @@ describe('copied invite links', function () {
         $this->get(preg_replace('#/join/\d+/#', "/join/{$other->id}/", $confirm))->assertForbidden();
     });
 
+    it('can only be declined by someone signed in, so passers-by can’t use it up', function () {
+        $captain = sailor();
+        $home = crewOf($captain);
+        $link = copiedLink($captain, $home);
+
+        $this->post($link, ['answer' => 'decline'])->assertSessionHasErrors('email');
+        expect(CrewInvite::sole()->isPending())->toBeTrue();
+
+        $sam = sailor();
+        $this->actingAs($sam)->post($link, ['answer' => 'decline'])->assertRedirect('/dashboard');
+        expect(CrewInvite::sole()->declined_at)->not->toBeNull()
+            ->and($home->membershipOf($sam))->toBeNull();
+    });
+
     it('joins whoever is signed in, after saying who that is', function () {
         $captain = sailor();
         $home = crewOf($captain);
