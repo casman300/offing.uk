@@ -3,10 +3,11 @@ import { LoggedToast } from '@/components/shipshape/logged-toast';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type ChoreRow as Chore, type ListSummary } from '@/lib/shipshape';
+import barometer from '@/routes/barometer';
 import people from '@/routes/people';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Anchor, Cake, ChevronRight } from 'lucide-react';
+import { Anchor, Cake, ChevronRight, Gauge } from 'lucide-react';
 import { useMemo } from 'react';
 
 interface UpcomingBirthday {
@@ -17,11 +18,19 @@ interface UpcomingBirthday {
     turns: number | null;
 }
 
+/** A reading from today with no second rating yet: id and time only, never what was logged. */
+interface AwaitingReading {
+    id: number;
+    time: string | null;
+}
+
 interface Props {
     today: string;
     chores: Chore[] | null;
     lists: ListSummary[];
     birthdays: UpcomingBirthday[] | null;
+    /** Null while Barometer is off for you. */
+    awaitingSecondRating: AwaitingReading[] | null;
     /** Crews you're aboard while Crews is still in preview for you. */
     crewsInPreview: string[];
 }
@@ -36,12 +45,12 @@ const when = (days: number, date: string | null) => {
         : `In ${days} days`;
 };
 
-/** "In the offing" — today's and overdue chores, birthdays coming up (spec §25). */
-export default function Dashboard({ today, chores, lists, birthdays, crewsInPreview }: Props) {
+/** "In the offing" — today's and overdue chores, birthdays coming up, readings awaiting a second rating (spec §25, §26). */
+export default function Dashboard({ today, chores, lists, birthdays, awaitingSecondRating, crewsInPreview }: Props) {
     const { auth, flash, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
     const byId = useMemo(() => Object.fromEntries(lists.map((list) => [list.id, list])), [lists]);
     const longDate = new Date(`${today}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-    const nothingOn = chores === null && birthdays === null;
+    const nothingOn = chores === null && birthdays === null && !awaitingSecondRating?.length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -74,6 +83,39 @@ export default function Dashboard({ today, chores, lists, birthdays, crewsInPrev
                 )}
 
                 <LoggedToast />
+
+                {!!awaitingSecondRating?.length && (
+                    <section aria-labelledby="dash-barometer" className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <h2 id="dash-barometer" className="flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
+                                <Gauge className="size-4" aria-hidden /> Barometer
+                            </h2>
+                            <Link href={barometer.index.url()} className="text-primary flex items-center text-sm font-medium">
+                                All readings <ChevronRight className="size-4" aria-hidden />
+                            </Link>
+                        </div>
+                        <ul className="bg-card divide-y rounded-xl border">
+                            {awaitingSecondRating.map((reading) => (
+                                <li key={reading.id}>
+                                    <Link
+                                        href={`${barometer.edit.url(reading.id)}#second-rating`}
+                                        className="hover:bg-accent/40 flex items-center gap-3 px-4 py-3"
+                                    >
+                                        <span className="flex-1">
+                                            <span className="font-medium">
+                                                {reading.time ? `Today's ${reading.time} reading` : "Today's reading"}
+                                            </span>
+                                            <span className="text-muted-foreground block text-sm">No second rating yet</span>
+                                        </span>
+                                        <span className="text-primary flex items-center text-sm font-medium">
+                                            Add it <ChevronRight className="size-4" aria-hidden />
+                                        </span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
 
                 {chores !== null && (
                     <section aria-labelledby="dash-chores" className="space-y-2">
