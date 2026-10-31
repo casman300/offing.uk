@@ -303,3 +303,42 @@ describe('editing and deleting', function () {
         expect(BarometerReading::count())->toBe(0);
     });
 });
+
+describe('dashboard', function () {
+    it('lists today\'s readings without a second rating, by id and time only', function () {
+        $user = barometerUser();
+        $later = BarometerReading::factory()->for($user)->quick()->at('2026-10-16 11:30')->create();
+        $earlier = BarometerReading::factory()->for($user)->quick()->at('2026-10-16 08:15')->create();
+        $untimed = BarometerReading::factory()->for($user)->quick()->untimed('2026-10-16')->create();
+        BarometerReading::factory()->for($user)->at('2026-10-16 09:00')->create(['rating_after' => 3]);
+        BarometerReading::factory()->for($user)->quick()->at('2026-10-15 22:00')->create();
+        BarometerReading::factory()->quick()->at('2026-10-16 10:00')->create();
+
+        $this->actingAs($user)->get('/dashboard')
+            ->assertInertia(fn (Assert $page) => $page->where('awaitingSecondRating', [
+                ['id' => $earlier->id, 'time' => '08:15'],
+                ['id' => $later->id, 'time' => '11:30'],
+                ['id' => $untimed->id, 'time' => null],
+            ]));
+    });
+
+    it('goes by the viewer\'s day, not the reading\'s timezone', function () {
+        $user = barometerUser(['timezone' => 'America/New_York']);
+        // 02:00 on the 16th in London is still the 15th in New York.
+        BarometerReading::factory()->for($user)->quick()->at('2026-10-16 02:00')->create();
+        $today = BarometerReading::factory()->for($user)->quick()->at('2026-10-16 06:30', 'America/New_York')->create();
+
+        $this->actingAs($user)->get('/dashboard')
+            ->assertInertia(fn (Assert $page) => $page->where('awaitingSecondRating', [
+                ['id' => $today->id, 'time' => '06:30'],
+            ]));
+    });
+
+    it('is null while the flag is off', function () {
+        $user = User::factory()->create();
+        BarometerReading::factory()->for($user)->quick()->at('2026-10-16 11:00')->create();
+
+        $this->actingAs($user)->get('/dashboard')
+            ->assertInertia(fn (Assert $page) => $page->where('awaitingSecondRating', null));
+    });
+});
