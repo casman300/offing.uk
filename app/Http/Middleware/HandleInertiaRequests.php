@@ -67,6 +67,8 @@ class HandleInertiaRequests extends Middleware
                 'status' => $request->session()->get('status'),
                 'deleted' => $request->session()->get('deleted'),
                 'feedUrl' => $request->session()->get('feedUrl'),
+                // A copied crew invite link, shown once (only its hash is kept).
+                'inviteUrl' => $request->session()->get('inviteUrl'),
                 'logged' => $request->session()->get('logged'),
             ],
         ];

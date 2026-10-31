@@ -36,6 +36,8 @@ export interface Flash {
     status: string | null;
     deleted: { id: number; name: string } | null;
     feedUrl: { id: number; url: string } | null;
+    /** A copied crew invite link, shown once. */
+    inviteUrl: string | null;
     logged: { entry_id: number; title: string; kind: 'done' | 'skip'; by: string } | null;
 }
 

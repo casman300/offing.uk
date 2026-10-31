@@ -10,7 +10,7 @@ Every chore repeats. Shipshape isn't a to-do list, so one-off jobs like "fix the
 
 Chores live on lists. A list is either **just yours**, or **shared with a crew** (your household, for example). Everyone in the crew sees a shared list's chores and can tick them off.
 
-To start one, go to [Shipshape](/shipshape), choose **Lists**, give it a name and pick who it's shared with. To share chores you need to be in a crew first. You can start one on the [Crew](/crew) page.
+To start one, go to [Shipshape](/shipshape), choose **Lists**, give it a name and pick who it's shared with. To share chores you need to be in a crew first. You can start one on the [Crew](/crew) page, then invite your household: by email, or by copying a link to send on WhatsApp or anywhere else. If they're new to Offing, all they need to give is their name (and, from a copied link, their email to confirm). Someone who's been a passenger, like a child who's now old enough, can be given their own account from their row with **Give an account**, and the chores and history they had as a passenger come with them.
 
 When you create a list, Shipshape offers some suggestions, all ticked: daily jobs, weekly cleaning, a monthly deep clean and yearly renewals like car tax and the MOT. Untick anything that doesn't fit. You can come back to them later with **Suggestions** on the list.
 

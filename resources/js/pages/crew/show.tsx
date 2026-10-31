@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import crewRoutes from '@/routes/crew';
 import { type BreadcrumbItem, type CrewRole, type SharedData } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { LogOut, Mail, Pencil, Trash2, UserPlus, X } from 'lucide-react';
+import { Check, Copy, KeyRound, Link2, LogOut, Mail, Pencil, Share2, Trash2, UserPlus, X } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 interface Member {
@@ -20,11 +20,18 @@ interface Member {
     role: CrewRole;
     is_me: boolean;
     is_account: boolean;
+    /** Shown to captains: features this crewmate needs that aren't on for them yet. */
+    missing_features: string[];
 }
 
 interface Invite {
     id: number;
-    email: string;
+    /** Null for a copied link. */
+    email: string | null;
+    /** Who a copied link or passenger's invite is for. */
+    name: string | null;
+    /** Set when it gives this passenger an account. */
+    member_id: number | null;
     role: CrewRole;
     expires_at: string;
 }
@@ -84,6 +91,7 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
                         {flash.status}
                     </p>
                 )}
+                {flash.inviteUrl && <NewInviteLink url={flash.inviteUrl} crewName={crew.name} />}
                 {(errors.role || errors.member || errors.leave) && (
                     <p role="alert" className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
                         {errors.role || errors.member || errors.leave}
@@ -105,6 +113,12 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
                                     </p>
                                     {member.email && <p className="text-muted-foreground truncate text-sm">{member.email}</p>}
                                     {!member.is_account && <p className="text-muted-foreground text-sm">No account — crewmates act for them</p>}
+                                    {member.missing_features.length > 0 && (
+                                        <p className="text-sm text-amber-700 dark:text-amber-400">
+                                            {member.missing_features.join(' and ')} {member.missing_features.length > 1 ? "aren't" : "isn't"} switched
+                                            on for them yet, so they can't see this crew's things. Ask whoever runs your Offing.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {isCaptain && member.is_account && !member.is_me ? (
@@ -127,7 +141,10 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
                                     <div className="flex items-center gap-2">
                                         <RoleBadge role={member.role} />
                                         {isCaptain && !member.is_account && (
-                                            <ConfirmRemove member={member} crewName={crew.name} onConfirm={() => remove(member)} />
+                                            <>
+                                                <GiveAccount crewId={crew.id} member={member} />
+                                                <ConfirmRemove member={member} crewName={crew.name} onConfirm={() => remove(member)} />
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -169,9 +186,16 @@ export default function CrewShow({ crew, me, members, formerPassengers, captainC
                         <ul className="bg-card divide-border divide-y rounded-xl border">
                             {invites.map((invite) => (
                                 <li key={invite.id} className="flex items-center gap-3 px-4 py-3">
-                                    <Mail className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                                    {invite.email ? (
+                                        <Mail className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                                    ) : (
+                                        <Link2 className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                                    )}
                                     <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-medium">{invite.email}</p>
+                                        <p className="truncate text-sm font-medium">
+                                            {invite.member_id !== null && `Account for ${invite.name} · `}
+                                            {invite.email ?? (invite.member_id !== null || !invite.name ? 'copied link' : `Link for ${invite.name}`)}
+                                        </p>
                                         <p className="text-muted-foreground text-xs">
                                             As {ROLE_LABELS[invite.role].toLowerCase()} · expires{' '}
                                             {new Date(invite.expires_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
@@ -246,28 +270,74 @@ function ConfirmRemove({ member, crewName, onConfirm }: { member: Member; crewNa
     );
 }
 
-function InviteForm({ crewId }: { crewId: number }) {
-    const { data, setData, post, processing, errors, reset } = useForm({ email: '', role: 'crew' });
+/**
+ * Invite by email, or make a link to copy into WhatsApp and the like. With
+ * a passenger, it gives them an account: accepting makes their row theirs.
+ */
+function InviteForm({ crewId, passenger, onDone }: { crewId: number; passenger?: Member; onDone?: () => void }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        delivery: 'email' as 'email' | 'link',
+        email: '',
+        name: '',
+        role: 'crew',
+        member_id: passenger?.id ?? null,
+    });
+    const id = passenger ? `invite-${passenger.id}` : 'invite';
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(crewRoutes.invites.store.url(crewId), { preserveScroll: true, onSuccess: () => reset() });
+        post(crewRoutes.invites.store.url(crewId), {
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                onDone?.();
+            },
+        });
     };
 
     return (
-        <form onSubmit={submit} className="bg-card space-y-3 rounded-xl border p-4">
-            <h2 className="flex items-center gap-2 text-sm font-medium">
-                <Mail className="size-4" aria-hidden /> Invite by email
-            </h2>
-            <div className="grid gap-2">
-                <Label htmlFor="invite-email">Email</Label>
-                <Input id="invite-email" type="email" required value={data.email} onChange={(e) => setData('email', e.target.value)} />
-                <InputError message={errors.email} />
+        <form onSubmit={submit} className={cn('space-y-3', !passenger && 'bg-card rounded-xl border p-4')}>
+            {!passenger && (
+                <h2 className="flex items-center gap-2 text-sm font-medium">
+                    <Mail className="size-4" aria-hidden /> Invite someone
+                </h2>
+            )}
+            <div role="radiogroup" aria-label="How to send it" className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1 text-sm">
+                {(['email', 'link'] as const).map((delivery) => (
+                    <button
+                        key={delivery}
+                        type="button"
+                        role="radio"
+                        aria-checked={data.delivery === delivery}
+                        onClick={() => setData('delivery', delivery)}
+                        className={cn(
+                            'rounded-md px-2 py-1.5 font-medium',
+                            data.delivery === delivery ? 'bg-background shadow-sm' : 'text-muted-foreground',
+                        )}
+                    >
+                        {delivery === 'email' ? 'Email it' : 'Copy a link'}
+                    </button>
+                ))}
             </div>
+            {data.delivery === 'email' ? (
+                <div className="grid gap-2">
+                    <Label htmlFor={`${id}-email`}>Email</Label>
+                    <Input id={`${id}-email`} type="email" required value={data.email} onChange={(e) => setData('email', e.target.value)} />
+                    <InputError message={errors.email} />
+                </div>
+            ) : (
+                !passenger && (
+                    <div className="grid gap-2">
+                        <Label htmlFor={`${id}-name`}>Who's it for?</Label>
+                        <Input id={`${id}-name`} required maxLength={100} value={data.name} onChange={(e) => setData('name', e.target.value)} />
+                        <InputError message={errors.name} />
+                    </div>
+                )
+            )}
             <div className="grid gap-2">
-                <Label htmlFor="invite-role">As</Label>
+                <Label htmlFor={`${id}-role`}>As</Label>
                 <select
-                    id="invite-role"
+                    id={`${id}-role`}
                     className={cn(selectClass, 'h-10 w-full')}
                     value={data.role}
                     onChange={(e) => setData('role', e.target.value)}
@@ -277,10 +347,68 @@ function InviteForm({ crewId }: { crewId: number }) {
                 </select>
             </div>
             <Button disabled={processing} className="w-full">
-                Send invite
+                {data.delivery === 'email' ? 'Send invite' : 'Make link'}
             </Button>
-            <p className="text-muted-foreground text-xs">They accept it from their own Crew page. Nothing is shared until they do.</p>
+            <p className="text-muted-foreground text-xs">
+                {data.delivery === 'email'
+                    ? 'We email them a link — new to Offing, they join with just their name.'
+                    : 'You send it yourself. Whoever opens it confirms their own email before joining, and it works once.'}{' '}
+                {passenger ? `Their chores and history as ${passenger.name} come with them.` : 'Nothing is shared until they accept.'}
+            </p>
         </form>
+    );
+}
+
+/** "Give Gimli an account" (spec §7): an invite that turns this passenger's row into an account's. */
+function GiveAccount({ crewId, member }: { crewId: number; member: Member }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <KeyRound aria-hidden /> Give an account
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogTitle>Give {member.name} an account</DialogTitle>
+                <DialogDescription>
+                    They'll be able to sign in and see what's shared with the crew themselves, instead of crewmates acting for them.
+                </DialogDescription>
+                <InviteForm crewId={crewId} passenger={member} onDone={() => setOpen(false)} />
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+/** A copied invite link, shown once — only its hash is kept. */
+function NewInviteLink({ url, crewName }: { url: string; crewName: string }) {
+    const [copied, setCopied] = useState(false);
+    const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+    const copy = async () => {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+    };
+
+    const share = () => navigator.share({ title: `Join ${crewName} on Offing`, url }).catch(() => {});
+
+    return (
+        <div className="border-primary/40 bg-primary/5 space-y-3 rounded-xl border p-4">
+            <p className="font-medium">Copy this link now. It won’t be shown again.</p>
+            <div className="flex gap-2">
+                <Input readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label="Invite link" className="font-mono text-xs" />
+                <Button type="button" variant="secondary" onClick={copy} aria-label="Copy invite link">
+                    {copied ? <Check /> : <Copy />}
+                </Button>
+                {canShare && (
+                    <Button type="button" variant="secondary" onClick={share} aria-label="Share invite link">
+                        <Share2 />
+                    </Button>
+                )}
+            </div>
+            <p className="text-muted-foreground text-xs">Lost it? Withdraw the invite below and make another.</p>
+        </div>
     );
 }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Features\Barometer;
 use App\Features\BirthdayEngine;
+use App\Features\Crews;
 use App\Features\Shipshape;
 use App\Models\BarometerReading;
 use App\Models\ChoreList;
@@ -50,6 +51,10 @@ class DashboardController extends Controller
             'lists' => $lists->map(fn (ChoreList $list) => Board::listSummary($list, $user))->values(),
             'birthdays' => $birthdays,
             'awaitingSecondRating' => $features->active(Barometer::class) ? self::awaitingSecondRating($user, $today) : null,
+            // Spec §15: aboard a crew (say, via an emailed invite) while Crews
+            // is still in preview for them — say why, rather than show nothing.
+            'crewsInPreview' => $features->active(Crews::class) ? [] : $user->crewMemberships()->whereHas('crew')->with('crew:id,name')->get()
+                ->map(fn ($membership) => $membership->crew->name)->sort(SORT_NATURAL | SORT_FLAG_CASE)->values(),
         ]);
     }
 
