@@ -14,3 +14,9 @@ Offing is at the design stage. The first UI prototype is a set of clickable mock
 | ![Person page with birthday, address and reminders](docs/images/prototype-person.png) | ![Contact import review with new, matched and skipped contacts](docs/images/prototype-import.png) |
 
 The screenshots are rendered without the Instrument Sans web font, so type looks slightly different from the live prototype.
+
+## Running it
+
+For local development, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+To set up a staging or production host, start from [`.env.example`](.env.example). It lists every setting the host's `.env` needs, what to change for staging and production, and the commands that generate the keys (`key:generate`, `push:keys`, `connect-claude:keys`). It also covers the scheduler cron entry, without which no email is sent.
