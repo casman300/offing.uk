@@ -24,6 +24,8 @@ interface PendingInvite {
     crew: string;
     role: CrewRole;
     invited_by: string | null;
+    /** Set when it gives you the account for a passenger of that name. */
+    passenger: string | null;
     expires_at: string;
 }
 
@@ -32,7 +34,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Crew', href: '/crew' }];
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export default function CrewIndex({ crews, invites }: { crews: CrewSummary[]; invites: PendingInvite[] }) {
-    const { flash } = usePage<SharedData>().props;
+    const { flash, errors: pageErrors } = usePage<SharedData & { errors: Record<string, string> }>().props;
     const { data, setData, post, processing, errors, reset } = useForm({ name: '' });
 
     const create: FormEventHandler = (e) => {
@@ -53,6 +55,12 @@ export default function CrewIndex({ crews, invites }: { crews: CrewSummary[]; in
                     </p>
                 )}
 
+                {pageErrors.invite && (
+                    <p role="alert" className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
+                        {pageErrors.invite}
+                    </p>
+                )}
+
                 {invites.length > 0 && (
                     <section aria-labelledby="invites" className="space-y-3">
                         <h2 id="invites" className="text-sm font-medium">
@@ -64,7 +72,8 @@ export default function CrewIndex({ crews, invites }: { crews: CrewSummary[]; in
                                     <Mail className="text-primary size-5 shrink-0" aria-hidden />
                                     <p className="flex-1 text-sm">
                                         <span className="font-medium">{invite.invited_by ?? 'Someone'}</span> invited you to join{' '}
-                                        <span className="font-medium">{invite.crew}</span> as {invite.role === 'captain' ? 'a captain' : 'crew'}.
+                                        <span className="font-medium">{invite.crew}</span> as {invite.role === 'captain' ? 'a captain' : 'crew'}
+                                        {invite.passenger && <> — you're aboard as {invite.passenger}, and that all comes with you</>}.
                                     </p>
                                     <div className="flex gap-2">
                                         <Button size="sm" onClick={() => router.post(crewRoutes.invites.accept.url(invite.id))}>
