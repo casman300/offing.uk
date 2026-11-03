@@ -44,25 +44,21 @@ Full product spec and roadmap: `docs/SPEC.md` — read it before planning any no
 
 ## Claude Code cloud sessions: getting PHP 8.5
 
-The cloud container ships PHP 8.3, but the lock file needs ≥ 8.4 (Symfony 8). Don't try apt PPAs, Debian mirrors or static-PHP downloads (the network policy blocks them all) — Docker Hub works. Recipe, in order:
+The cloud container ships PHP 8.3, but the lock file needs ≥ 8.4 (Symfony 8). Don't try apt PPAs, Debian mirrors, static-PHP downloads or getcomposer.org (the network policy blocks them all, and GitHub zipball downloads too). First thing in a session, run:
 
-1. **Start Docker and pull PHP:** `(dockerd > /tmp/dockerd.log 2>&1 &)`, wait for `docker info`, then `docker pull php:8.5-cli`. The image has pdo_sqlite, sodium, mbstring etc. — enough for the app and tests.
-2. **Wrapper script** (e.g. `p` in your scratchpad) to run anything under 8.5 with the repo mounted:
-   ```sh
-   #!/bin/sh
-   exec docker run --rm -i --network host -v /home/user/offing.uk:/home/user/offing.uk -w /home/user/offing.uk php:8.5-cli "$@"
-   ```
-   Then `p php artisan …`, `p vendor/bin/pest --parallel`, `p vendor/bin/pint`. Pass `</dev/null` when calling it from a non-interactive script, or it waits on stdin.
-3. **`composer install` runs on the host, not in the container.** GitHub zip downloads (api.github.com / codeload) are blocked but `git clone` works, so use source installs and ignore the host's PHP version:
-   `COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_PROCESS_TIMEOUT=900 composer install --ignore-platform-req=php --prefer-source --no-scripts`.
-   - `phpstan/phpstan` has no `source` in the lock (dist only) and its repo is huge. Shallow-fetch the locked commit into a scratch repo (`git init x && cd x && git fetch --depth 1 https://github.com/phpstan/phpstan.git <ref> && git checkout -b master FETCH_HEAD`), temporarily add `"source": {"type": "git", "url": "<that path>", "reference": "<ref>"}` to its lock entry, install, then **restore the original `composer.lock`** — never commit the hack.
-   - `composer require` works the same way (same flags). CI resolves dists normally, so the committed lock is fine.
-   - Afterwards delete the checkouts' `.git` dirs (`find vendor -maxdepth 3 -name .git -type d -prune -exec rm -rf {} +`): otherwise `sebastian/version` tries to run `git` inside the container and prints `proc_open(): posix_spawn() failed` warnings into HTTP responses.
-   - Then `p php artisan package:discover`.
-4. **Frontend:** `npm ci` and `npx tsc --noEmit` run on the host. `npm run build` calls `php artisan wayfinder:generate`, so put a `php` shim first on `PATH` (`exec p php "$@"`) — `PATH=<shim dir>:$PATH npm run build`. Feature tests need the built manifest (`public/build/manifest.json`), so build before running Pest.
-5. **Boot the app** for real flows: `cp .env.example .env`, `p php artisan key:generate`, `touch database/database.sqlite`, `p php artisan migrate`, `p php artisan user:create you@example.com You`, `p php artisan offing:feature <flag> you@example.com --on`, then serve in the background with
-   `docker run -d --rm --name offing-serve --network host -v /home/user/offing.uk:/home/user/offing.uk -w /home/user/offing.uk php:8.5-cli php artisan serve --host=127.0.0.1 --port=8000`.
-   Set `APP_URL=http://localhost:8000`. Magic links are queued: run `p php artisan queue:work --stop-when-empty`, then find the link in `storage/logs/laravel.log` (`MAIL_MAILER=log`; unescape `&amp;`). Drive it with Playwright's preinstalled Chromium (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). Repeated logins hit the rate limiter — `p php artisan cache:clear`. `docker kill offing-serve` when done.
+```sh
+.claude/cloud-php-setup.sh   # idempotent: ~3 min the first time, seconds after
+```
+
+It starts Docker, builds a PHP 8.5 image (`offing-php`, from `ubuntu:26.04`, whose archive is reachable), installs a `dphp` wrapper, installs Composer and npm deps (again whenever a lockfile changes, e.g. after merging `rc`), sets up `.env` and builds the frontend. Then:
+
+- Run PHP through `dphp`: `dphp vendor/bin/pest --parallel`, `dphp vendor/bin/pint`, `dphp vendor/bin/phpstan analyse --memory-limit=1G`, `dphp php artisan …`. Pass `</dev/null` from non-interactive scripts, or it waits on stdin.
+- Rebuild the frontend with `PATH=/tmp/offing-cloud/bin:$PATH npm run build` (the build runs `php artisan wayfinder:generate`, and that path holds a `php` shim). Feature tests 500 with "Unable to locate file in Vite manifest" until you rebuild after adding a page.
+- **Boot the app** for real flows: `touch database/database.sqlite`, `dphp php artisan migrate`, `dphp php artisan user:create you@example.com You`, `dphp php artisan offing:feature <flag> you@example.com --on`, then serve with
+  `docker run -d --rm --name offing-serve --network host -v "$PWD:$PWD" -w "$PWD" offing-php php artisan serve --host=127.0.0.1 --port=8000`.
+  Set `APP_URL=http://localhost:8000`. Magic links are queued: run `dphp php artisan queue:work --stop-when-empty`, then find the link in `storage/logs/laravel.log` (`MAIL_MAILER=log`; unescape `&amp;`) and press **Continue** on the page it opens. Drive it with Playwright's preinstalled Chromium (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). Repeated logins hit the rate limiter — `dphp php artisan cache:clear`. `docker kill offing-serve` when done.
+
+If the script breaks, the manual recipe is what it automates: Composer runs **on the host** with `--ignore-platform-req=php --prefer-source --no-scripts` (git clones work; zipballs don't). `phpstan/phpstan` has no git source in the lock, so its locked commit is shallow-fetched, zipped and the lock pointed at the zip for that one install (never commit that). Afterwards the checkouts' `.git` dirs are deleted, or `sebastian/version` prints `proc_open()` warnings into HTTP responses; then `php artisan package:discover`.
 
 ## Naming — decided, don't relitigate
 
