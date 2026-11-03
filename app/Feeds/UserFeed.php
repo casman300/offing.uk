@@ -2,6 +2,7 @@
 
 namespace App\Feeds;
 
+use App\Models\Event as CalendarEvent;
 use App\Models\Person;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -9,13 +10,18 @@ use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
 
 /**
- * The ICS a user's own feed token serves (spec §8, #15). Today that's
- * birthdays only; events join once they exist.
+ * The ICS a user's own feed token serves (spec §8, #15): birthdays, plus
+ * the events on the user's own calendars. It's the user's own feed, so
+ * private events are included (marked CLASS:PRIVATE); feeds for other
+ * people will need to drop them (spec §7).
  *
  * Birthdays go out as one yearly-recurring all-day event per person, not
  * expanded occurrences, so the feed never runs out and doesn't wait on the
  * occurrence builder. The trade-off: no "turns 43" in the title, because
  * one recurring event can't carry a different age every year.
+ *
+ * Timed events go out in UTC (spec §10 allows it), so no VTIMEZONE blocks;
+ * all-day events and birthdays are plain dates.
  *
  * Output must be byte-stable between requests when nothing has changed,
  * since the ETag is a hash of it. Nothing here may depend on "now" — which
@@ -40,8 +46,8 @@ final class UserFeed
             'PRODID' => '-//Offing//offing.uk//EN',
             'NAME' => 'Offing',
             'X-WR-CALNAME' => 'Offing',
-            'DESCRIPTION' => 'Birthdays from Offing',
-            'X-WR-CALDESC' => 'Birthdays from Offing',
+            'DESCRIPTION' => 'Birthdays and events from Offing',
+            'X-WR-CALDESC' => 'Birthdays and events from Offing',
             'X-PUBLISHED-TTL' => 'PT1H',
         ]);
         $calendar->add('REFRESH-INTERVAL', 'PT1H', ['VALUE' => 'DURATION']);
@@ -54,6 +60,15 @@ final class UserFeed
 
         foreach ($people as $person) {
             $this->addBirthday($calendar, $person);
+        }
+
+        $events = $this->user->events()
+            ->orderBy('starts_at')
+            ->orderBy('events.id')
+            ->get();
+
+        foreach ($events as $event) {
+            $this->addEvent($calendar, $event);
         }
 
         return $calendar->serialize();
@@ -99,6 +114,45 @@ final class UserFeed
             'DESCRIPTION' => "It's {$person->name}'s birthday today",
             'TRIGGER' => self::ALERT_MORNING_OF,
         ]);
+    }
+
+    private function addEvent(VCalendar $calendar, CalendarEvent $event): void
+    {
+        /** @var VEvent $ics */
+        $ics = $calendar->add('VEVENT', [
+            'UID' => $event->uid,
+            'DTSTAMP' => CarbonImmutable::instance($event->updated_at ?? $event->created_at)->utc(),
+            'SUMMARY' => $event->title,
+        ]);
+
+        if ($event->all_day) {
+            $ics->add('DTSTART', $event->starts_at->utc()->format('Ymd'), ['VALUE' => 'DATE']);
+            $ics->add('DTEND', $event->ends_at->utc()->format('Ymd'), ['VALUE' => 'DATE']);
+            $ics->add('X-MICROSOFT-CDO-ALLDAYEVENT', 'TRUE');
+        } else {
+            $ics->add('DTSTART', $event->starts_at->utc());
+            $ics->add('DTEND', $event->ends_at->utc());
+        }
+
+        if ($event->sequence > 0) {
+            $ics->add('SEQUENCE', $event->sequence);
+        }
+
+        if ($event->description !== null) {
+            $ics->add('DESCRIPTION', $event->description);
+        }
+
+        if ($event->location !== null) {
+            $ics->add('LOCATION', $event->location);
+        }
+
+        if ($event->isPrivate()) {
+            $ics->add('CLASS', 'PRIVATE');
+        }
+
+        if (! $event->isBusy()) {
+            $ics->add('TRANSP', 'TRANSPARENT');
+        }
     }
 
     private static function uidHost(): string
