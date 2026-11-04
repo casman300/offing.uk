@@ -13,9 +13,12 @@ use RuntimeException;
 use Sentry\Breadcrumb;
 use Sentry\ClientBuilder;
 use Sentry\Event;
+use Sentry\ExceptionDataBag;
+use Sentry\Frame;
 use Sentry\Options;
 use Sentry\SentrySdk;
 use Sentry\Serializer\PayloadSerializer;
+use Sentry\Stacktrace;
 use Sentry\Transport\Result;
 use Sentry\Transport\ResultStatus;
 use Sentry\Transport\TransportInterface;
@@ -129,9 +132,8 @@ class SentryTest extends TestCase
             $this->assertStringContainsString(SentryScrubber::FILTERED, $payload, $url);
 
             $secrets = array_filter([...self::secretsIn($url), 'email' => $email, 'cookie' => $cookie, 'bearer token' => $bearer, 'IP' => $ip]);
-            foreach ($secrets as $what => $secret) {
-                $this->assertStringNotContainsString($secret, $payload, "Sentry payload leaked the {$what} from {$url}");
-            }
+            $leaked = array_keys(array_filter($secrets, fn (string $secret) => str_contains($payload, $secret)));
+            $this->assertSame([], $leaked, "Sentry payload for {$url} leaked these");
         }
     }
 
@@ -177,6 +179,19 @@ class SentryTest extends TestCase
             $this->assertSame($path, SentryScrubber::scrub($path));
         }
         $this->assertSame(42, SentryScrubber::scrub(42));
+    }
+
+    public function test_stack_frame_variables_are_dropped(): void
+    {
+        // Whether PHP records call arguments depends on the host's
+        // zend.exception_ignore_args, so don't rely on the end-to-end test.
+        $frame = new Frame('handle', 'app/Http/Kernel.php', 42, vars: ['request' => 'GET /login/1/'.str_repeat('a', 64), 'cookie' => 'secret']);
+        $event = Event::createEvent();
+        $event->setExceptions([new ExceptionDataBag(new RuntimeException('boom'), new Stacktrace([$frame]))]);
+
+        SentryScrubber::beforeSend($event);
+
+        $this->assertSame([], $event->getExceptions()[0]->getStacktrace()?->getFrames()[0]->getVars());
     }
 
     public function test_breadcrumbs_are_scrubbed(): void

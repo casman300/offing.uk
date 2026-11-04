@@ -6,7 +6,8 @@ use Sentry\Breadcrumb;
 use Sentry\Event;
 
 /**
- * Strips secrets from URLs in everything sent to Sentry. Offing puts them in
+ * Strips secrets from everything sent to Sentry: stack-frame variables are
+ * dropped outright (see beforeSend), and URLs are scrubbed. Offing puts them in
  * two places: long random path segments (magic-link, email-change and crew
  * invite tokens are 64 characters, feed tokens 40) and query parameters
  * (every signed link's `signature`, OAuth's `code`/`state`). An error on —
@@ -33,11 +34,26 @@ class SentryScrubber
 
     public static function beforeSend(Event $event): ?Event
     {
-        $event->setRequest(self::scrub($event->getRequest()));
-        $event->setTags(self::scrub($event->getTags()));
+        // Frame variables are the arguments of every call in the trace: the
+        // Request, $_SERVER (Authorization header included), cookies, the
+        // token itself. send_default_pii doesn't cover them, and whether PHP
+        // records them at all depends on the host's zend.exception_ignore_args
+        // — so drop them. File, line and code context are still sent.
+        $stacktraces = [$event->getStacktrace()];
+        foreach ($event->getExceptions() as $exception) {
+            $stacktraces[] = $exception->getStacktrace();
+        }
+        foreach (array_filter($stacktraces) as $stacktrace) {
+            foreach ($stacktrace->getFrames() as $frame) {
+                $frame->setVars([]);
+            }
+        }
+
+        $event->setRequest(self::scrubArray($event->getRequest()));
+        $event->setTags(array_map(self::scrubString(...), $event->getTags()));
 
         if (($transaction = $event->getTransaction()) !== null) {
-            $event->setTransaction(self::scrub($transaction));
+            $event->setTransaction(self::scrubString($transaction));
         }
 
         return $event;
@@ -46,7 +62,7 @@ class SentryScrubber
     public static function beforeBreadcrumb(Breadcrumb $breadcrumb): ?Breadcrumb
     {
         if (($message = $breadcrumb->getMessage()) !== null) {
-            $breadcrumb = $breadcrumb->withMessage(self::scrub($message));
+            $breadcrumb = $breadcrumb->withMessage(self::scrubString($message));
         }
 
         foreach ($breadcrumb->getMetadata() as $name => $value) {
@@ -56,22 +72,29 @@ class SentryScrubber
         return $breadcrumb;
     }
 
+    public static function scrubString(string $value): string
+    {
+        return preg_replace(array_keys(self::PATTERNS), array_values(self::PATTERNS), $value) ?? $value;
+    }
+
     /**
-     * @template T
+     * @template K of array-key
      *
-     * @param  T  $value
-     * @return T
+     * @param  array<K, mixed>  $value
+     * @return array<K, mixed>
      */
+    public static function scrubArray(array $value): array
+    {
+        return array_map(self::scrub(...), $value);
+    }
+
+    /** Strings and (nested) arrays are scrubbed; anything else is returned as is. */
     public static function scrub(mixed $value): mixed
     {
-        if (is_string($value)) {
-            return preg_replace(array_keys(self::PATTERNS), array_values(self::PATTERNS), $value) ?? $value;
-        }
-
-        if (is_array($value)) {
-            return array_map(self::scrub(...), $value);
-        }
-
-        return $value;
+        return match (true) {
+            is_string($value) => self::scrubString($value),
+            is_array($value) => self::scrubArray($value),
+            default => $value,
+        };
     }
 }
