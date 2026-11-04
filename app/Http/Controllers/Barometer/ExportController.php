@@ -7,6 +7,7 @@ use App\Http\Requests\Barometer\ExportRequest;
 use App\Models\AuditLog;
 use App\Models\BarometerReading;
 use App\Models\User;
+use App\Support\Barometer\Stats;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -64,18 +65,22 @@ class ExportController extends Controller
             ->oldest('id')
             ->get();
 
+        // Numbers only, from the same Stats as the stats page (#37).
+        $summary = $request->wantsSummary() ? Stats::for($user, $from, $to)->toPageArray() : null;
+
         AuditLog::record($user, 'barometer.exported', null, [
             'format' => $format,
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'count' => $readings->count(),
             'omitted' => $omit,
+            ...($summary !== null ? ['summary' => true] : []),
         ], $request->ip());
 
         $filename = sprintf('anxiety-log-%s-to-%s.%s', $from->toDateString(), $to->toDateString(), $format);
 
         $response = $format === 'pdf'
-            ? $this->pdf($user, $readings, $columns, $from, $to, $timezone, $filename)
+            ? $this->pdf($user, $readings, $columns, $from, $to, $timezone, $filename, $summary)
             : $this->csv($readings, $columns, $timezone, $filename);
 
         $response->headers->set('Cache-Control', 'no-store, private');
@@ -86,8 +91,9 @@ class ExportController extends Controller
     /**
      * @param  Collection<int, BarometerReading>  $readings
      * @param  array<string, string>  $columns
+     * @param  array<string, mixed>|null  $summary  Stats::toPageArray(), or null for no summary page
      */
-    private function pdf(User $user, Collection $readings, array $columns, CarbonImmutable $from, CarbonImmutable $to, string $timezone, string $filename): Response
+    private function pdf(User $user, Collection $readings, array $columns, CarbonImmutable $from, CarbonImmutable $to, string $timezone, string $filename, ?array $summary): Response
     {
         $pdf = Pdf::loadView('barometer.export', [
             'name' => $user->name,
@@ -96,6 +102,7 @@ class ExportController extends Controller
             'timezone' => $timezone,
             'columns' => $columns,
             'readings' => $readings,
+            'summary' => $summary,
         ])
             ->setPaper('a4', 'landscape')
             // User text goes into this HTML: never fetch remote resources or run embedded PHP.

@@ -1,3 +1,4 @@
+import BarometerCareNote from '@/components/barometer-care-note';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -7,7 +8,7 @@ import barometer from '@/routes/barometer';
 import { type BarometerReading, type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronRight, Download, Gauge, Plus } from 'lucide-react';
+import { BarChart3, ChevronRight, Download, Gauge, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Barometer', href: '/barometer' }];
@@ -46,6 +47,11 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                 <div className="flex items-start justify-between gap-4">
                     <Heading title="Barometer" description="Your private anxiety log. Only you can see it." />
                     <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                        <Button asChild variant="outline">
+                            <Link href={barometer.stats.url()}>
+                                <BarChart3 /> Look back
+                            </Link>
+                        </Button>
                         <Button asChild variant="outline">
                             <Link href={barometer.export.url()}>
                                 <Download /> Export
@@ -146,14 +152,7 @@ export default function BarometerIndex({ today, readings, nextPageUrl, previousP
                     </div>
                 </div>
 
-                <p className="text-muted-foreground border-t pt-4 text-xs leading-relaxed">
-                    Barometer follows a common CBT (cognitive behavioural therapy) anxiety-tracking format. It works best alongside a therapist, and
-                    isn’t a substitute for care. If you’re struggling right now, Samaritans are there day or night on{' '}
-                    <a href="tel:116123" className="text-foreground underline underline-offset-2">
-                        116 123
-                    </a>{' '}
-                    (free, UK).
-                </p>
+                <BarometerCareNote />
             </div>
         </AppLayout>
     );

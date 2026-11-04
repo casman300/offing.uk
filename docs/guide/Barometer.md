@@ -26,11 +26,23 @@ Any reading from today that still needs its second rating is also listed on your
 
 You won't get one for a reading you're logging from earlier, or one without a time. To stop them, untick **Check in after a reading** on the Barometer page, or use the link at the bottom of a check-in email.
 
+## Looking back
+
+Choose **Look back** at the top of the Barometer page to see your numbers over the last 12 weeks, or pick 4 weeks, a year, or your own dates (up to a year).
+
+- **First rating to second rating**: across the readings with both, your average first rating and how much it changed after what you did, for example "Average 6.1, down 2.4 after what you did".
+- **By week**: your average first rating and how many readings you took, Monday to Sunday.
+- **When readings happen**: a grid of weekdays by morning, afternoon, evening and night, showing how many readings you took and their average first rating. Readings without a time count towards their day under **All**, but not towards a time of day.
+
+The numbers describe your log. They don't diagnose anything or say whether something is good or bad. They can be a useful thing to talk through with your therapist.
+
 ## Exporting for your therapist
 
 Choose **Export** at the top of the Barometer page, pick a date range (up to a year) and choose **Download PDF** or **Download CSV**. The PDF prints on A4 and is laid out like the paper form, titled "Anxiety log". The CSV opens in Excel or Numbers.
 
 Untick any column you'd rather not share that week. The time and first rating are always included.
+
+Tick **Start the PDF with a summary page** to put the Look back numbers for the same dates on the first page. If you leave out the second rating, the summary leaves it out too.
 
 ## With an AI assistant
 

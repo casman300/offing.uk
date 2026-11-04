@@ -99,3 +99,21 @@ export interface BarometerReading {
     self_talk: string | null;
     rating_after: number | null;
 }
+
+/** Barometer look-back numbers (#37): App\Support\Barometer\Stats::toPageArray(). Averages are to one decimal place. */
+export interface BarometerStats {
+    from: string;
+    to: string;
+    days: number;
+    count: number;
+    /** Readings without a time: left out of time of day, still counted by day. */
+    untimed: number;
+    first: { average: number; lowest: number; highest: number } | null;
+    /** Over readings with both ratings; `change` is second minus first (a drop is negative). */
+    second: { paired: number; before: number; after: number; change: number } | null;
+    /** Every Monday-to-Sunday week overlapping the range, oldest first. */
+    weeks: { start: string; count: number; average: number | null; paired: number; change: number | null }[];
+    timesOfDay: { key: string; label: string; hours: string }[];
+    /** Monday first; `cells` follow `timesOfDay`; `total` includes readings without a time. */
+    heatmap: { weekday: number; label: string; total: number; cells: { time: string; count: number; average: number | null }[] }[];
+}

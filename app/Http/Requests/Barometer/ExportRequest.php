@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Barometer;
 
 use App\Models\BarometerReading;
+use App\Support\Barometer\Stats;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -19,7 +20,7 @@ use Illuminate\Validation\Validator;
 class ExportRequest extends FormRequest
 {
     /** Keeps one dompdf render within shared-hosting limits. */
-    public const MAX_DAYS = 366;
+    public const MAX_DAYS = Stats::MAX_DAYS;
 
     protected $redirectRoute = 'barometer.export';
 
@@ -34,6 +35,8 @@ class ExportRequest extends FormRequest
             'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             'omit' => ['array'],
             'omit.*' => [Rule::in(BarometerReading::OMITTABLE_COLUMNS)],
+            // PDF only (#37): a page of summary numbers before the readings.
+            'summary' => ['boolean'],
         ];
     }
 
@@ -69,6 +72,12 @@ class ExportRequest extends FormRequest
     public function to(): CarbonImmutable
     {
         return CarbonImmutable::createFromFormat('!Y-m-d', $this->string('to')->toString());
+    }
+
+    /** Whether the PDF starts with a summary page (#37). Off by default. */
+    public function wantsSummary(): bool
+    {
+        return $this->string('format')->toString() === 'pdf' && $this->boolean('summary');
     }
 
     /**

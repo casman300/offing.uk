@@ -7,13 +7,13 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import barometer from '@/routes/barometer';
 import { type BarometerColumn, type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { FileDown, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Barometer', href: '/barometer' },
-    { title: 'Export', href: '/barometer/export' },
+    { title: 'Barometer', href: barometer.index.url() },
+    { title: 'Export', href: barometer.export.url() },
 ];
 
 interface Props {
@@ -32,8 +32,12 @@ export default function BarometerExport({ defaults, columns, omittable }: Props)
     const [from, setFrom] = useState(defaults.from);
     const [to, setTo] = useState(defaults.to);
     const [omit, setOmit] = useState<BarometerColumn[]>([]);
+    const [summary, setSummary] = useState(false);
 
-    const href = (format: 'pdf' | 'csv') => barometer.export.download.url({ query: { format, from, to, ...(omit.length > 0 ? { omit } : {}) } });
+    const href = (format: 'pdf' | 'csv') =>
+        barometer.export.download.url({
+            query: { format, from, to, ...(omit.length > 0 ? { omit } : {}), ...(format === 'pdf' && summary ? { summary: 1 } : {}) },
+        });
     const toggle = (column: BarometerColumn, included: boolean) =>
         setOmit((current) => (included ? current.filter((c) => c !== column) : [...current, column]));
 
@@ -85,6 +89,20 @@ export default function BarometerExport({ defaults, columns, omittable }: Props)
                     </div>
                     <p className="text-muted-foreground mt-2 text-xs">The day, time and first rating are always included.</p>
                 </fieldset>
+
+                <div className="flex items-start gap-3">
+                    <Checkbox id="export-summary" checked={summary} onCheckedChange={(checked) => setSummary(checked === true)} />
+                    <div className="grid gap-1">
+                        <Label htmlFor="export-summary">Start the PDF with a summary page</Label>
+                        <p className="text-muted-foreground text-sm">
+                            The numbers from{' '}
+                            <Link href={barometer.stats.url({ query: { from, to } })} className="text-foreground underline underline-offset-2">
+                                Look back
+                            </Link>{' '}
+                            for these dates: averages, week by week, and when readings happened.
+                        </p>
+                    </div>
+                </div>
 
                 <div className="flex flex-wrap gap-2">
                     <Button asChild>
