@@ -19,6 +19,7 @@
         "laravel/wayfinder": "^0.1.14",
         "minishlink/web-push": "^9.0",
         "sabre/vobject": "^5.0",
+        "sentry/sentry-laravel": "^4.29",
         "web-auth/webauthn-lib": "^5.2"
     },
     "require-dev": {

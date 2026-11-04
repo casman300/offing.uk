@@ -69,7 +69,8 @@ class SecurityHeaders
             'style-src' => "'self' 'unsafe-inline' https://fonts.bunny.net".$dev,
             'font-src' => "'self' https://fonts.bunny.net",
             'img-src' => "'self' data:",
-            'connect-src' => "'self'".$dev,
+            // The browser reports errors to Sentry's ingest host (only with a DSN).
+            'connect-src' => implode(' ', ["'self'", ...self::sentrySources()]).$dev,
             'worker-src' => "'self'",
             'manifest-src' => "'self'",
             'object-src' => "'none'",
@@ -81,6 +82,22 @@ class SecurityHeaders
         ];
 
         return implode('; ', array_map(fn ($name, $value) => "{$name} {$value}", array_keys($directives), $directives));
+    }
+
+    /**
+     * The Sentry DSN's ingest origin, e.g. https://o1.ingest.de.sentry.io.
+     *
+     * @return list<string>
+     */
+    private static function sentrySources(): array
+    {
+        $parts = parse_url((string) config('sentry.dsn'));
+
+        if (! isset($parts['scheme'], $parts['host'])) {
+            return [];
+        }
+
+        return [$parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '')];
     }
 
     /**

@@ -71,6 +71,12 @@ class HandleInertiaRequests extends Middleware
                 'inviteUrl' => $request->session()->get('inviteUrl'),
                 'logged' => $request->session()->get('logged'),
             ],
+            // Browser error tracking reads its DSN at runtime — assets are
+            // built in CI, which has no .env (see resources/js/lib/sentry.ts).
+            'sentry' => [
+                'dsn' => config('sentry.dsn'),
+                'environment' => config('sentry.environment') ?? config('app.env'),
+            ],
         ];
     }
 }
