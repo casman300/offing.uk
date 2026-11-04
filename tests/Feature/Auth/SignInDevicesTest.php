@@ -126,7 +126,7 @@ describe('signing in', function () {
         [$phone, $phoneCookie] = signInWithLink($user, IPHONE_SAFARI);
 
         freshBrowser();
-        $this->withSession([SignIn::SESSION_KEY => $pc->id])->actingAs($user)->post('/logout');
+        $this->actingAs($user)->withSession([SignIn::SESSION_KEY => $pc->id])->post('/logout');
 
         expect($pc->fresh()->signed_out_at)->not->toBeNull()
             ->and($phone->fresh()->signed_out_at)->toBeNull();

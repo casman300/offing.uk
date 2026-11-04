@@ -10,6 +10,7 @@ use App\Models\Crew;
 use App\Models\CrewInvite;
 use App\Models\CrewMember;
 use App\Models\Person;
+use App\Models\SignIn;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -228,7 +229,8 @@ describe('invite links (the invite is the signup)', function () {
             ->and($home->membershipOf($sam)->role)->toBe(CrewMember::CAPTAIN)
             ->and(CrewInvite::sole()->accepted_at)->not->toBeNull()
             ->and(AuditLog::where('action', 'user.created')->where('subject_id', $sam->id)->sole()->meta)->toBe(['via' => 'crew_invite'])
-            ->and(AuditLog::where('action', 'crew_invite.accepted')->where('actor_id', $sam->id)->sole()->meta['new_account'])->toBeTrue();
+            ->and(AuditLog::where('action', 'crew_invite.accepted')->where('actor_id', $sam->id)->sole()->meta['new_account'])->toBeTrue()
+            ->and(SignIn::where('user_id', $sam->id)->sole())->method->toBe('crew_invite')->remember_hash->not->toBeNull();
     });
 
     it('skips the passkey prompt when dismissed, and falls back on an odd timezone', function () {

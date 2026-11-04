@@ -26,7 +26,7 @@ interface SignIn {
     id: number;
     name: string;
     ip_address: string | null;
-    method: 'magic_link' | 'passkey' | null;
+    method: 'magic_link' | 'passkey' | 'crew_invite' | null;
     current: boolean;
     signed_in_at: string | null;
     last_active_at: string;
@@ -225,6 +225,7 @@ function SignInRow({ signIn }: { signIn: SignIn }) {
 const METHODS: Record<NonNullable<SignIn['method']>, string> = {
     magic_link: 'an email link',
     passkey: 'a passkey',
+    crew_invite: 'a crew invite',
 };
 
 function PasskeyRow({ passkey }: { passkey: Passkey }) {
