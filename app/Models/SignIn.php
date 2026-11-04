@@ -115,7 +115,10 @@ class SignIn extends Model
         if ($signIn === null) {
             // Signed in before sign-ins were kept. A remember cookie of
             // that age matches the shared users.remember_token, so swap it
-            // for one of this sign-in's own.
+            // for one of this sign-in's own and retire the shared one: any
+            // copy of the old cookie (a stolen one included) dies with it,
+            // or signing this sign-in out would leave that copy working.
+            // The user's other old-style browsers sign in once more.
             $signIn = new self([
                 'user_id' => $user->id,
                 'user_agent' => $request->userAgent(),
@@ -126,6 +129,7 @@ class SignIn extends Model
 
             if ($token !== null) {
                 $signIn->remember_hash = hash('sha256', self::login($user));
+                $user->forceFill(['remember_token' => Str::random(60)])->save();
             }
 
             $signIn->save();

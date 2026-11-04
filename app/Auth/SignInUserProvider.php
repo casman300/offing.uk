@@ -11,9 +11,10 @@ use Illuminate\Contracts\Auth\Authenticatable;
  * Laravel's one shared `users.remember_token`, so each browser can be
  * signed out on its own and a token is never stored in plain text.
  *
- * Cookies issued before sign-ins were kept still match the shared column
- * until TrackSignIns swaps them for their own, or "Sign out everywhere"
- * changes it. A token that ever belonged to a sign-in never falls back.
+ * A cookie issued before sign-ins were kept still matches the shared
+ * column, but only once: SignIn::forRequest swaps it for one of its own
+ * and retires the column, so no copy of an old cookie outlives that.
+ * A token that ever belonged to a sign-in never falls back.
  */
 class SignInUserProvider extends EloquentUserProvider
 {

@@ -257,7 +257,7 @@ describe('browsers signed in before sign-ins were kept', function () {
         expect(SignIn::sole())->signed_in_at->toBeNull()->remembered->toBeFalse();
     });
 
-    it('swaps an old shared remember cookie for one of its own', function () {
+    it('swaps an old shared remember cookie for one of its own, once', function () {
         $user = User::factory()->create();
         $user->forceFill(['remember_token' => $legacy = Str::random(60)])->save();
         $oldCookie = $user->id.'|'.$legacy.'|'.Auth::guard('web')->hashPasswordForCookie(null);
@@ -266,8 +266,16 @@ describe('browsers signed in before sign-ins were kept', function () {
 
         $newCookie = $response->getCookie(recallerName())->getValue();
         expect($newCookie)->not->toBe($oldCookie)
-            ->and(SignIn::sole()->remember_hash)->toBe(hash('sha256', explode('|', $newCookie)[1]));
+            ->and(SignIn::sole()->remember_hash)->toBe(hash('sha256', explode('|', $newCookie)[1]))
+            ->and($user->fresh()->remember_token)->not->toBe($legacy);
         withRememberCookie($newCookie)->assertOk();
+
+        // A copy of the old cookie (say, a stolen one) is dead from then on,
+        // so signing out the swapped sign-in really ends it.
+        withRememberCookie($oldCookie)->assertRedirect('/login');
+        SignIn::sole()->signOut();
+        withRememberCookie($oldCookie)->assertRedirect('/login');
+        withRememberCookie($newCookie)->assertRedirect('/login');
     });
 
     it('never lets a signed-out token fall back to the shared one', function () {
