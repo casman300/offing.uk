@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\PasskeySetupController;
 use App\Mail\PasskeyAddedMail;
 use App\Models\AuditLog;
 use App\Models\Passkey;
+use App\Models\SignIn;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
@@ -50,7 +51,7 @@ describe('registration', function () {
 
         registerPasskey($user, new FakeAuthenticator, extra: ['device' => 'iPhone'])
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/settings/passkeys');
+            ->assertRedirect('/settings/devices');
 
         $passkey = Passkey::sole();
         expect($passkey->user_id)->toBe($user->id)
@@ -107,7 +108,7 @@ describe('registration', function () {
 
     it('requires sign-in', function () {
         $this->postJson('/settings/passkeys/options')->assertUnauthorized();
-        $this->get('/settings/passkeys')->assertRedirect('/login');
+        $this->get('/settings/devices')->assertRedirect('/login');
     });
 });
 
@@ -119,7 +120,7 @@ describe('sign-in', function () {
         passkeyLogin($authenticator)->assertRedirect('/dashboard');
 
         $this->assertAuthenticatedAs($user);
-        expect($user->fresh()->remember_token)->not->toBeNull()
+        expect(SignIn::where('method', 'passkey')->sole()->remember_hash)->not->toBeNull()
             ->and(Passkey::sole()->last_used_at)->not->toBeNull()
             ->and(json_decode(Passkey::sole()->credential, true)['counter'])->toBe(1)
             ->and(AuditLog::where('action', 'auth.login')->latest('id')->first()->meta)->toBe(['method' => 'passkey']);
@@ -211,13 +212,13 @@ describe('managing passkeys', function () {
         [$user] = enrolled();
         $passkey = Passkey::sole();
 
-        $this->actingAs($user)->get('/settings/passkeys')
+        $this->actingAs($user)->get('/settings/devices')
             ->assertInertia(fn (Assert $page) => $page->has('passkeys', 1)->missing('passkeys.0.credential'));
 
-        $this->actingAs($user)->patch("/settings/passkeys/{$passkey->id}", ['name' => 'Work laptop'])->assertRedirect('/settings/passkeys');
+        $this->actingAs($user)->patch("/settings/passkeys/{$passkey->id}", ['name' => 'Work laptop'])->assertRedirect('/settings/devices');
         expect($passkey->fresh()->name)->toBe('Work laptop');
 
-        $this->actingAs($user)->delete("/settings/passkeys/{$passkey->id}")->assertRedirect('/settings/passkeys');
+        $this->actingAs($user)->delete("/settings/passkeys/{$passkey->id}")->assertRedirect('/settings/devices');
         expect(Passkey::count())->toBe(0)
             ->and(AuditLog::whereIn('action', ['auth.passkey.renamed', 'auth.passkey.removed'])->count())->toBe(2);
     });
@@ -249,5 +250,5 @@ it('renders the passkey-added email', function () {
 
     expect($html)->toContain('Hey Charlie')
         ->toContain(Passkey::sole()->name)
-        ->toContain(route('passkeys.index'));
+        ->toContain(route('devices.index'));
 });

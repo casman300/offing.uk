@@ -4,8 +4,10 @@ namespace Tests\Feature\Auth;
 
 use App\Http\Controllers\Auth\PasskeySetupController;
 use App\Mail\MagicLinkMail;
+use App\Models\SignIn;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -78,9 +80,12 @@ class MagicLinkTest extends TestCase
             'expires_at' => now()->addMinutes(15),
         ]);
 
-        $this->post(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]));
+        $this->post(URL::signedRoute('login.consume', ['magicLink' => $magicLink->id, 'token' => $token]))
+            ->assertCookie(Auth::guard('web')->getRecallerName());
 
-        $this->assertNotNull($user->fresh()->remember_token);
+        // The remember token is the sign-in's own; the shared column stays empty.
+        $this->assertNotNull(SignIn::sole()->remember_hash);
+        $this->assertNull($user->fresh()->remember_token);
     }
 
     public function test_unchecking_remember_me_gives_a_session_only_login(): void

@@ -4,7 +4,7 @@ You can see your Offing birthdays in the calendar app you already use (Apple Cal
 
 ## Getting a link
 
-1. Go to **Settings → Calendar feeds**.
+1. Go to **Settings → Connected apps**.
 2. Give the link a name, such as "My iPhone", and choose **Create link**.
 3. Copy the link straight away, or use **Add to Apple Calendar** or **Add to Google Calendar**. For security, Offing only shows each link once.
 

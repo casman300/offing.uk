@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\MagicLinkMail;
 use App\Models\AuditLog;
 use App\Models\MagicLink;
+use App\Models\SignIn;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -96,9 +97,7 @@ class MagicLinkController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        Auth::login($user, remember: $magicLink->remember);
-
-        $request->session()->regenerate();
+        SignIn::start($request, $user, 'magic_link', $magicLink->remember);
 
         AuditLog::record($user, 'auth.login', ip: $request->ip());
 

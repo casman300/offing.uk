@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\PasskeySetupController;
 use App\Mail\CrewJoinConfirmMail;
 use App\Models\AuditLog;
 use App\Models\CrewInvite;
+use App\Models\SignIn;
 use App\Models\User;
 use App\Support\Users\CreateUser;
 use Illuminate\Http\RedirectResponse;
@@ -313,8 +314,7 @@ class CrewJoinController extends Controller
             $request->session()->invalidate();
         }
 
-        Auth::login($user, remember: true);
-        $request->session()->regenerate();
+        SignIn::start($request, $user, 'crew_invite', remember: true);
 
         AuditLog::record($user, 'auth.login', meta: ['via' => 'crew_invite'], ip: $request->ip());
     }

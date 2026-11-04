@@ -16,7 +16,7 @@ beforeEach(function () {
 /** Mint a token through the real settings flow and return its plaintext URL path. */
 function mintFeed(User $user, string $name = 'My iPhone'): string
 {
-    test()->actingAs($user)->post('/settings/feeds', ['name' => $name])->assertRedirect('/settings/feeds');
+    test()->actingAs($user)->post('/settings/feeds', ['name' => $name])->assertRedirect('/settings/connected-apps');
 
     $url = session('feedUrl')['url'];
     app('auth')->forgetGuards();
@@ -37,7 +37,7 @@ describe('settings', function () {
         $user = User::factory()->create();
 
         $this->actingAs($user)->post('/settings/feeds', ['name' => 'My iPhone'])
-            ->assertRedirect('/settings/feeds')
+            ->assertRedirect('/settings/connected-apps')
             ->assertSessionHas('feedUrl');
 
         $url = session('feedUrl')['url'];
@@ -50,9 +50,9 @@ describe('settings', function () {
             ->and(AuditLog::where('action', 'feed_token.created')->where('subject_id', $token->id)->exists())->toBeTrue();
 
         // The listing never carries the token or its hash.
-        $this->actingAs($user)->get('/settings/feeds')
+        $this->actingAs($user)->get('/settings/connected-apps')
             ->assertInertia(fn (Assert $page) => $page
-                ->component('settings/feeds')
+                ->component('settings/connected-apps')
                 ->has('tokens', 1)
                 ->where('tokens.0.name', 'My iPhone')
                 ->missing('tokens.0.token_hash')
@@ -88,19 +88,19 @@ describe('settings', function () {
         $this->actingAs($me)->delete("/settings/feeds/{$theirs->id}")->assertNotFound();
         expect($theirs->fresh()->revoked_at)->toBeNull();
 
-        $this->actingAs($me)->delete("/settings/feeds/{$mine->id}")->assertRedirect('/settings/feeds');
+        $this->actingAs($me)->delete("/settings/feeds/{$mine->id}")->assertRedirect('/settings/connected-apps');
         expect($mine->fresh()->revoked_at)->not->toBeNull()
             ->and(AuditLog::where('action', 'feed_token.revoked')->where('subject_id', $mine->id)->exists())->toBeTrue();
 
-        $this->actingAs($me)->get('/settings/feeds')->assertInertia(fn (Assert $page) => $page->has('tokens', 0));
+        $this->actingAs($me)->get('/settings/connected-apps')->assertInertia(fn (Assert $page) => $page->has('tokens', 0));
     });
 
     it('is not behind the birthday-engine flag', function () {
-        $this->actingAs(User::factory()->create())->get('/settings/feeds')->assertOk();
+        $this->actingAs(User::factory()->create())->get('/settings/connected-apps')->assertOk();
     });
 
     it('redirects guests to login', function () {
-        $this->get('/settings/feeds')->assertRedirect('/login');
+        $this->get('/settings/connected-apps')->assertRedirect('/login');
     });
 });
 

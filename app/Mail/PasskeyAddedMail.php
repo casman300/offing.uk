@@ -25,7 +25,7 @@ class PasskeyAddedMail extends Mailable
         return $this
             ->subject('A passkey was added to your Offing account')
             ->markdown('emails.passkey-added', [
-                'settingsUrl' => route('passkeys.index'),
+                'settingsUrl' => route('devices.index'),
             ]);
     }
 }

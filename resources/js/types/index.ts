@@ -30,6 +30,7 @@ export interface Features {
     shipshape: boolean;
     connectClaude: boolean;
     barometer: boolean;
+    signInDevices: boolean;
 }
 
 export interface Flash {

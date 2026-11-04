@@ -8,34 +8,16 @@ use App\Models\FeedToken;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /**
- * Settings → Calendar feeds (#15): mint, list and revoke the user's own
- * subscribe URLs. Not behind the birthday-engine flag; see FeedController.
+ * Settings → Connected apps → Calendar feeds (#15): mint and revoke the
+ * user's own subscribe URLs (ConnectedAppsController lists them). Not behind the birthday-engine flag; see FeedController.
  *
  * A new URL goes back exactly once, as a flash. It can't be shown again,
  * because only its hash is stored.
  */
 class FeedTokenController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        return Inertia::render('settings/feeds', [
-            'maxActive' => FeedToken::MAX_ACTIVE,
-            'tokens' => $request->user()->feedTokens()->active()->latest('id')->get()
-                ->map(fn (FeedToken $token) => [
-                    'id' => $token->id,
-                    'name' => $token->name,
-                    'created_at' => $token->created_at?->toIso8601String(),
-                    'last_used_at' => $token->last_used_at?->toIso8601String(),
-                    'last_user_agent' => $token->last_user_agent,
-                ])
-                ->values(),
-        ]);
-    }
-
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -54,7 +36,7 @@ class FeedTokenController extends Controller
 
         AuditLog::record($user, 'feed_token.created', $token, ['name' => $token->name, 'scope' => $token->scope], $request->ip());
 
-        return to_route('feeds.index')->with('feedUrl', [
+        return to_route('connected-apps.index')->with('feedUrl', [
             'id' => $token->id,
             'url' => route('feed.show', $plaintext),
         ]);
@@ -67,6 +49,6 @@ class FeedTokenController extends Controller
 
         AuditLog::record($request->user(), 'feed_token.revoked', $model, ['name' => $model->name], $request->ip());
 
-        return to_route('feeds.index')->with('status', 'feed-revoked');
+        return to_route('connected-apps.index')->with('status', 'feed-revoked');
     }
 }

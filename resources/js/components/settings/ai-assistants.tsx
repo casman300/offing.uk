@@ -1,5 +1,4 @@
-import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Check, Copy, Trash2 } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -9,9 +8,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
-import SettingsLayout from '@/layouts/settings/layout';
 import aiAssistants from '@/routes/ai-assistants';
+
+export interface AiAssistantsProps {
+    mcpUrl: string;
+    levels: Level[];
+    connections: Connection[];
+    barometerAvailable: boolean;
+}
 
 interface Level {
     value: string;
@@ -29,95 +33,68 @@ interface Connection {
     last_used_at: string | null;
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'AI assistants',
-        href: '/settings/ai-assistants',
-    },
-];
-
 const selectClass =
     'border-input bg-background ring-offset-background focus-visible:ring-ring h-10 rounded-md border px-3 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50 md:text-sm';
 
-export default function AiAssistants({
-    mcpUrl,
-    levels,
-    connections,
-    barometerAvailable,
-}: {
-    mcpUrl: string;
-    levels: Level[];
-    connections: Connection[];
-    barometerAvailable: boolean;
-}) {
+/** Settings → Connected apps, once Connect Claude is on (spec §12). */
+export default function AiAssistants({ mcpUrl, levels, connections, barometerAvailable }: AiAssistantsProps) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="AI assistants" />
+        <div className="space-y-8">
+            <div className="space-y-6">
+                <HeadingSmall
+                    title="AI assistants"
+                    description="Connect your own AI assistant to Offing, then ask it what’s coming up, whose birthday is next or what chores are due."
+                />
 
-            <SettingsLayout>
-                <div className="space-y-8">
-                    <div className="space-y-6">
-                        <HeadingSmall
-                            title="AI assistants"
-                            description="Connect your own AI assistant to Offing, then ask it what’s coming up, whose birthday is next or what chores are due."
-                        />
+                <CopyUrl url={mcpUrl} />
 
-                        <CopyUrl url={mcpUrl} />
+                <ul className="space-y-2 text-sm">
+                    <li>
+                        <span className="font-medium">Claude (web, desktop and phone):</span> on the web or desktop, Settings → Connectors → Add
+                        custom connector. Name it “Offing”, paste the address above, then Connect. It’s on your phone from then on.
+                    </li>
+                    <li>
+                        <span className="font-medium">ChatGPT:</span> Settings → Apps & Connectors, then add a connector with the address above.
+                        Depending on your plan, you may need to turn on developer mode first.
+                    </li>
+                    <li>
+                        <span className="font-medium">Claude Code:</span>{' '}
+                        <code className="bg-muted rounded px-1 py-0.5 text-xs">claude mcp add --transport http offing {mcpUrl}</code>, then{' '}
+                        <code className="bg-muted rounded px-1 py-0.5 text-xs">/mcp</code> to sign in.
+                    </li>
+                    <li>
+                        <span className="font-medium">Other assistants:</span> anything that supports remote MCP connectors with OAuth sign-in should
+                        work. Use the address above.
+                    </li>
+                </ul>
 
-                        <ul className="space-y-2 text-sm">
-                            <li>
-                                <span className="font-medium">Claude (web, desktop and phone):</span> on the web or desktop, Settings → Connectors →
-                                Add custom connector. Name it “Offing”, paste the address above, then Connect. It’s on your phone from then on.
-                            </li>
-                            <li>
-                                <span className="font-medium">ChatGPT:</span> Settings → Apps & Connectors, then add a connector with the address
-                                above. Depending on your plan, you may need to turn on developer mode first.
-                            </li>
-                            <li>
-                                <span className="font-medium">Claude Code:</span>{' '}
-                                <code className="bg-muted rounded px-1 py-0.5 text-xs">claude mcp add --transport http offing {mcpUrl}</code>, then{' '}
-                                <code className="bg-muted rounded px-1 py-0.5 text-xs">/mcp</code> to sign in.
-                            </li>
-                            <li>
-                                <span className="font-medium">Other assistants:</span> anything that supports remote MCP connectors with OAuth sign-in
-                                should work. Use the address above.
-                            </li>
-                        </ul>
+                <p className="text-muted-foreground text-sm">
+                    We test with Claude, but Offing uses the open MCP standard, so other assistants should work too.
+                </p>
 
-                        <p className="text-muted-foreground text-sm">
-                            We test with Claude, but Offing uses the open MCP standard, so other assistants should work too.
-                        </p>
+                <p className="text-muted-foreground text-sm">
+                    When you connect, Offing asks what the assistant may do. It sees what you can see here. Anything it reads is sent to the company
+                    that runs it, under their privacy policy.
+                </p>
+            </div>
 
-                        <p className="text-muted-foreground text-sm">
-                            When you connect, Offing asks what the assistant may do. It sees what you can see here. Anything it reads is sent to the
-                            company that runs it, under their privacy policy.
-                        </p>
-                    </div>
+            <div className="space-y-4">
+                <HeadingSmall
+                    title="Connected assistants"
+                    description="Change what each one can do, or disconnect it. Changes apply straight away."
+                />
 
-                    <div className="space-y-4">
-                        <HeadingSmall
-                            title="Connected apps"
-                            description="Change what each one can do, or disconnect it. Changes apply straight away."
-                        />
-
-                        {connections.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">Nothing connected yet.</p>
-                        ) : (
-                            <ul className="bg-card divide-border divide-y rounded-xl border">
-                                {connections.map((connection) => (
-                                    <ConnectionRow
-                                        key={connection.id}
-                                        connection={connection}
-                                        levels={levels}
-                                        barometerAvailable={barometerAvailable}
-                                    />
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-            </SettingsLayout>
-        </AppLayout>
+                {connections.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Nothing connected yet.</p>
+                ) : (
+                    <ul className="bg-card divide-border divide-y rounded-xl border">
+                        {connections.map((connection) => (
+                            <ConnectionRow key={connection.id} connection={connection} levels={levels} barometerAvailable={barometerAvailable} />
+                        ))}
+                    </ul>
+                )}
+            </div>
+        </div>
     );
 }
 

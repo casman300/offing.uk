@@ -11,11 +11,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /**
- * Settings → Passkeys (#9): add, rename and remove passkeys. Every change
+ * Settings → Sign-in & devices → Passkeys (#9): add, rename and remove
+ * passkeys (DevicesController lists them). Every change
  * is audited, and adding one also emails the account, so a stolen session
  * can't quietly plant a permanent way in.
  */
@@ -34,20 +33,6 @@ class PasskeyController extends Controller
         'bada5566-a7aa-401f-bd96-45619a55120d' => '1Password',
         'd548826e-79b4-db40-a3d8-11116f7e8349' => 'Bitwarden',
     ];
-
-    public function index(Request $request): Response
-    {
-        return Inertia::render('settings/passkeys', [
-            'passkeys' => $request->user()->passkeys()->latest('id')->get()
-                ->map(fn (Passkey $passkey) => [
-                    'id' => $passkey->id,
-                    'name' => $passkey->name,
-                    'created_at' => $passkey->created_at?->toIso8601String(),
-                    'last_used_at' => $passkey->last_used_at?->toIso8601String(),
-                ])
-                ->values(),
-        ]);
-    }
 
     public function options(Request $request, WebAuthn $webAuthn): JsonResponse
     {
@@ -84,7 +69,7 @@ class PasskeyController extends Controller
             return redirect()->intended(route('dashboard', absolute: false));
         }
 
-        return to_route('passkeys.index')->with('status', 'passkey-added');
+        return to_route('devices.index')->with('status', 'passkey-added');
     }
 
     public function update(Request $request, int $passkey): RedirectResponse
@@ -97,7 +82,7 @@ class PasskeyController extends Controller
 
         AuditLog::record($request->user(), 'auth.passkey.renamed', $model, ['from' => $from, 'to' => $model->name], $request->ip());
 
-        return to_route('passkeys.index');
+        return to_route('devices.index');
     }
 
     public function destroy(Request $request, int $passkey): RedirectResponse
@@ -107,6 +92,6 @@ class PasskeyController extends Controller
 
         AuditLog::record($request->user(), 'auth.passkey.removed', $model, ['name' => $model->name], $request->ip());
 
-        return to_route('passkeys.index')->with('status', 'passkey-removed');
+        return to_route('devices.index')->with('status', 'passkey-removed');
     }
 }

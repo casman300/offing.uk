@@ -40,6 +40,9 @@ return [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+            // Remember cookies: 90 days, rolling with each use (spec §15).
+            // Each sign-in has its own token: App\Auth\SignInUserProvider.
+            'remember' => 60 * 24 * 90,
         ],
 
         // Connect Claude (spec §12): OAuth bearer tokens for /mcp.
@@ -68,7 +71,7 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            'driver' => 'sign-ins',
             'model' => env('AUTH_MODEL', User::class),
         ],
 

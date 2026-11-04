@@ -235,7 +235,7 @@ describe('the MCP endpoint', function () {
         $token = connect($user);
         mcp($token, 'tools/list')->assertOk();
 
-        $this->actingAs($user)->delete('/settings/ai-assistants/'.AiGrant::sole()->id)->assertRedirect('/settings/ai-assistants');
+        $this->actingAs($user)->delete('/settings/ai-assistants/'.AiGrant::sole()->id)->assertRedirect('/settings/connected-apps');
 
         mcp($token, 'tools/list')->assertUnauthorized();
         expect(AuditLog::where('action', 'connect_claude.revoked')->exists())->toBeTrue();
@@ -345,9 +345,9 @@ describe('Barometer', function () {
         $token = connect($user, 'write-new');
         $grant = AiGrant::sole();
 
-        $this->actingAs($user)->get('/settings/ai-assistants')->assertInertia(fn (Assert $page) => $page
-            ->where('barometerAvailable', true)
-            ->where('connections.0.barometer', false));
+        $this->actingAs($user)->get('/settings/connected-apps')->assertInertia(fn (Assert $page) => $page
+            ->where('assistants.barometerAvailable', true)
+            ->where('assistants.connections.0.barometer', false));
 
         $this->patch("/settings/ai-assistants/{$grant->id}", ['level' => 'write-new', 'include_private' => false, 'barometer' => true])->assertRedirect();
 
@@ -363,12 +363,12 @@ describe('settings', function () {
         connect($user);
         connect(connectingUser(['email' => 'someone@example.com']));
 
-        $this->actingAs($user)->get('/settings/ai-assistants')->assertInertia(fn (Assert $page) => $page
-            ->component('settings/ai-assistants')
-            ->where('mcpUrl', url('/mcp'))
-            ->has('connections', 1)
-            ->where('connections.0.name', 'Claude')
-            ->where('connections.0.level', 'read'));
+        $this->actingAs($user)->get('/settings/connected-apps')->assertInertia(fn (Assert $page) => $page
+            ->component('settings/connected-apps')
+            ->where('assistants.mcpUrl', url('/mcp'))
+            ->has('assistants.connections', 1)
+            ->where('assistants.connections.0.name', 'Claude')
+            ->where('assistants.connections.0.level', 'read'));
     });
 
     it('changes access straight away, audited', function () {
@@ -394,7 +394,8 @@ describe('settings', function () {
     });
 
     it('is behind the flag', function () {
-        $this->actingAs(User::factory()->create())->get('/settings/ai-assistants')->assertNotFound();
+        $this->actingAs($user = User::factory()->create())->get('/settings/ai-assistants')->assertNotFound();
+        $this->actingAs($user)->get('/settings/connected-apps')->assertInertia(fn (Assert $page) => $page->where('assistants', null));
     });
 });
 

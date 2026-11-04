@@ -8,6 +8,7 @@ use App\Features\ConnectClaude;
 use App\Features\Crews;
 use App\Features\Reminders;
 use App\Features\Shipshape;
+use App\Features\SignInDevices;
 use App\Features\VcardImport;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -62,6 +63,7 @@ class HandleInertiaRequests extends Middleware
                 'shipshape' => $request->user() !== null && Feature::for($request->user())->active(Shipshape::class),
                 'connectClaude' => $request->user() !== null && Feature::for($request->user())->active(ConnectClaude::class),
                 'barometer' => $request->user() !== null && Feature::for($request->user())->active(Barometer::class),
+                'signInDevices' => $request->user() !== null && Feature::for($request->user())->active(SignInDevices::class),
             ],
             'flash' => fn () => [
                 'status' => $request->session()->get('status'),

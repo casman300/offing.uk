@@ -43,7 +43,7 @@ trait ActsForGrant
     protected function notAllowed(AccessLevel $needed, string $what): Response
     {
         return Response::error("This connection can't {$what}: its access is “{$this->level()->label()}” and that needs “{$needed->label()}”. "
-            .'The user can change it in Offing under Settings → AI assistants; it applies straight away.');
+            .'The user can change it in Offing under Settings → Connected apps; it applies straight away.');
     }
 
     /**
