@@ -29,6 +29,8 @@ class User extends Authenticatable implements OAuthenticatable
     {
         static::deleting(function (User $user) {
             $user->people()->withTrashed()->forceDelete();
+            // Calendars have no foreign key to their owner (a morph); events go with them.
+            Calendar::query()->withTrashed()->where('owner_type', $user->getMorphClass())->where('owner_id', $user->id)->forceDelete();
             CrewHandover::forDeletedAccount($user);
             Connections::forgetUser($user);
         });

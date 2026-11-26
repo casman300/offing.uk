@@ -33,6 +33,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     const { features } = usePage<SharedData>().props;
     const navItems: NavItem[] = [
         ...sidebarNavItems,
+        ...(features.calendar ? [{ title: 'Subscriptions', url: '/settings/subscriptions', icon: null }] : []),
         ...(features.reminders ? [{ title: 'Reminders', url: '/settings/reminders', icon: null }] : []),
         ...(features.connectClaude ? [{ title: 'AI assistants', url: '/settings/ai-assistants', icon: null }] : []),
     ];

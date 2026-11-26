@@ -21,6 +21,7 @@ Offing is in early development and features arrive gradually, so some of what's 
 - [Signing in](guide/Signing-in.md)
 - [Passkeys](guide/Passkeys.md)
 - [Calendar feeds](guide/Calendar-feeds.md)
+- [Subscribing to and importing calendars](guide/Subscribing-and-importing.md)
 - [Shipshape: household chores](guide/Shipshape.md)
 - [AI assistants](guide/AI-assistants.md)
 - [Barometer](guide/Barometer.md)

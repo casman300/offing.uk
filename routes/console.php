@@ -57,6 +57,10 @@ Schedule::command('passport:purge')->daily()->withoutOverlapping();
 Schedule::command('reminders:scan')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('reminders:drain')->everyMinute()->withoutOverlapping();
 
+// Subscribed calendars (spec §13): each is fetched about hourly, failing
+// ones back off; a run takes a bounded batch so it never overlaps the next.
+Schedule::command('feeds:sync')->everyFiveMinutes()->withoutOverlapping();
+
 // Dead-man's switch (spec §22, part of #7): a reminders product whose cron
 // silently dies is the worst failure, so ping healthchecks.io every run and
 // let it alert when the pings stop. No-op unless HEALTHCHECK_URL is set.

@@ -162,3 +162,42 @@
         @apply bg-background text-foreground;
     }
 }
+
+/*
+ * FullCalendar on the calendar page (spec §23 Phase 1b): its own CSS is
+ * injected by the library; these map its variables onto ours so it follows
+ * light/dark like everything else.
+ */
+.offing-calendar {
+    --fc-border-color: var(--border);
+    --fc-page-bg-color: var(--background);
+    --fc-neutral-bg-color: var(--muted);
+    --fc-list-event-hover-bg-color: var(--accent);
+    --fc-today-bg-color: color-mix(in srgb, var(--primary) 8%, transparent);
+    --fc-now-indicator-color: var(--destructive);
+    --fc-highlight-color: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+.offing-calendar .fc-toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.offing-calendar .fc-col-header-cell-cushion,
+.offing-calendar .fc-daygrid-day-number,
+.offing-calendar .fc-list-day-text,
+.offing-calendar .fc-list-day-side-text {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Someone else's private event: a detail-free block (spec §7). */
+.offing-calendar .offing-busy {
+    background-image: repeating-linear-gradient(45deg, transparent 0 6px, rgb(255 255 255 / 0.25) 6px 12px);
+    cursor: default;
+}
+
+/* Shown as free: it doesn't block time, so it's drawn lighter. */
+.offing-calendar .offing-free {
+    opacity: 0.6;
+}

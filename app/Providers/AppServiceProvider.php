@@ -6,6 +6,8 @@ use App\Features\OverridesOnlyDriver;
 use App\Features\StageOverrides;
 use App\Http\Controllers\ConnectClaude\ConsentController;
 use App\Models\User;
+use App\Support\Feeds\DnsHostResolver;
+use App\Support\Feeds\HostResolver;
 use App\Support\Push\PushSender;
 use App\Support\Push\WebPushSender;
 use Carbon\CarbonInterval;
@@ -29,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
         // Connect Claude only uses the authorization-code grant (spec §12);
         // set before Passport boots and registers the device-flow routes.
         Passport::$deviceCodeGrantEnabled = false;
+
+        // Calendar subscriptions resolve hostnames through this, so tests can stub DNS (SSRF checks, spec §13).
+        $this->app->bind(HostResolver::class, DnsHostResolver::class);
 
         // Stages set on /admin/features, read once per request.
         $this->app->scoped(StageOverrides::class);

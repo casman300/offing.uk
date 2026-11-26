@@ -98,5 +98,6 @@ class Crew extends Model
     protected function pruning(): void
     {
         $this->people()->withTrashed()->forceDelete();
+        Calendar::query()->withTrashed()->where('owner_type', $this->getMorphClass())->where('owner_id', $this->id)->forceDelete();
     }
 }

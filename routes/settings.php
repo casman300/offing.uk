@@ -1,7 +1,9 @@
 <?php
 
+use App\Features\Calendar;
 use App\Features\ConnectClaude;
 use App\Http\Controllers\Settings\AiAssistantsController;
+use App\Http\Controllers\Settings\FeedSubscriptionController;
 use App\Http\Controllers\Settings\FeedTokenController;
 use App\Http\Controllers\Settings\PasskeyController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -36,4 +38,13 @@ Route::middleware(['auth', EnsureFeaturesAreActive::using(ConnectClaude::class)]
     Route::get('settings/ai-assistants', [AiAssistantsController::class, 'index'])->name('ai-assistants.index');
     Route::patch('settings/ai-assistants/{grant}', [AiAssistantsController::class, 'update'])->whereNumber('grant')->name('ai-assistants.update');
     Route::delete('settings/ai-assistants/{grant}', [AiAssistantsController::class, 'destroy'])->whereNumber('grant')->name('ai-assistants.destroy');
+});
+
+// Subscribed external calendars (spec §13), part of the calendar.
+Route::middleware(['auth', EnsureFeaturesAreActive::using(Calendar::class)])->group(function () {
+    Route::get('settings/subscriptions', [FeedSubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::post('settings/subscriptions', [FeedSubscriptionController::class, 'store'])->middleware('throttle:10,1')->name('subscriptions.store');
+    Route::patch('settings/subscriptions/{subscription}', [FeedSubscriptionController::class, 'update'])->whereNumber('subscription')->name('subscriptions.update');
+    Route::post('settings/subscriptions/{subscription}/refresh', [FeedSubscriptionController::class, 'refresh'])->whereNumber('subscription')->middleware('throttle:10,1')->name('subscriptions.refresh');
+    Route::delete('settings/subscriptions/{subscription}', [FeedSubscriptionController::class, 'destroy'])->whereNumber('subscription')->name('subscriptions.destroy');
 });
