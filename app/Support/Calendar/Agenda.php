@@ -4,6 +4,7 @@ namespace App\Support\Calendar;
 
 use App\Models\Calendar;
 use App\Models\Event;
+use App\Models\Person;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -48,9 +49,10 @@ final class Agenda
      * is a detail-free "Busy" block.
      *
      * @param  Collection<int, Calendar>  $calendars  keyed by id
+     * @param  list<int>  $editable  ids of the calendars the viewer can edit
      * @return array<string, mixed>
      */
-    public static function present(Occurrence $occurrence, User $user, Collection $calendars): array
+    public static function present(Occurrence $occurrence, User $user, Collection $calendars, array $editable = []): array
     {
         $event = $occurrence->event;
         $calendar = $calendars->get($event->calendar_id);
@@ -72,7 +74,73 @@ final class Agenda
             'private' => $event->isPrivate(),
             'free' => $event->transparency === Event::FREE,
             'recurring' => $event->isRecurring(),
+            'override' => $event->isOverride(),
+            'can_edit' => $visible && in_array($event->calendar_id, $editable, true),
             'busy_block' => ! $visible,
+        ];
+    }
+
+    /** Birthdays get their own colour and a pseudo-calendar id the views can toggle. */
+    public const BIRTHDAY_COLOUR = '#db2777';
+
+    public const BIRTHDAYS = -1;
+
+    /**
+     * The user's own people's birthdays that fall in [from, to), as all-day
+     * items for the views (spec §9: birthdays aren't events — they're
+     * projected from people). 29 February is observed on the 28th in other
+     * years, as everywhere else in the app.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function birthdays(User $user, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $first = $from->startOfDay();
+        $last = $to->subSecond()->startOfDay();
+        $items = [];
+
+        $people = $user->people()->whereNotNull('birth_day')->whereNotNull('birth_month')->orderBy('name')->get();
+
+        foreach ($people as $person) {
+            for ($year = $first->year; $year <= $last->year; $year++) {
+                $date = $person->birthday()->observedIn($year);
+
+                if ($date === null || $date->toDateString() < $first->toDateString() || $date->toDateString() > $last->toDateString()) {
+                    continue;
+                }
+
+                $items[] = self::birthday($person, $date);
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function birthday(Person $person, CarbonImmutable $date): array
+    {
+        $turns = $person->birth_year === null ? null : $date->year - $person->birth_year;
+
+        return [
+            'id' => "birthday-{$person->id}@{$date->toDateString()}",
+            'event_id' => null,
+            'person_id' => $person->id,
+            'occurrence' => $date->toDateString(),
+            'title' => "{$person->name}'s birthday 🎂".($turns !== null && $turns > 0 ? " ({$turns})" : ''),
+            'location' => null,
+            'all_day' => true,
+            'start' => $date->toDateString(),
+            'end' => $date->addDay()->toDateString(),
+            'calendar_id' => self::BIRTHDAYS,
+            'colour' => self::BIRTHDAY_COLOUR,
+            'private' => false,
+            'free' => true,
+            'recurring' => false,
+            'override' => false,
+            'can_edit' => false,
+            'busy_block' => false,
         ];
     }
 }

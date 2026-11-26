@@ -16,6 +16,7 @@ interface EventDetails {
     end: string;
     tzid: string;
     repeat: string | null;
+    series: { id: number; repeat: string | null } | null;
     private: boolean;
     free: boolean;
     calendar: { id: number; name: string; colour: string; owner: string };
@@ -78,6 +79,17 @@ export default function EventPage({
                             <span>{event.repeat}</span>
                         </li>
                     )}
+                    {event.series && (
+                        <li className="flex gap-3">
+                            <Repeat className="text-muted-foreground size-4 shrink-0" />
+                            <span>
+                                One date of a series ({event.series.repeat}), changed on its own.{' '}
+                                <Link className="underline" href={calendarRoutes.events.show.url(event.series.id)}>
+                                    See the series
+                                </Link>
+                            </span>
+                        </li>
+                    )}
                     {!event.all_day && event.tzid !== timezone && (
                         <li className="flex gap-3">
                             <Globe className="text-muted-foreground size-4 shrink-0" />
@@ -114,9 +126,16 @@ export default function EventPage({
                     </Button>
                     {event.can_edit && (
                         <>
-                            <Button asChild>
+                            {occurrence && (
+                                <Button asChild>
+                                    <Link href={calendarRoutes.events.one.edit.url(event.id, { query: { at: occurrence.key } })}>
+                                        <Pencil /> Edit just this one
+                                    </Link>
+                                </Button>
+                            )}
+                            <Button asChild variant={occurrence ? 'outline' : 'default'}>
                                 <Link href={calendarRoutes.events.edit.url(event.id)}>
-                                    <Pencil /> {event.repeat ? 'Edit every one' : 'Edit'}
+                                    <Pencil /> {event.repeat ? 'Edit every one' : event.series ? 'Edit this one' : 'Edit'}
                                 </Link>
                             </Button>
                             {occurrence && (
@@ -125,7 +144,7 @@ export default function EventPage({
                                 </Button>
                             )}
                             <Button variant="outline" onClick={destroy}>
-                                <Trash2 /> {event.repeat ? 'Delete every one' : 'Delete'}
+                                <Trash2 /> {event.repeat ? 'Delete every one' : event.series ? 'Delete this one' : 'Delete'}
                             </Button>
                         </>
                     )}

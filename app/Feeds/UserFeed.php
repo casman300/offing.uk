@@ -2,15 +2,24 @@
 
 namespace App\Feeds;
 
+use App\Features\Calendar as CalendarFeature;
+use App\Models\Calendar;
+use App\Models\Event;
 use App\Models\Person;
 use App\Models\User;
+use App\Support\Calendar\Occurrences;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
+use Laravel\Pennant\Feature;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
 
 /**
- * The ICS a user's own feed token serves (spec §8, #15). Today that's
- * birthdays only; events join once they exist.
+ * The ICS a user's own feed token serves (spec §8, #15): birthdays, plus —
+ * once the calendar is on for them — the events on every calendar they can
+ * see. Events go out as their series (RRULE/EXDATE, with edited dates as
+ * RECURRENCE-ID overrides) in their own timezone, with a VTIMEZONE for each
+ * zone used; someone else's private event is just "Busy" (§7).
  *
  * Birthdays go out as one yearly-recurring all-day event per person, not
  * expanded occurrences, so the feed never runs out and doesn't wait on the
@@ -36,12 +45,15 @@ final class UserFeed
 
     public function render(): string
     {
+        $events = $this->events();
+        $description = $events === null ? 'Birthdays from Offing' : 'Your calendar and birthdays from Offing';
+
         $calendar = new VCalendar([
             'PRODID' => '-//Offing//offing.uk//EN',
             'NAME' => 'Offing',
             'X-WR-CALNAME' => 'Offing',
-            'DESCRIPTION' => 'Birthdays from Offing',
-            'X-WR-CALDESC' => 'Birthdays from Offing',
+            'DESCRIPTION' => $description,
+            'X-WR-CALDESC' => $description,
             'X-PUBLISHED-TTL' => 'PT1H',
         ]);
         $calendar->add('REFRESH-INTERVAL', 'PT1H', ['VALUE' => 'DURATION']);
@@ -56,7 +68,104 @@ final class UserFeed
             $this->addBirthday($calendar, $person);
         }
 
+        if ($events !== null && $events->isNotEmpty()) {
+            $this->addEvents($calendar, $events);
+        }
+
         return $calendar->serialize();
+    }
+
+    /**
+     * Every event on the calendars the user can see, oldest first; null when
+     * the calendar isn't on for them, so a crewmate's events don't surface a
+     * dark feature in their feed.
+     *
+     * @return Collection<int, Event>|null
+     */
+    private function events(): ?Collection
+    {
+        if (! Feature::for($this->user)->active(CalendarFeature::class)) {
+            return null;
+        }
+
+        $calendarIds = Calendar::query()->visibleTo($this->user)->pluck('id');
+
+        return Event::query()
+            ->whereIn('calendar_id', $calendarIds)
+            ->where(fn ($q) => $q->whereNull('series_id')->orWhereHas('series'))
+            ->with(['overrides:id,series_id,recurrence_id', 'series:id,uid,all_day,tzid'])
+            ->orderBy('id')
+            ->get()
+            ->reject(fn (Event $event) => ! $event->detailsVisibleTo($this->user) && $event->transparency === Event::FREE)
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int, Event>  $events
+     */
+    private function addEvents(VCalendar $calendar, Collection $events): void
+    {
+        $zones = [];
+        $lastYear = 0;
+
+        foreach ($events as $event) {
+            if (! $event->all_day) {
+                $year = (int) $event->starts_at->setTimezone($event->tzid)->format('Y');
+                $zones[$event->tzid] = min($zones[$event->tzid] ?? PHP_INT_MAX, $year);
+                $lastYear = max($lastYear, $year);
+            }
+        }
+
+        VTimezones::add($calendar, $zones, $lastYear);
+
+        foreach ($events as $event) {
+            $this->addEvent($calendar, $event);
+        }
+    }
+
+    private function addEvent(VCalendar $calendar, Event $event): void
+    {
+        $visible = $event->detailsVisibleTo($this->user);
+        $series = $event->isOverride() ? $event->series : null;
+
+        // Overrides are their own RECURRENCE-ID events, not holes in the series.
+        $vevent = Occurrences::vevent($event, withOverrides: false);
+        // Sabre stamps a random UID and the current DTSTAMP; the feed must be byte-stable.
+        $vevent->remove('UID');
+        $vevent->remove('DTSTAMP');
+        $calendar->add($vevent);
+
+        $vevent->add('UID', $series !== null ? $series->uid : $event->uid);
+        $vevent->add('DTSTAMP', CarbonImmutable::instance($event->updated_at ?? $event->created_at)->utc());
+        $vevent->add('SEQUENCE', (string) $event->sequence);
+
+        if ($series !== null && $event->recurrence_id !== null) {
+            if ($series->all_day) {
+                $vevent->add('RECURRENCE-ID', str_replace('-', '', substr($event->recurrence_id, 0, 10)), ['VALUE' => 'DATE']);
+            } else {
+                $vevent->add('RECURRENCE-ID', new \DateTimeImmutable($event->recurrence_id, new \DateTimeZone($series->tzid)));
+            }
+        }
+
+        $vevent->add('SUMMARY', $visible ? $event->title : 'Busy');
+
+        if ($visible && $event->location !== null) {
+            $vevent->add('LOCATION', $event->location);
+        }
+
+        if ($visible && $event->description !== null) {
+            $vevent->add('DESCRIPTION', $event->description);
+        }
+
+        $vevent->add('TRANSP', $event->transparency === Event::FREE ? 'TRANSPARENT' : 'OPAQUE');
+
+        if ($event->isPrivate()) {
+            $vevent->add('CLASS', 'PRIVATE');
+        }
+
+        if ($event->all_day) {
+            $vevent->add('X-MICROSOFT-CDO-ALLDAYEVENT', 'TRUE');
+        }
     }
 
     private function addBirthday(VCalendar $calendar, Person $person): void

@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -74,6 +75,31 @@ class Event extends Model
         return $this->belongsTo(Calendar::class);
     }
 
+    /**
+     * The series this event replaces one date of, for an override.
+     *
+     * @return BelongsTo<Event, $this>
+     */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(Event::class, 'series_id');
+    }
+
+    /**
+     * Dates of this series that have been edited on their own.
+     *
+     * @return HasMany<Event, $this>
+     */
+    public function overrides(): HasMany
+    {
+        return $this->hasMany(Event::class, 'series_id');
+    }
+
+    public function isOverride(): bool
+    {
+        return $this->series_id !== null;
+    }
+
     public function isPrivate(): bool
     {
         return $this->visibility === self::PRIVATE;
@@ -104,6 +130,9 @@ class Event extends Model
     public function scopeCandidatesBetween(Builder $query, CarbonImmutable $from, CarbonImmutable $to): void
     {
         $query->where('starts_at', '<', $to->utc())
-            ->where(fn ($q) => $q->whereNotNull('rrule')->orWhere('ends_at', '>', $from->utc()));
+            ->where(fn ($q) => $q->whereNotNull('rrule')->orWhere('ends_at', '>', $from->utc()))
+            // An edited date of a deleted series goes with it.
+            ->where(fn ($q) => $q->whereNull('series_id')->orWhereHas('series'))
+            ->with('overrides:id,series_id,recurrence_id');
     }
 }

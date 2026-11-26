@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
-import { type CalendarSummary, type OccurrenceData } from '@/lib/calendar';
+import { BIRTHDAYS, type CalendarSummary, type OccurrenceData } from '@/lib/calendar';
 import calendarRoutes from '@/routes/calendar';
+import peopleRoutes from '@/routes/people';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { type DatesSetArg, type EventClickArg, type EventContentArg, type EventInput } from '@fullcalendar/core';
+import { type DatesSetArg, type EventChangeArg, type EventClickArg, type EventContentArg, type EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { type DateClickArg } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
@@ -19,6 +21,21 @@ const VIEWS = { month: 'dayGridMonth', week: 'timeGridWeek', agenda: 'listMonth'
 type ViewKey = keyof typeof VIEWS;
 
 const HIDDEN_KEY = 'offing.calendar.hidden';
+
+/** A Date from the calendar (running in "UTC") back to the wall-clock string the server expects. */
+function wallClock(date: Date, allDay: boolean): string {
+    const iso = date.toISOString();
+    return allDay ? iso.slice(0, 10) : iso.slice(0, 19);
+}
+
+interface PendingMove {
+    arg: EventChangeArg;
+    data: OccurrenceData;
+    start: string;
+    end: string;
+    allDay: boolean;
+    sameDay: boolean;
+}
 
 function readHidden(): number[] {
     try {
@@ -55,8 +72,8 @@ function EventContent({ arg }: { arg: EventContentArg }) {
     const icons = (
         <>
             {data.private && !data.busy_block && <Lock className="inline size-3 shrink-0" aria-label="Private" />}
-            {data.free && <EyeOff className="inline size-3 shrink-0" aria-label="Shown as free" />}
-            {data.recurring && !data.busy_block && <Repeat className="inline size-3 shrink-0" aria-label="Repeats" />}
+            {data.free && !data.person_id && <EyeOff className="inline size-3 shrink-0" aria-label="Shown as free" />}
+            {(data.recurring || data.override) && !data.busy_block && <Repeat className="inline size-3 shrink-0" aria-label="Repeats" />}
         </>
     );
 
@@ -79,7 +96,17 @@ function EventContent({ arg }: { arg: EventContentArg }) {
     );
 }
 
-export default function CalendarIndex({ calendars, now, timezone }: { calendars: CalendarSummary[]; now: string; timezone: string }) {
+export default function CalendarIndex({
+    calendars,
+    now,
+    timezone,
+    birthdays,
+}: {
+    calendars: CalendarSummary[];
+    now: string;
+    timezone: string;
+    birthdays: boolean;
+}) {
     const { flash } = usePage<SharedData>().props;
     const ref = useRef<FullCalendar>(null);
     const [start] = useState(() => initialState(now));
@@ -121,7 +148,8 @@ export default function CalendarIndex({ calendars, now, timezone }: { calendars:
                                 backgroundColor: item.colour,
                                 borderColor: item.colour,
                                 textColor: '#ffffff',
-                                classNames: [item.busy_block ? 'offing-busy' : 'cursor-pointer', item.free ? 'offing-free' : ''],
+                                classNames: [item.busy_block ? 'offing-busy' : 'cursor-pointer', item.free && !item.person_id ? 'offing-free' : ''],
+                                editable: item.can_edit,
                                 extendedProps: item,
                             })),
                     ),
@@ -143,6 +171,7 @@ export default function CalendarIndex({ calendars, now, timezone }: { calendars:
 
     const eventClick = (arg: EventClickArg) => {
         const data = arg.event.extendedProps as OccurrenceData;
+        if (data.person_id) return router.visit(peopleRoutes.show.url(data.person_id));
         if (data.event_id === null) return;
         router.visit(calendarRoutes.events.show.url(data.event_id, { query: data.recurring ? { at: data.occurrence } : {} }));
     };
@@ -161,6 +190,43 @@ export default function CalendarIndex({ calendars, now, timezone }: { calendars:
         router.visit(calendarRoutes.events.create.url({ query }));
     };
 
+    const [pending, setPending] = useState<PendingMove | null>(null);
+
+    const sendMove = (move: PendingMove, scope: 'one' | 'all') => {
+        setPending(null);
+        if (move.data.event_id === null) return move.arg.revert();
+        router.post(
+            calendarRoutes.events.move.url(move.data.event_id),
+            { start: move.start, end: move.end, all_day: move.allDay, occurrence: move.data.recurring ? move.data.occurrence : null, scope },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => ref.current?.getApi().refetchEvents(),
+                onError: () => move.arg.revert(),
+            },
+        );
+    };
+
+    // Dragging or resizing: a one-off just moves; a series date asks "this one or every one?".
+    const eventChange = (arg: EventChangeArg) => {
+        const data = arg.event.extendedProps as OccurrenceData;
+        const start = arg.event.start;
+        if (!start || data.event_id === null) return arg.revert();
+        const allDay = arg.event.allDay;
+        // A timed event dropped into the all-day row has no end: make it one day.
+        const end = arg.event.end ?? new Date(start.getTime() + (allDay ? 86_400_000 : 3_600_000));
+        const move: PendingMove = {
+            arg,
+            data,
+            start: wallClock(start, allDay),
+            end: wallClock(end, allDay),
+            allDay,
+            sameDay: allDay === data.all_day && wallClock(start, true) === data.start.slice(0, 10),
+        };
+        if (data.recurring) setPending(move);
+        else sendMove(move, 'one');
+    };
+
     const changeView = (key: ViewKey) => ref.current?.getApi().changeView(VIEWS[key]);
 
     const plugins = useMemo(() => [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin], []);
@@ -172,7 +238,10 @@ export default function CalendarIndex({ calendars, now, timezone }: { calendars:
             <div className="flex w-full flex-col gap-4 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Calendars shown">
-                        {calendars.map((c) => {
+                        {[
+                            ...calendars,
+                            ...(birthdays ? [{ id: BIRTHDAYS, name: 'Birthdays', colour: '#db2777', owner: 'Just me', is_crew: false }] : []),
+                        ].map((c) => {
                             const on = !hidden.includes(c.id);
                             return (
                                 <button
@@ -276,11 +345,47 @@ export default function CalendarIndex({ calendars, now, timezone }: { calendars:
                         events={fetchEvents}
                         eventContent={(arg) => <EventContent arg={arg} />}
                         eventClick={eventClick}
+                        eventChange={eventChange}
+                        eventDurationEditable
+                        eventStartEditable
                         dateClick={dateClick}
                         datesSet={datesSet}
                         noEventsText="Nothing in the offing."
                     />
                 </div>
+                <Dialog
+                    open={pending !== null}
+                    onOpenChange={(open) => {
+                        if (!open && pending) {
+                            pending.arg.revert();
+                            setPending(null);
+                        }
+                    }}
+                >
+                    <DialogContent>
+                        <DialogTitle>Move “{pending?.data.title}”</DialogTitle>
+                        <DialogDescription>
+                            It repeats. Move just this date, or change the time of every one?
+                            {pending && !pending.sameDay && ' (Every one can only change time on the same day — open it to change the pattern.)'}
+                        </DialogDescription>
+                        <DialogFooter className="gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    pending?.arg.revert();
+                                    setPending(null);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button variant="outline" disabled={!pending?.sameDay} onClick={() => pending && sendMove(pending, 'all')}>
+                                Every one
+                            </Button>
+                            <Button onClick={() => pending && sendMove(pending, 'one')}>Just this one</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 <p className="text-muted-foreground text-xs">Times shown in {timezone.replace(/_/g, ' ')}.</p>
             </div>
         </AppLayout>

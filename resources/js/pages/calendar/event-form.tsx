@@ -69,7 +69,7 @@ export default function EventForm({
     calendars,
     timezones,
 }: {
-    event: { id: number; title: string; recurring: boolean } | null;
+    event: { id: number; title: string; recurring: boolean; single: boolean; one: string | null } | null;
     values: Values;
     calendars: CalendarSummary[];
     timezones: string[];
@@ -89,7 +89,8 @@ export default function EventForm({
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        if (event) put(calendarRoutes.events.update.url(event.id));
+        if (event?.one) post(calendarRoutes.events.one.update.url(event.id, { query: { at: event.one } }));
+        else if (event) put(calendarRoutes.events.update.url(event.id));
         else post(calendarRoutes.events.store.url());
     };
 
@@ -132,8 +133,9 @@ export default function EventForm({
 
             <form onSubmit={submit} className="mx-auto w-full max-w-xl space-y-6 p-4">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">{event ? 'Edit event' : 'New event'}</h1>
-                    {event?.recurring && <p className="text-muted-foreground text-sm">Changes apply to every date in the series.</p>}
+                    <h1 className="text-2xl font-semibold tracking-tight">{event?.one ? 'Edit this date' : event ? 'Edit event' : 'New event'}</h1>
+                    {event?.one && <p className="text-muted-foreground text-sm">Just this date — the rest of the series stays as it is.</p>}
+                    {event?.recurring && !event.one && <p className="text-muted-foreground text-sm">Changes apply to every date in the series.</p>}
                 </div>
 
                 <div className="grid gap-2">
@@ -150,7 +152,7 @@ export default function EventForm({
                     <InputError message={errors.title} />
                 </div>
 
-                <div className="grid gap-2">
+                <div className={event?.single ? 'hidden' : 'grid gap-2'}>
                     <Label htmlFor="calendar">Calendar</Label>
                     <select
                         id="calendar"
@@ -239,7 +241,7 @@ export default function EventForm({
                     )}
                 </fieldset>
 
-                <fieldset className="bg-card space-y-4 rounded-xl border p-4">
+                <fieldset className={event?.single ? 'hidden' : 'bg-card space-y-4 rounded-xl border p-4'}>
                     <legend className="sr-only">Repeat</legend>
                     <div className="grid gap-1">
                         <Label htmlFor="freq">Repeats</Label>
@@ -391,7 +393,15 @@ export default function EventForm({
                         {event ? 'Save' : 'Add event'}
                     </Button>
                     <Button asChild variant="outline">
-                        <Link href={event ? calendarRoutes.events.show.url(event.id) : calendarRoutes.index.url()}>Cancel</Link>
+                        <Link
+                            href={
+                                event
+                                    ? calendarRoutes.events.show.url(event.id, { query: event.one ? { at: event.one } : {} })
+                                    : calendarRoutes.index.url()
+                            }
+                        >
+                            Cancel
+                        </Link>
                     </Button>
                 </div>
             </form>

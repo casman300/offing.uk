@@ -22,7 +22,10 @@ Route::middleware(['auth', EnsureFeaturesAreActive::using(Calendar::class)])->pr
     Route::get('events/{event}', [EventController::class, 'show'])->whereNumber('event')->name('events.show');
     Route::get('events/{event}/edit', [EventController::class, 'edit'])->whereNumber('event')->name('events.edit');
     Route::put('events/{event}', [EventController::class, 'update'])->whereNumber('event')->name('events.update');
+    Route::get('events/{event}/one/edit', [EventController::class, 'editOne'])->whereNumber('event')->name('events.one.edit');
+    Route::post('events/{event}/one', [EventController::class, 'updateOne'])->whereNumber('event')->name('events.one.update');
     Route::delete('events/{event}', [EventController::class, 'destroy'])->whereNumber('event')->name('events.destroy');
     Route::post('events/{event}/restore', [EventController::class, 'restore'])->whereNumber('event')->name('events.restore');
+    Route::post('events/{event}/move', [EventController::class, 'move'])->whereNumber('event')->name('events.move');
     Route::post('events/{event}/skip', [EventController::class, 'skip'])->whereNumber('event')->name('events.skip');
 });

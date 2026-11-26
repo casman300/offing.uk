@@ -1,5 +1,6 @@
 <?php
 
+use App\Features\BirthdayEngine;
 use App\Features\Calendar as CalendarFeature;
 use App\Features\Crews;
 use App\Models\AuditLog;
@@ -324,5 +325,112 @@ describe('the occurrences endpoint', function () {
         $me = diarist();
         $this->actingAs($me)->getJson('/calendar/occurrences?start=2026-01-01&end=2027-01-01')->assertStatus(422);
         $this->actingAs($me)->getJson('/calendar/occurrences?start=nope&end=2027-01-01')->assertStatus(422);
+    });
+});
+
+describe('editing one date of a series', function () {
+    it('edits just that date, and deleting it deletes the date', function () {
+        $me = diarist();
+        $calendar = Calendar::ensurePersonal($me);
+        $this->actingAs($me)->post('/calendar/events', eventPayload($calendar, ['title' => 'Standup', 'repeat' => ['freq' => 'daily']]));
+        $series = CalendarEvent::sole();
+
+        $this->actingAs($me)->get("/calendar/events/{$series->id}/one/edit?at=2026-12-01T09:00:00")
+            ->assertInertia(fn (Assert $page) => $page->where('values.start_date', '2026-12-01')->where('event.single', true));
+        $this->actingAs($me)->get("/calendar/events/{$series->id}/one/edit?at=2026-12-01T10:00:00")->assertNotFound();
+
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/one?at=2026-12-01T09:00:00", eventPayload($calendar, [
+            'title' => 'Standup (late)', 'start_date' => '2026-12-01', 'end_date' => '2026-12-01', 'start_time' => '11:00', 'end_time' => '11:15',
+            'repeat' => ['freq' => 'weekly'],
+        ]))->assertRedirect();
+
+        $override = CalendarEvent::where('series_id', $series->id)->sole();
+        expect($override->rrule)->toBeNull()->and($override->recurrence_id)->toBe('2026-12-01T09:00:00');
+
+        $titles = fn () => collect(occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-03T00:00:00'))->map(fn ($o) => substr($o['start'], 5).' '.$o['title'])->all();
+        expect($titles())->toBe(['11-30T09:00:00 Standup', '12-01T11:00:00 Standup (late)', '12-02T09:00:00 Standup']);
+
+        $this->actingAs($me)->delete("/calendar/events/{$override->id}");
+        expect($titles())->toBe(['11-30T09:00:00 Standup', '12-02T09:00:00 Standup']);
+
+        $this->actingAs($me)->post("/calendar/events/{$override->id}/restore");
+        expect($titles())->toBe(['11-30T09:00:00 Standup', '12-01T11:00:00 Standup (late)', '12-02T09:00:00 Standup']);
+    });
+
+    it('drops edited dates when the pattern changes, and hides them with a deleted series', function () {
+        $me = diarist();
+        $calendar = Calendar::ensurePersonal($me);
+        $this->actingAs($me)->post('/calendar/events', eventPayload($calendar, ['repeat' => ['freq' => 'daily']]));
+        $series = CalendarEvent::sole();
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/one?at=2026-12-01T09:00:00", eventPayload($calendar, ['start_date' => '2026-12-01', 'end_date' => '2026-12-01', 'title' => 'Moved']));
+
+        $this->actingAs($me)->delete("/calendar/events/{$series->id}");
+        expect(occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-03T00:00:00'))->toBe([]);
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/restore");
+        expect(occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-03T00:00:00'))->toHaveCount(3);
+
+        $this->actingAs($me)->put("/calendar/events/{$series->id}", eventPayload($calendar, ['start_time' => '08:00', 'end_time' => '08:30', 'repeat' => ['freq' => 'daily']]));
+        expect(CalendarEvent::where('series_id', $series->id)->count())->toBe(0);
+    });
+});
+
+describe('dragging', function () {
+    it('moves a one-off', function () {
+        $me = diarist();
+        $this->actingAs($me)->post('/calendar/events', eventPayload(Calendar::ensurePersonal($me)));
+        $event = CalendarEvent::sole();
+
+        $this->actingAs($me)->post("/calendar/events/{$event->id}/move", ['start' => '2026-12-01T14:00:00', 'end' => '2026-12-01T15:00:00', 'all_day' => false])->assertRedirect();
+
+        expect(occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-03T00:00:00')[0])->toMatchArray(['start' => '2026-12-01T14:00:00', 'end' => '2026-12-01T15:00:00']);
+    });
+
+    it('moves one date of a series on its own, or every date’s time on the same day', function () {
+        $me = diarist();
+        $this->actingAs($me)->post('/calendar/events', eventPayload(Calendar::ensurePersonal($me), ['title' => 'Standup', 'repeat' => ['freq' => 'daily']]));
+        $series = CalendarEvent::sole();
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/skip", ['occurrence' => '2026-12-03T09:00:00']);
+
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/move", [
+            'start' => '2026-12-02T16:00:00', 'end' => '2026-12-02T16:30:00', 'all_day' => false, 'occurrence' => '2026-12-01T09:00:00', 'scope' => 'one',
+        ])->assertRedirect();
+
+        // Every one: a new time on the same day — but not a new day.
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/move", [
+            'start' => '2026-12-02T10:00:00', 'end' => '2026-12-02T11:00:00', 'all_day' => false, 'occurrence' => '2026-11-30T09:00:00', 'scope' => 'all',
+        ])->assertSessionHasErrors('start');
+        $this->actingAs($me)->post("/calendar/events/{$series->id}/move", [
+            'start' => '2026-11-30T10:00:00', 'end' => '2026-11-30T11:00:00', 'all_day' => false, 'occurrence' => '2026-11-30T09:00:00', 'scope' => 'all',
+        ])->assertRedirect();
+
+        expect(collect(occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-05T00:00:00'))->map(fn ($o) => $o['start'].'–'.substr($o['end'], 11, 5))->all())
+            ->toBe(['2026-11-30T10:00:00–11:00', '2026-12-02T10:00:00–11:00', '2026-12-02T16:00:00–16:30', '2026-12-04T10:00:00–11:00']);
+    });
+
+    it('won’t move someone else’s event on a captains-only calendar', function () {
+        [$captain, $mate, , $calendar] = crewCalendar();
+        $this->actingAs($captain)->post('/calendar/events', eventPayload($calendar));
+        $calendar->update(['editors' => 'captains']);
+
+        $this->actingAs($mate)->post('/calendar/events/'.CalendarEvent::sole()->id.'/move', ['start' => '2026-12-01T14:00:00', 'end' => '2026-12-01T15:00:00', 'all_day' => false])->assertForbidden();
+        expect(occurrencesFor($mate, '2026-11-30T00:00:00', '2026-12-03T00:00:00')[0]['can_edit'])->toBeFalse();
+    });
+});
+
+describe('birthdays', function () {
+    it('shows your people’s birthdays when the birthday engine is on', function () {
+        $me = diarist();
+        $me->people()->create(['name' => 'Sam', 'birth_day' => 1, 'birth_month' => 12, 'birth_year' => 1990]);
+        $me->people()->create(['name' => 'Leap', 'birth_day' => 29, 'birth_month' => 2]);
+        diarist()->people()->create(['name' => 'Stranger', 'birth_day' => 2, 'birth_month' => 12]);
+
+        expect(occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-07T00:00:00'))->toBe([]);
+
+        Feature::for($me)->activate(BirthdayEngine::class);
+        $items = occurrencesFor($me, '2026-11-30T00:00:00', '2026-12-07T00:00:00');
+        expect($items)->toHaveCount(1)
+            ->and($items[0])->toMatchArray(['title' => "Sam's birthday 🎂 (36)", 'start' => '2026-12-01', 'end' => '2026-12-02', 'all_day' => true, 'calendar_id' => -1, 'can_edit' => false]);
+
+        expect(collect(occurrencesFor($me, '2027-02-01T00:00:00', '2027-03-01T00:00:00'))->pluck('start')->all())->toBe(['2027-02-28']);
     });
 });

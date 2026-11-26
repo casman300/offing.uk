@@ -84,9 +84,11 @@ final class Occurrences
 
     /**
      * The event as a sabre VEVENT: DTSTART/DTEND in its own zone (or as
-     * dates), plus its RRULE and EXDATEs.
+     * dates), plus its RRULE and EXDATEs. For expanding, dates edited on
+     * their own are EXDATEs too; a feed leaves them out and sends the edits
+     * as RECURRENCE-ID overrides instead.
      */
-    public static function vevent(Event $event): VEvent
+    public static function vevent(Event $event, bool $withOverrides = true): VEvent
     {
         $calendar = new VCalendar;
         /** @var VEvent $vevent */
@@ -105,7 +107,10 @@ final class Occurrences
             $vevent->add('RRULE', $event->rrule);
         }
 
-        foreach ($event->exdates ?? [] as $exdate) {
+        // Dates edited on their own are separate events; the series skips them.
+        $skipped = [...($event->exdates ?? []), ...($withOverrides ? $event->overrides->pluck('recurrence_id')->filter()->all() : [])];
+
+        foreach (array_values(array_unique($skipped)) as $exdate) {
             if ($event->all_day) {
                 $vevent->add('EXDATE', str_replace('-', '', substr($exdate, 0, 10)), ['VALUE' => 'DATE']);
             } else {
@@ -114,6 +119,22 @@ final class Occurrences
         }
 
         return $vevent;
+    }
+
+    /**
+     * The occurrence of a series starting at `key` (as written in `exdates`),
+     * or null when the series has no such date.
+     */
+    public static function find(Event $event, string $key): ?Occurrence
+    {
+        if (! $event->isRecurring() || preg_match('/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?$/', $key) !== 1) {
+            return null;
+        }
+
+        $start = $event->all_day ? CarbonImmutable::parse(substr($key, 0, 10), 'UTC') : CarbonImmutable::parse($key, $event->tzid);
+
+        return collect(self::of($event, $start->subMinute(), $start->addMinute()))
+            ->first(fn (Occurrence $o) => self::exdateKey($event, $o->start) === $key);
     }
 
     /**

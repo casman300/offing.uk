@@ -19,6 +19,9 @@ return new class extends Migration
      *   (Y-m-d\TH:i:s, or Y-m-d when all-day). `visibility` (normal|private)
      *   and `transparency` (busy|free) are independent flags (§7).
      *   `raw_ical` keeps an imported VEVENT for round-trip fidelity (§5).
+     *   An event with `series_id` replaces one date of that series (iCal's
+     *   RECURRENCE-ID): `recurrence_id` is the replaced occurrence's start,
+     *   keyed like `exdates`.
      */
     public function up(): void
     {
@@ -36,6 +39,8 @@ return new class extends Migration
         Schema::create('events', function (Blueprint $table) {
             $table->id();
             $table->foreignId('calendar_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('series_id')->nullable()->constrained('events')->cascadeOnDelete();
+            $table->string('recurrence_id', 20)->nullable();
             $table->string('uid')->unique();
             $table->string('title', 200);
             $table->text('description')->nullable();
@@ -56,6 +61,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['calendar_id', 'starts_at']);
+            $table->unique(['series_id', 'recurrence_id']);
         });
     }
 

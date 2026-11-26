@@ -13,6 +13,8 @@ export interface CalendarSummary {
 export interface OccurrenceData {
     id: string;
     event_id: number | null;
+    /** Set on a birthday (projected from a person, not an event). */
+    person_id?: number;
     occurrence: string;
     title: string;
     location: string | null;
@@ -24,8 +26,14 @@ export interface OccurrenceData {
     private: boolean;
     free: boolean;
     recurring: boolean;
+    /** One date of a series, edited on its own. */
+    override: boolean;
+    can_edit: boolean;
     busy_block: boolean;
 }
+
+/** The pseudo-calendar id birthdays come under, so they can be hidden like a calendar. */
+export const BIRTHDAYS = -1;
 
 /** Wall-clock strings carry no zone; read them as UTC so the browser's own zone never shifts them. */
 const asUtc = (value: string) => new Date(value.length === 10 ? `${value}T00:00:00Z` : `${value}Z`);

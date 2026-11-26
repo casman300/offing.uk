@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Calendar;
 
+use App\Features\BirthdayEngine;
 use App\Http\Controllers\Controller;
 use App\Models\Calendar;
 use App\Models\User;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Laravel\Pennant\Feature;
 
 /**
  * The month/week/agenda views (spec §23 Phase 1b). The page renders once;
@@ -35,6 +37,7 @@ class CalendarViewController extends Controller
         return Inertia::render('calendar/index', [
             'timezone' => $tz,
             'now' => CarbonImmutable::now($tz)->format('Y-m-d\TH:i:s'),
+            'birthdays' => Feature::for($user)->active(BirthdayEngine::class),
             'calendars' => Agenda::calendars($user)->map(fn (Calendar $calendar) => [
                 'id' => $calendar->id,
                 'name' => $calendar->name,
@@ -61,12 +64,19 @@ class CalendarViewController extends Controller
         abort_if($from === null || $to === null || $to <= $from || $from->diffInDays($to) > self::MAX_RANGE_DAYS, 422, 'Bad range.');
 
         $calendars = Agenda::calendars($user)->keyBy('id');
+        /** @var list<int> $editable */
+        $editable = $calendars->filter(fn (Calendar $c) => $c->editableBy($user))->keys()->map(fn ($id) => (int) $id)->values()->all();
 
-        return response()->json(
-            Agenda::occurrences($user, $calendars, $from, $to)
-                ->map(fn (Occurrence $o) => Agenda::present($o, $user, $calendars))
-                ->values(),
-        );
+        $items = Agenda::occurrences($user, $calendars, $from, $to)
+            ->map(fn (Occurrence $o) => Agenda::present($o, $user, $calendars, $editable))
+            ->values()
+            ->all();
+
+        if (Feature::for($user)->active(BirthdayEngine::class)) {
+            array_unshift($items, ...Agenda::birthdays($user, $from, $to));
+        }
+
+        return response()->json($items);
     }
 
     /**
