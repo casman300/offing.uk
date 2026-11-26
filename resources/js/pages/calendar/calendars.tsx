@@ -1,3 +1,4 @@
+import ColourSwatches from '@/components/colour-swatches';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -5,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import calendarRoutes from '@/routes/calendar';
+import subscriptions from '@/routes/subscriptions';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { FileUp, Rss, Trash2 } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 interface ManagedCalendar {
@@ -16,6 +18,8 @@ interface ManagedCalendar {
     colour: string;
     owner: string;
     is_crew: boolean;
+    /** A subscribed feed: read-only here, managed in Settings → Subscriptions. */
+    is_feed: boolean;
     editors: 'crew' | 'captains';
     event_count: number;
     can_manage: boolean;
@@ -28,25 +32,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const field =
     'border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden md:text-sm';
-
-function Swatches({ colours, value, onChange, label }: { colours: string[]; value: string; onChange: (colour: string) => void; label: string }) {
-    return (
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={label}>
-            {colours.map((colour) => (
-                <button
-                    key={colour}
-                    type="button"
-                    role="radio"
-                    aria-checked={value === colour}
-                    aria-label={colour}
-                    onClick={() => onChange(colour)}
-                    className="ring-offset-background aria-checked:ring-ring size-6 rounded-full aria-checked:ring-2 aria-checked:ring-offset-2"
-                    style={{ backgroundColor: colour }}
-                />
-            ))}
-        </div>
-    );
-}
 
 function CalendarRow({ calendar, colours, canDelete }: { calendar: ManagedCalendar; colours: string[]; canDelete: boolean }) {
     const update = (patch: Partial<Pick<ManagedCalendar, 'name' | 'colour' | 'editors'>>) =>
@@ -75,12 +60,20 @@ function CalendarRow({ calendar, colours, canDelete }: { calendar: ManagedCalend
                 )}
             </div>
             <p className="text-muted-foreground text-sm">
-                {calendar.is_crew ? `Shared with ${calendar.owner}` : 'Just you'} ·{' '}
+                {calendar.is_feed ? 'Subscribed, read-only' : calendar.is_crew ? `Shared with ${calendar.owner}` : 'Just you'} ·{' '}
                 {calendar.event_count === 1 ? '1 event' : `${calendar.event_count} events`}
+                {calendar.is_feed && (
+                    <>
+                        {' · '}
+                        <Link href={subscriptions.index.url()} className="underline underline-offset-4">
+                            Manage in Settings
+                        </Link>
+                    </>
+                )}
             </p>
             {calendar.can_manage && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <Swatches
+                    <ColourSwatches
                         colours={colours}
                         value={calendar.colour}
                         onChange={(colour) => update({ colour })}
@@ -121,7 +114,7 @@ export default function Calendars({
 }) {
     const { flash } = usePage<SharedData>().props;
     const { data, setData, post, processing, errors, reset } = useForm({ name: '', colour: colours[1] ?? colours[0], owner: 'me' });
-    const ownCount = calendars.filter((c) => !c.is_crew).length;
+    const ownCount = calendars.filter((c) => !c.is_crew && !c.is_feed).length;
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -140,6 +133,19 @@ export default function Calendars({
                         {flash.status}
                     </div>
                 )}
+
+                <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline" size="sm">
+                        <Link href={subscriptions.index.url()}>
+                            <Rss /> Subscribe to a calendar
+                        </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                        <Link href={calendarRoutes.import.create.url()}>
+                            <FileUp /> Import an .ics file
+                        </Link>
+                    </Button>
+                </div>
 
                 <ul className="space-y-3">
                     {calendars.map((calendar) => (
@@ -174,7 +180,7 @@ export default function Calendars({
                             </select>
                         </div>
                     )}
-                    <Swatches colours={colours} value={data.colour} onChange={(colour) => setData('colour', colour)} label="Colour" />
+                    <ColourSwatches colours={colours} value={data.colour} onChange={(colour) => setData('colour', colour)} label="Colour" />
                     <Button type="submit" disabled={processing}>
                         Add calendar
                     </Button>

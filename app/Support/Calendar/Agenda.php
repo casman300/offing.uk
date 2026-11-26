@@ -24,7 +24,8 @@ final class Agenda
     {
         Calendar::ensurePersonal($user);
 
-        return Calendar::query()->visibleTo($user)->with('owner')->orderBy('id')->get();
+        // Your own and crew calendars first, then subscriptions.
+        return Calendar::query()->visibleTo($user)->with('owner')->orderByRaw('feed_subscription_id is not null')->orderBy('id')->get();
     }
 
     /**

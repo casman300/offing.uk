@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,6 +13,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * A calendar (spec §6/§7) — the sharing unit for events. Owned by a user
  * (just them) or a crew (every crewmate). Events inherit its visibility;
  * nothing is shared per event.
+ *
+ * A calendar with `feed_subscription_id` holds a subscribed external feed
+ * (spec §13): owned by the subscriber alone, read-only, renamed and
+ * removed from Settings → Subscriptions rather than here.
  */
 class Calendar extends Model
 {
@@ -46,6 +51,20 @@ class Calendar extends Model
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    /**
+     * @return BelongsTo<FeedSubscription, $this>
+     */
+    public function feedSubscription(): BelongsTo
+    {
+        return $this->belongsTo(FeedSubscription::class);
+    }
+
+    /** Holds a subscribed feed's events: nobody edits them here, the source does. */
+    public function isFeed(): bool
+    {
+        return $this->feed_subscription_id !== null;
     }
 
     public function isCrewCalendar(): bool
@@ -89,6 +108,10 @@ class Calendar extends Model
 
     public function editableBy(User $user): bool
     {
+        if ($this->isFeed()) {
+            return false;
+        }
+
         if (! $this->isCrewCalendar()) {
             return (int) $this->owner_id === $user->id;
         }
@@ -101,6 +124,10 @@ class Calendar extends Model
     /** Renaming, recolouring, the edit switch and deleting: captains only on a crew calendar. */
     public function manageableBy(User $user): bool
     {
+        if ($this->isFeed()) {
+            return false;
+        }
+
         if (! $this->isCrewCalendar()) {
             return (int) $this->owner_id === $user->id;
         }
@@ -110,6 +137,10 @@ class Calendar extends Model
 
     public function ownerLabel(): string
     {
+        if ($this->isFeed()) {
+            return 'Subscribed';
+        }
+
         return $this->isCrewCalendar() ? ($this->owner->name ?? 'Crew') : 'Just me';
     }
 
@@ -122,6 +153,7 @@ class Calendar extends Model
         $existing = self::query()
             ->where('owner_type', $user->getMorphClass())
             ->where('owner_id', $user->id)
+            ->whereNull('feed_subscription_id')
             ->orderBy('id')
             ->first();
 

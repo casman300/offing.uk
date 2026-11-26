@@ -136,7 +136,7 @@ events           id, calendar_id, uid, title, description, location,
                  starts_at(utc), ends_at(utc), tzid, all_day,
                  rrule(null), exdates(json), visibility(normal|private),
                  transparency(busy|free),                                ← maps to iCal TRANSP
-                 source(local|feed), feed_id(null), raw_ical(null),
+                 source(local|feed), feed_subscription_id(null), external_uid(null), raw_ical(null),
                  sequence, created_by, updated_at
 event_tags       event_id, person_id                                    ← “friends see what they’re tagged in”
 occurrences      event_id, starts_at, ends_at                           ← materialised cache, next 12 months,
@@ -149,8 +149,9 @@ feed_tokens      id, subject(morph: user|person|crew|share), name, token_hash,
                  scope(full|tagged|crew), last_used_at, last_user_agent,
                  revoked_at                                             ← outbound secret ICS URLs; hash-only,
                                                                           shown once, max 3 active per subject
-feed_subscriptions id, user_id, url, name, colour, etag, last_hash,
-                 last_fetched_at, status                                ← inbound external ICS
+feed_subscriptions id, user_id, url(encrypted), host, name, colour, etag, ← inbound external ICS; shown as
+                 last_hash, last_fetched_at, status, failures,            one read-only calendar of the
+                 next_fetch_at, last_error                                subscriber's (calendars.feed_subscription_id)
 
 reminder_rules   id, user_id, applies_to(morph: person|category|event),
                  kind(notify|card_post), offset_def(json), channel(email|push)

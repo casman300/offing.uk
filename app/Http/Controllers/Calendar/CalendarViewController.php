@@ -44,6 +44,7 @@ class CalendarViewController extends Controller
                 'colour' => $calendar->colour,
                 'owner' => $calendar->ownerLabel(),
                 'is_crew' => $calendar->isCrewCalendar(),
+                'is_feed' => $calendar->isFeed(),
                 'can_edit' => $calendar->editableBy($user),
             ])->values(),
         ]);

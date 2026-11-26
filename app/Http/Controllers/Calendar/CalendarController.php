@@ -36,6 +36,7 @@ class CalendarController extends Controller
                 'colour' => $calendar->colour,
                 'owner' => $calendar->ownerLabel(),
                 'is_crew' => $calendar->isCrewCalendar(),
+                'is_feed' => $calendar->isFeed(),
                 'editors' => $calendar->editors,
                 'event_count' => (int) $calendar->getAttribute('events_count'),
                 'can_manage' => $calendar->manageableBy($user),
@@ -112,7 +113,7 @@ class CalendarController extends Controller
 
         // Everyone keeps somewhere to put things: not your last own calendar.
         if (! $model->isCrewCalendar()) {
-            $own = Calendar::query()->where('owner_type', $user->getMorphClass())->where('owner_id', $user->id)->count();
+            $own = Calendar::query()->where('owner_type', $user->getMorphClass())->where('owner_id', $user->id)->whereNull('feed_subscription_id')->count();
             abort_if($own <= 1, 422, 'You need at least one calendar of your own.');
         }
 

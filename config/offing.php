@@ -36,4 +36,15 @@ return [
         'subject' => env('VAPID_SUBJECT', 'mailto:hello@offing.uk'),
     ],
 
+    /*
+    | Calendar subscriptions (spec §13). Offing fetches the URLs people paste,
+    | so only public internet addresses are allowed. `allow_private_hosts`
+    | lets it fetch from loopback/private addresses and any port — only for
+    | testing against a local fixture server; never set it on a real host.
+    */
+    'feeds' => [
+        'allow_private_hosts' => (bool) env('FEEDS_ALLOW_PRIVATE_HOSTS', false),
+        'max_bytes' => 5 * 1024 * 1024,
+    ],
+
 ];

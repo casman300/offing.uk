@@ -6,6 +6,8 @@ export interface CalendarSummary {
     colour: string;
     owner: string;
     is_crew?: boolean;
+    /** A subscribed external calendar: read-only, only the subscriber sees it. */
+    is_feed?: boolean;
     can_edit?: boolean;
 }
 

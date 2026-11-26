@@ -34,6 +34,12 @@ class Event extends Model
 
     public const FREE = 'free';
 
+    /** Made in Offing (or imported from a file — then it's ours to edit). */
+    public const SOURCE_LOCAL = 'local';
+
+    /** Comes from a subscribed feed: read-only, replaced on every sync. */
+    public const SOURCE_FEED = 'feed';
+
     protected $fillable = [
         'title',
         'description',
@@ -73,6 +79,19 @@ class Event extends Model
     public function calendar(): BelongsTo
     {
         return $this->belongsTo(Calendar::class);
+    }
+
+    /**
+     * @return BelongsTo<FeedSubscription, $this>
+     */
+    public function feedSubscription(): BelongsTo
+    {
+        return $this->belongsTo(FeedSubscription::class);
+    }
+
+    public function isFromFeed(): bool
+    {
+        return $this->source === self::SOURCE_FEED;
     }
 
     /**

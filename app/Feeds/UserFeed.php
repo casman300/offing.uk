@@ -13,6 +13,9 @@ use Illuminate\Support\Collection;
 use Laravel\Pennant\Feature;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
+use Sabre\VObject\Property;
+use Sabre\VObject\Reader;
+use Throwable;
 
 /**
  * The ICS a user's own feed token serves (spec §8, #15): birthdays, plus —
@@ -20,6 +23,11 @@ use Sabre\VObject\Component\VEvent;
  * see. Events go out as their series (RRULE/EXDATE, with edited dates as
  * RECURRENCE-ID overrides) in their own timezone, with a VTIMEZONE for each
  * zone used; someone else's private event is just "Busy" (§7).
+ *
+ * An imported event (a subscription, or a one-off .ics import) carries
+ * its original VEVENT in `raw_ical`; everything in it Offing doesn't
+ * model itself — X- properties, ATTACH, ATTENDEE, VALARMs, RDATE… — goes
+ * back out as it came in (§5: round-trip-safe), unless it's a Busy block.
  *
  * Birthdays go out as one yearly-recurring all-day event per person, not
  * expanded occurrences, so the feed never runs out and doesn't wait on the
@@ -40,6 +48,12 @@ final class UserFeed
     private const ALERT_EVENING_BEFORE = '-PT240M';
 
     private const ALERT_MORNING_OF = 'PT480M';
+
+    /** Properties this feed writes itself from the event row; everything else in `raw_ical` is copied through. */
+    private const OWN_PROPERTIES = [
+        'UID', 'DTSTAMP', 'DTSTART', 'DTEND', 'DURATION', 'RRULE', 'EXDATE', 'RECURRENCE-ID',
+        'SUMMARY', 'LOCATION', 'DESCRIPTION', 'TRANSP', 'CLASS', 'SEQUENCE', 'X-MICROSOFT-CDO-ALLDAYEVENT',
+    ];
 
     public function __construct(private readonly User $user) {}
 
@@ -165,6 +179,34 @@ final class UserFeed
 
         if ($event->all_day) {
             $vevent->add('X-MICROSOFT-CDO-ALLDAYEVENT', 'TRUE');
+        }
+
+        if ($visible && $event->raw_ical !== null) {
+            self::copyUnknown($vevent, $event->raw_ical);
+        }
+    }
+
+    /** Re-emits what Offing didn't understand from an imported VEVENT (§5). */
+    private static function copyUnknown(VEvent $vevent, string $raw): void
+    {
+        try {
+            $document = Reader::read("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Offing//raw//EN\r\n".rtrim($raw)."\r\nEND:VCALENDAR\r\n", Reader::OPTION_FORGIVING);
+        } catch (Throwable) {
+            return;
+        }
+
+        $source = $document->select('VEVENT')[0] ?? null;
+
+        if (! $source instanceof VEvent) {
+            return;
+        }
+
+        foreach ($source->children() as $child) {
+            if ($child instanceof Property && in_array(strtoupper($child->name), self::OWN_PROPERTIES, true)) {
+                continue;
+            }
+
+            $vevent->add(clone $child);
         }
     }
 

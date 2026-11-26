@@ -63,7 +63,12 @@ export default function EventPage({
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight">{event.title}</h1>
                         <p className="text-muted-foreground text-sm">
-                            {event.calendar.name} · {event.calendar.owner === 'Just me' ? 'just you' : `shared with ${event.calendar.owner}`}
+                            {event.calendar.name} ·{' '}
+                            {event.calendar.owner === 'Just me'
+                                ? 'just you'
+                                : event.calendar.owner === 'Subscribed'
+                                  ? 'from a subscribed calendar, read-only'
+                                  : `shared with ${event.calendar.owner}`}
                         </p>
                     </div>
                 </div>

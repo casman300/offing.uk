@@ -4,6 +4,7 @@ use App\Features\Calendar;
 use App\Http\Controllers\Calendar\CalendarController;
 use App\Http\Controllers\Calendar\CalendarViewController;
 use App\Http\Controllers\Calendar\EventController;
+use App\Http\Controllers\Calendar\IcsImportController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Pennant\Middleware\EnsureFeaturesAreActive;
 
@@ -28,4 +29,9 @@ Route::middleware(['auth', EnsureFeaturesAreActive::using(Calendar::class)])->pr
     Route::post('events/{event}/restore', [EventController::class, 'restore'])->whereNumber('event')->name('events.restore');
     Route::post('events/{event}/move', [EventController::class, 'move'])->whereNumber('event')->name('events.move');
     Route::post('events/{event}/skip', [EventController::class, 'skip'])->whereNumber('event')->name('events.skip');
+
+    // One-off .ics import (§13): preview, then import.
+    Route::get('import', [IcsImportController::class, 'create'])->name('import.create');
+    Route::post('import/preview', [IcsImportController::class, 'preview'])->middleware('throttle:20,1')->name('import.preview');
+    Route::post('import', [IcsImportController::class, 'store'])->middleware('throttle:10,1')->name('import.store');
 });

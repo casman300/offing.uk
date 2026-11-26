@@ -249,7 +249,7 @@ export default function CalendarIndex({
                                     type="button"
                                     aria-pressed={on}
                                     onClick={() => toggle(c.id)}
-                                    title={c.is_crew ? `Shared with ${c.owner}` : 'Just you'}
+                                    title={c.is_feed ? 'Subscribed, read-only' : c.is_crew ? `Shared with ${c.owner}` : 'Just you'}
                                     className="hover:bg-accent flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
                                 >
                                     <span
