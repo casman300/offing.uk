@@ -30,6 +30,7 @@ export interface Features {
     shipshape: boolean;
     connectClaude: boolean;
     barometer: boolean;
+    calendar: boolean;
 }
 
 export interface Flash {
@@ -39,6 +40,8 @@ export interface Flash {
     /** A copied crew invite link, shown once. */
     inviteUrl: string | null;
     logged: { entry_id: number; title: string; kind: 'done' | 'skip'; by: string } | null;
+    /** A just-deleted calendar event, for the Undo banner. */
+    eventDeleted: { id: number; title: string } | null;
 }
 
 export interface SharedData {
