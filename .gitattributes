@@ -8,3 +8,6 @@
 
 CHANGELOG.md export-ignore
 README.md export-ignore
+
+# iCalendar fixtures use CRLF line endings, as RFC 5545 requires; keep them byte-exact.
+tests/Fixtures/ics/*.ics -text
